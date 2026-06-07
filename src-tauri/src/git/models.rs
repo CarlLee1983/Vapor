@@ -57,3 +57,39 @@ pub struct PushRequest {
     pub tag_mode: TagPushMode,
     pub force_with_lease: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryState {
+    pub root: PathBuf,
+    pub current_branch: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
+    pub branches: Vec<BranchInfo>,
+    pub remotes: Vec<RemoteInfo>,
+    pub working_tree: Vec<FileStatus>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchInfo {
+    pub name: String,
+    pub is_current: bool,
+    pub upstream: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteInfo {
+    pub name: String,
+    pub fetch_url: Option<String>,
+    pub push_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileStatus {
+    pub path: String,
+    pub index_status: String,
+    pub worktree_status: String,
+}
