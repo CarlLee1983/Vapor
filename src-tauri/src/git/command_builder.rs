@@ -1,0 +1,113 @@
+use super::models::{GitCommandPreview, GitError, GitErrorCode, PushRequest, TagPushMode};
+
+fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
+    let is_valid = !value.is_empty()
+        && !value.starts_with('-')
+        && !value.contains(' ')
+        && !value.contains('\t')
+        && !value.contains('\n')
+        && !value.contains("..")
+        && !value.contains('~')
+        && !value.contains('^')
+        && !value.contains(':')
+        && !value.contains('\\');
+
+    if is_valid {
+        Ok(())
+    } else {
+        Err(GitError {
+            code: GitErrorCode::InvalidRef,
+            message: format!("Invalid {label}."),
+            hint: "Use a plain Git remote or branch name without whitespace or ref operators."
+                .to_string(),
+            stderr: String::new(),
+        })
+    }
+}
+
+fn preview(args: Vec<String>) -> GitCommandPreview {
+    let display = std::iter::once("git".to_string())
+        .chain(args.iter().map(|arg| shell_words::quote(arg).to_string()))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    GitCommandPreview {
+        program: "git".to_string(),
+        args,
+        display,
+    }
+}
+
+pub fn push_preview(request: &PushRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.remote, "remote")?;
+    validate_ref_part(&request.local_branch, "local branch")?;
+    validate_ref_part(&request.target_branch, "target branch")?;
+
+    let mut args = vec![
+        "push".to_string(),
+        request.remote.clone(),
+        // Refspec colon is injected here, not from user input (validate_ref_part rejects ':').
+        format!("{}:{}", request.local_branch, request.target_branch),
+    ];
+
+    if matches!(request.tag_mode, TagPushMode::All) {
+        args.push("--tags".to_string());
+    }
+
+    if request.force_with_lease {
+        args.push("--force-with-lease".to_string());
+    }
+
+    Ok(preview(args))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn request() -> PushRequest {
+        PushRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            remote: "origin".to_string(),
+            local_branch: "main".to_string(),
+            target_branch: "release".to_string(),
+            tag_mode: TagPushMode::All,
+            force_with_lease: false,
+        }
+    }
+
+    #[test]
+    fn builds_push_args_without_shell_interpolation() {
+        let preview = push_preview(&request()).expect("preview");
+        assert_eq!(
+            preview.args,
+            vec!["push", "origin", "main:release", "--tags"]
+        );
+        assert_eq!(preview.display, "git push origin main:release --tags");
+    }
+
+    #[test]
+    fn rejects_ref_injection_values() {
+        let mut request = request();
+        request.target_branch = "main --delete".to_string();
+        let error = push_preview(&request).expect_err("invalid ref");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn omits_tags_when_tag_mode_none() {
+        let mut request = request();
+        request.tag_mode = TagPushMode::None;
+        let preview = push_preview(&request).expect("preview");
+        assert!(!preview.args.contains(&"--tags".to_string()));
+    }
+
+    #[test]
+    fn appends_force_with_lease_when_set() {
+        let mut request = request();
+        request.force_with_lease = true;
+        let preview = push_preview(&request).expect("preview");
+        assert!(preview.args.contains(&"--force-with-lease".to_string()));
+    }
+}
