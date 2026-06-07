@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
+import { PushDialog } from "./components/PushDialog";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { WorkingTreePanel } from "./components/WorkingTreePanel";
 import { useRepository } from "./hooks/useRepository";
@@ -7,6 +9,7 @@ import "./styles.css";
 
 export default function App() {
   const repoView = useRepository();
+  const [isPushOpen, setIsPushOpen] = useState(false);
 
   return (
     <main className="app-shell">
@@ -21,7 +24,7 @@ export default function App() {
                 : "Open a Git repository to inspect history and push branches."}
             </span>
           </div>
-          <button type="button" disabled={!repoView.repository}>
+          <button type="button" disabled={!repoView.repository} onClick={() => setIsPushOpen(true)}>
             Push
           </button>
         </header>
@@ -40,6 +43,17 @@ export default function App() {
           </div>
         </div>
       </section>
+      {isPushOpen && repoView.repository ? (
+        <PushDialog
+          repository={repoView.repository}
+          onClose={() => setIsPushOpen(false)}
+          onPushed={() => {
+            if (repoView.repositoryPath) {
+              void repoView.loadRepository(repoView.repositoryPath);
+            }
+          }}
+        />
+      ) : null}
     </main>
   );
 }
