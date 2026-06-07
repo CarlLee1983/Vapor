@@ -1,4 +1,4 @@
-use super::models::{BranchInfo, FileStatus, GitError, GitErrorCode, RemoteInfo};
+use super::models::{BranchInfo, CommitSummary, FileStatus, GitError, GitErrorCode, RemoteInfo};
 
 pub fn classify_git_error(stderr: &str) -> GitError {
     let lower = stderr.to_lowercase();
@@ -172,6 +172,34 @@ pub fn parse_remotes(stdout: &str) -> Vec<RemoteInfo> {
     remotes
 }
 
+pub fn parse_commit_log(stdout: &str) -> Vec<CommitSummary> {
+    stdout
+        .split('\x1e')
+        .filter_map(|entry| {
+            let entry = entry.trim();
+            if entry.is_empty() {
+                return None;
+            }
+            let parts = entry.split('\x1f').collect::<Vec<_>>();
+            if parts.len() != 6 {
+                return None;
+            }
+            Some(CommitSummary {
+                hash: parts[0].to_string(),
+                parents: parts[1].split_whitespace().map(ToString::to_string).collect(),
+                author: parts[2].to_string(),
+                date: parts[3].to_string(),
+                subject: parts[4].to_string(),
+                refs: parts[5]
+                    .split(", ")
+                    .filter(|item| !item.is_empty())
+                    .map(ToString::to_string)
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod repository_parser_tests {
     use super::*;
@@ -195,6 +223,26 @@ mod repository_parser_tests {
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].path, "new name.rs");
         assert_eq!(files[0].index_status, "R");
+    }
+
+    #[test]
+    fn parses_commit_log_single_entry_with_refs() {
+        let input = "abc123\x1f\x1fAlice\x1f2024-01-01T00:00:00+00:00\x1fInitial commit\x1fHEAD -> main, origin/main\x1e";
+        let commits = parse_commit_log(input);
+        assert_eq!(commits.len(), 1);
+        assert_eq!(commits[0].hash, "abc123");
+        assert!(commits[0].parents.is_empty());
+        assert_eq!(commits[0].author, "Alice");
+        assert_eq!(commits[0].subject, "Initial commit");
+        assert_eq!(commits[0].refs, vec!["HEAD -> main", "origin/main"]);
+    }
+
+    #[test]
+    fn parses_commit_log_parents_and_empty_refs() {
+        let input = "def456\x1fabc123 111222\x1fBob\x1f2024-01-02T00:00:00+00:00\x1fMerge branch x\x1f\x1e";
+        let commits = parse_commit_log(input);
+        assert_eq!(commits[0].parents, vec!["abc123", "111222"]);
+        assert!(commits[0].refs.is_empty());
     }
 
     #[test]
