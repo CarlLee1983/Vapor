@@ -51,4 +51,27 @@ describe("RepositorySidebar", () => {
     await user.click(screen.getByText("History"));
     expect(onViewModeChange).toHaveBeenCalledWith("history");
   });
+
+  it("calls onViewModeChange when pressing Enter or Space on navigation items", async () => {
+    const onViewModeChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <RepositorySidebar
+        repository={mockRepo}
+        viewMode="history"
+        onViewModeChange={onViewModeChange}
+      />
+    );
+
+    const statusItem = screen.getByText("File Status").closest("[role='button']");
+    expect(statusItem).toBeInTheDocument();
+
+    await user.type(statusItem!, "{Enter}");
+    expect(onViewModeChange).toHaveBeenCalledWith("status");
+
+    onViewModeChange.mockClear();
+
+    await user.type(statusItem!, " ");
+    expect(onViewModeChange).toHaveBeenCalledWith("status");
+  });
 });
