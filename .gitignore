@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Brainstorming Companion
+.superpowers/
+
+# Playwright MCP debug artifacts
+.playwright-mcp/
+
