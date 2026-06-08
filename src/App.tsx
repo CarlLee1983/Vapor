@@ -10,10 +10,12 @@ import { useRepository } from "./hooks/useRepository";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
 import "./styles.css";
 
+export const AUTO_REFRESH_INTERVAL_MS = 5000;
+
 export default function App() {
   const repoView = useRepository();
   const [isPushOpen, setIsPushOpen] = useState(false);
-  const { loadRepository } = repoView;
+  const { loadRepository, refreshRepository } = repoView;
 
   const [theme, setTheme] = useState<ThemeMode>(() => {
     return (localStorage.getItem("vapor-theme") as ThemeMode) || "system";
@@ -56,6 +58,31 @@ export default function App() {
     return () => unlisten?.();
   }, [loadRepository]);
 
+  useEffect(() => {
+    if (!repoView.repositoryPath) {
+      return;
+    }
+
+    const refreshOpenRepository = () => {
+      void refreshRepository();
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        refreshOpenRepository();
+      }
+    };
+
+    const intervalId = window.setInterval(refreshOpenRepository, AUTO_REFRESH_INTERVAL_MS);
+    window.addEventListener("focus", refreshOpenRepository);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshOpenRepository);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [repoView.repositoryPath, refreshRepository]);
+
   const handleOpen = async () => {
     const path = await pickRepositoryFolder();
     if (path) {
@@ -78,6 +105,9 @@ export default function App() {
           </div>
           <div className="toolbar-actions">
             <ThemeToggle currentTheme={theme} onThemeChange={setTheme} />
+            <button type="button" disabled={!repoView.repository} onClick={() => void refreshRepository()}>
+              Refresh
+            </button>
             <button type="button" onClick={() => void handleOpen()}>
               Open Repository
             </button>

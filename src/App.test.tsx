@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import App from "./App";
+import App, { AUTO_REFRESH_INTERVAL_MS } from "./App";
 import { useRepository } from "./hooks/useRepository";
 
 vi.mock("./hooks/useRepository", () => ({ useRepository: vi.fn() }));
@@ -20,6 +20,7 @@ vi.mock("./lib/launch", () => ({
 }));
 
 const loadRepository = vi.fn();
+const refreshRepository = vi.fn();
 
 const loadedState = {
   repositoryPath: "/repo",
@@ -39,6 +40,7 @@ const loadedState = {
   isLoading: false,
   error: null,
   loadRepository,
+  refreshRepository,
   selectCommit: vi.fn(),
   selectFile: vi.fn(),
 } as unknown as ReturnType<typeof useRepository>;
@@ -46,9 +48,14 @@ const loadedState = {
 beforeEach(() => {
   useRepositoryMock.mockReturnValue(loadedState);
   loadRepository.mockReset();
+  refreshRepository.mockReset();
   pickRepositoryFolder.mockReset();
   getLaunchPath.mockReset().mockResolvedValue(null);
   onOpenRepo.mockReset().mockResolvedValue(() => {});
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("App", () => {
@@ -86,5 +93,26 @@ describe("App", () => {
     getLaunchPath.mockResolvedValue("/launched");
     render(<App />);
     await waitFor(() => expect(loadRepository).toHaveBeenCalledWith("/launched"));
+  });
+
+  it("refreshes the open repository when the window regains focus", () => {
+    render(<App />);
+    refreshRepository.mockClear();
+
+    window.dispatchEvent(new Event("focus"));
+
+    expect(refreshRepository).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes the open repository on an interval", async () => {
+    vi.useFakeTimers();
+    render(<App />);
+    refreshRepository.mockClear();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_REFRESH_INTERVAL_MS);
+    });
+
+    expect(refreshRepository).toHaveBeenCalledOnce();
   });
 });
