@@ -57,6 +57,14 @@ describe("UpdateBanner", () => {
     expect(openReleasePage).toHaveBeenCalledWith(dmgInfo.releaseUrl);
   });
 
+  it("點「檢視 Release 內容」時呼叫 opener", async () => {
+    checkForUpdate.mockResolvedValue(dmgInfo);
+    const user = userEvent.setup();
+    render(<UpdateBanner />);
+    await user.click(await screen.findByRole("button", { name: "檢視 Release 內容" }));
+    expect(openReleasePage).toHaveBeenCalledWith(dmgInfo.releaseUrl);
+  });
+
   it("可用「稍後」關閉橫幅", async () => {
     checkForUpdate.mockResolvedValue(dmgInfo);
     const user = userEvent.setup();

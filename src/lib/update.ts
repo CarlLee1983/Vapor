@@ -30,7 +30,7 @@ export async function openReleasePage(url: string): Promise<void> {
   await openUrl(url);
 }
 
-/** 複製 brew 更新指令到剪貼簿。剪貼簿不可用時靜默失敗(指令文字仍顯示於橫幅)。 */
+/** 複製 brew 更新指令到剪貼簿。剪貼簿不可用時會拋出例外,呼叫端需自行捕捉。 */
 export async function copyBrewCommand(): Promise<void> {
   await navigator.clipboard.writeText(BREW_UPGRADE_COMMAND);
 }

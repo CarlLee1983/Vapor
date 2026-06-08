@@ -87,10 +87,12 @@ describe("openReleasePage", () => {
 
 describe("copyBrewCommand", () => {
   it("copyBrewCommand 寫入 brew 指令到剪貼簿", async () => {
+    const original = navigator.clipboard;
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
-    const { copyBrewCommand } = await import("./update");
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const { copyBrewCommand, BREW_UPGRADE_COMMAND } = await import("./update");
     await copyBrewCommand();
-    expect(writeText).toHaveBeenCalledWith("brew upgrade --cask vapor");
+    expect(writeText).toHaveBeenCalledWith(BREW_UPGRADE_COMMAND);
+    Object.defineProperty(navigator, "clipboard", { value: original, configurable: true });
   });
 });

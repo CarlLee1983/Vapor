@@ -10,6 +10,7 @@ import {
 export function UpdateBanner() {
   const [info, setInfo] = useState<UpdateInfo | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  // 一次性標記:複製成功後永久顯示「已複製」,本次工作階段刻意不重置(無還原計時器)
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
