@@ -41,7 +41,7 @@ const BranchIcon = () => (
   </svg>
 );
 
-const RemoteIcon = () => (
+const GlobeIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="14"
@@ -55,8 +55,28 @@ const RemoteIcon = () => (
     style={{ marginRight: "8px", flexShrink: 0, opacity: 0.8 }}
   >
     <circle cx="12" cy="12" r="10" />
-    <line x1="12" x2="12" y1="2" y2="22" />
     <line x1="2" x2="22" y1="12" y2="12" />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+  </svg>
+);
+
+const VaporLogo = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="var(--accent-blue)"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ marginRight: "8px", flexShrink: 0 }}
+  >
+    <circle cx="18" cy="18" r="3" />
+    <circle cx="6" cy="6" r="3" />
+    <path d="M13 6h3a2 2 0 0 1 2 2v7" />
+    <line x1="6" y1="9" x2="6" y2="21" />
   </svg>
 );
 
@@ -65,7 +85,19 @@ export function RepositorySidebar({ repository }: Props) {
 
   return (
     <aside className="sidebar" aria-label="Repositories">
-      <div className="sidebar__title">Vapor</div>
+      <div
+        className="sidebar__title"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          paddingBottom: "12px",
+          borderBottom: "1px solid var(--border-color-light)",
+          marginBottom: "16px",
+        }}
+      >
+        <VaporLogo />
+        Vapor
+      </div>
       {repository ? (
         <>
           <section className="sidebar-section">
@@ -82,18 +114,13 @@ export function RepositorySidebar({ repository }: Props) {
             <h2>Branches</h2>
             {repository.branches.map((branch) => (
               <div
-                className={`sidebar-row ${branch.isCurrent ? "sidebar-row--active" : ""}`}
+                className={`sidebar-row ${branch.isCurrent ? "active" : ""}`}
                 key={branch.name}
               >
                 <span style={{ display: "flex", alignItems: "center" }}>
                   <BranchIcon />
                   {branch.name}
                 </span>
-                {branch.isCurrent ? (
-                  <strong style={{ color: "var(--accent-blue)", fontSize: "11px", textTransform: "uppercase" }}>
-                    current
-                  </strong>
-                ) : null}
               </div>
             ))}
           </section>
@@ -103,7 +130,7 @@ export function RepositorySidebar({ repository }: Props) {
             {repository.remotes.map((remote) => (
               <div className="sidebar-row" key={remote.name}>
                 <span style={{ display: "flex", alignItems: "center" }}>
-                  <RemoteIcon />
+                  <GlobeIcon />
                   {remote.name}
                 </span>
               </div>
@@ -116,4 +143,3 @@ export function RepositorySidebar({ repository }: Props) {
     </aside>
   );
 }
-

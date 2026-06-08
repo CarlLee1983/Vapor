@@ -213,7 +213,15 @@ button:not(.commit-row):disabled {
   margin-top: 24px;
 }
 
-.sidebar-section h2,
+.sidebar-section h2 {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .panel h2 {
   margin: 0 0 10px;
   color: var(--text-secondary);
@@ -239,6 +247,12 @@ button:not(.commit-row):disabled {
 .sidebar-row:hover {
   background: var(--bg-active);
   color: var(--text-primary);
+}
+
+.sidebar-row.active {
+  background: var(--bg-active);
+  color: var(--accent-blue);
+  font-weight: 600;
 }
 
 .sidebar-row--active {
