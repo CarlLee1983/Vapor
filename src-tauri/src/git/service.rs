@@ -138,4 +138,65 @@ impl<R: GitRunner> GitService<R> {
             stderr: output.stderr,
         })
     }
+
+    pub fn stage(
+        &self,
+        request: &super::models::StageRequest,
+    ) -> Result<super::models::StageResponse, GitError> {
+        let args = super::command_builder::stage_args(&request.paths)?;
+        let output = self.runner.run(&request.repository_path, &args)?;
+        Ok(super::models::StageResponse {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn unstage(
+        &self,
+        request: &super::models::StageRequest,
+    ) -> Result<super::models::StageResponse, GitError> {
+        let has_head = self
+            .runner
+            .run(
+                &request.repository_path,
+                &[
+                    "rev-parse".to_string(),
+                    "--verify".to_string(),
+                    "HEAD".to_string(),
+                ],
+            )
+            .is_ok();
+        let args = super::command_builder::unstage_args(&request.paths, has_head)?;
+        let output = self.runner.run(&request.repository_path, &args)?;
+        Ok(super::models::StageResponse {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn create_commit(
+        &self,
+        request: &super::models::CommitRequest,
+    ) -> Result<super::models::CommitResponse, GitError> {
+        let preview = super::command_builder::commit_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::CommitResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn commit_preview(
+        &self,
+        request: &super::models::CommitRequest,
+    ) -> Result<super::models::GitCommandPreview, GitError> {
+        super::command_builder::commit_preview(request)
+    }
+
+    pub fn last_commit_message(&self, path: &std::path::Path) -> Result<String, GitError> {
+        let args = super::command_builder::last_commit_message_args();
+        let output = self.runner.run(path, &args)?;
+        Ok(output.stdout.trim_end().to_string())
+    }
 }
