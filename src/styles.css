@@ -731,3 +731,54 @@ button:not(.commit-row):disabled {
   background-color: var(--accent-blue-bg);
   color: var(--accent-blue-text);
 }
+
+.diff-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-active);
+  border-bottom: 1px solid var(--border-color);
+  margin: -12px -12px 12px -12px;
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+}
+
+.diff-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diff-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diff-actions button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  transition: all var(--transition-smooth);
+}
+
+.diff-actions button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.copied-text {
+  color: var(--accent-green);
+  font-weight: 600;
+}
