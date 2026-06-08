@@ -85,10 +85,6 @@ const VaporLogo = () => (
 export function RepositorySidebar({ repository, viewMode, onViewModeChange }: Props) {
   const repoName = repository ? (repository.root.split(/[/\\]/).pop() || repository.root) : null;
 
-  // Temporarily reference props to prevent TS unused parameter warnings
-  void viewMode;
-  void onViewModeChange;
-
   return (
     <aside className="sidebar" aria-label="Repositories">
       <div
@@ -106,6 +102,63 @@ export function RepositorySidebar({ repository, viewMode, onViewModeChange }: Pr
       </div>
       {repository ? (
         <>
+          <section className="sidebar-section">
+            <h2>Workspace</h2>
+            <div
+              role="button"
+              tabIndex={0}
+              className={`sidebar-row ${viewMode === "status" ? "active" : ""}`}
+              onClick={() => onViewModeChange("status")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onViewModeChange("status");
+                }
+              }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+            >
+              <span style={{ display: "flex", alignItems: "center" }}>
+                <FolderIcon />
+                File Status
+              </span>
+              {repository.workingTree.length > 0 && (
+                <span className="sidebar-badge">{repository.workingTree.length}</span>
+              )}
+            </div>
+            <div
+              role="button"
+              tabIndex={0}
+              className={`sidebar-row ${viewMode === "history" ? "active" : ""}`}
+              onClick={() => onViewModeChange("history")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onViewModeChange("history");
+                }
+              }}
+              style={{ display: "flex", alignItems: "center" }}
+            >
+              <span style={{ display: "flex", alignItems: "center" }}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ marginRight: "8px", flexShrink: 0, opacity: 0.8 }}
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                History
+              </span>
+            </div>
+          </section>
+
           <section className="sidebar-section">
             <h2>Repositories</h2>
             <div className="sidebar-row sidebar-row--active" style={{ cursor: "default" }}>
