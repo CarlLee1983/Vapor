@@ -1,0 +1,73 @@
+name: Update Homebrew Cask
+
+# 當 Vapor 的 Release 被 Publish 時,自動把 homebrew-tap 的 cask 升到該版本。
+# 也可手動指定 tag 重跑(補救用)。
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要同步的 release tag(例如 v0.1.0)'
+        required: true
+
+jobs:
+  update-cask:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag and version
+        id: meta
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download release DMGs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ steps.meta.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern '*.dmg' --dir dmg
+
+      - name: Compute sha256
+        id: sha
+        run: |
+          v="${{ steps.meta.outputs.version }}"
+          echo "arm=$(sha256sum "dmg/Vapor_${v}_aarch64.dmg" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "intel=$(sha256sum "dmg/Vapor_${v}_x64.dmg" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: CarlLee1983/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Update cask file
+        env:
+          NEW_VERSION: ${{ steps.meta.outputs.version }}
+          SHA_ARM: ${{ steps.sha.outputs.arm }}
+          SHA_INTEL: ${{ steps.sha.outputs.intel }}
+        run: |
+          ruby -i -pe '
+            $_.sub!(/^(\s*version\s+)".*"/)            { "#{$1}\"#{ENV["NEW_VERSION"]}\"" }
+            $_.sub!(/^(\s*sha256 arm:\s+)"[a-f0-9]*"/) { "#{$1}\"#{ENV["SHA_ARM"]}\"" }
+            $_.sub!(/^(\s*intel:\s+)"[a-f0-9]*"/)      { "#{$1}\"#{ENV["SHA_INTEL"]}\"" }
+          ' tap/Casks/vapor.rb
+          echo "--- updated cask ---"
+          cat tap/Casks/vapor.rb
+
+      - name: Commit and push
+        run: |
+          cd tap
+          if git diff --quiet; then
+            echo "Cask already up to date — nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/vapor.rb
+          git commit -m "chore: bump vapor to ${{ steps.meta.outputs.version }}"
+          git push
