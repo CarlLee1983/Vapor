@@ -155,17 +155,21 @@ impl<R: GitRunner> GitService<R> {
         &self,
         request: &super::models::StageRequest,
     ) -> Result<super::models::StageResponse, GitError> {
-        let has_head = self
-            .runner
-            .run(
-                &request.repository_path,
-                &[
-                    "rev-parse".to_string(),
-                    "--verify".to_string(),
-                    "HEAD".to_string(),
-                ],
-            )
-            .is_ok();
+        let probe = self.runner.run(
+            &request.repository_path,
+            &[
+                "rev-parse".to_string(),
+                "--verify".to_string(),
+                "HEAD".to_string(),
+            ],
+        );
+        let has_head = match probe {
+            Ok(_) => true,
+            // git exits 128 with no specific classification when HEAD does not exist yet (unborn branch).
+            Err(ref error) if error.code == super::models::GitErrorCode::CommandFailed => false,
+            // Any other error (missing repo path, git not on PATH, not a repository, …) is a real failure.
+            Err(error) => return Err(error),
+        };
         let args = super::command_builder::unstage_args(&request.paths, has_head)?;
         let output = self.runner.run(&request.repository_path, &args)?;
         Ok(super::models::StageResponse {
