@@ -33,11 +33,13 @@ const loadedState = {
   },
   commits: [{ hash: "abc123", parents: [], author: "Carl", date: "2026-06-07T22:50:00+08:00", subject: "Initial commit", refs: ["HEAD -> main"] }],
   selectedCommit: null,
+  selectedFile: null,
   diff: "",
   isLoading: false,
   error: null,
   loadRepository,
   selectCommit: vi.fn(),
+  selectFile: vi.fn(),
 } as unknown as ReturnType<typeof useRepository>;
 
 beforeEach(() => {

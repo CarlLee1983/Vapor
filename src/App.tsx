@@ -100,7 +100,16 @@ export default function App() {
               selectedFile={repoView.selectedFile}
               onSelectFile={repoView.selectFile}
             />
-            <DiffViewer diff={repoView.diff} />
+            <DiffViewer
+              diff={repoView.diff}
+              title={
+                repoView.selectedFile
+                  ? repoView.selectedFile.path
+                  : repoView.selectedCommit
+                  ? `Commit: ${repoView.selectedCommit.hash.slice(0, 7)} · ${repoView.selectedCommit.author}`
+                  : undefined
+              }
+            />
           </div>
         </div>
       </section>
