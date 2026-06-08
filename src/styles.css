@@ -286,18 +286,31 @@ button:not(.commit-row):disabled {
   border-bottom: 1px solid var(--border-color-light);
   background: transparent;
   color: inherit;
-  padding: 9px 4px;
+  padding: 9px 8px 9px 16px;
   text-align: left;
   cursor: pointer;
   transition: var(--transition-smooth);
+  position: relative;
 }
 
 .commit-row:hover:not(.commit-row--selected) {
-  background: var(--bg-active);
+  background: linear-gradient(90deg, var(--bg-active) 0%, transparent 100%);
 }
 
 .commit-row--selected {
   background: var(--bg-active);
+}
+
+.commit-row--selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 4px;
+  background: var(--accent-blue);
+  border-radius: 0 4px 4px 0;
+  transition: var(--transition-smooth);
 }
 
 .commit-dot {
@@ -316,6 +329,18 @@ button:not(.commit-row):disabled {
 .commit-meta {
   color: var(--text-muted);
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.commit-meta-separator {
+  opacity: 0.6;
+}
+
+.commit-author {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .commit-refs {
@@ -329,13 +354,19 @@ button:not(.commit-row):disabled {
 .ref-badge {
   display: inline-flex;
   align-items: center;
-  height: 16px;
+  height: 18px;
   padding: 0 6px;
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+}
+
+.theme-dark .ref-badge {
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .ref-badge--head {
@@ -359,6 +390,48 @@ button:not(.commit-row):disabled {
   white-space: pre-wrap;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
+}
+
+.diff-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.diff-code {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  overflow: auto;
+}
+
+.diff-line {
+  padding: 2px 8px;
+  margin: 0;
+  border-left: 3px solid transparent;
+  line-height: 1.6;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+
+.diff-added {
+  background-color: var(--accent-green-bg);
+  color: var(--accent-green-text);
+  border-left-color: var(--accent-green);
+}
+
+.diff-deleted {
+  background-color: var(--accent-red-bg);
+  color: var(--accent-red-text);
+  border-left-color: var(--accent-red);
+}
+
+.diff-hunk {
+  background-color: var(--bg-active);
+  color: var(--text-secondary);
+  font-weight: 500;
+  opacity: 0.9;
 }
 
 .error-banner {

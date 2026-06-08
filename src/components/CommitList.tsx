@@ -35,7 +35,11 @@ export function CommitList({ commits, selectedCommit, onSelectCommit }: Props) {
             ) : null}
             {commit.subject}
           </span>
-          <span className="commit-meta">{commit.hash.slice(0, 7)} · {commit.author}</span>
+          <span className="commit-meta">
+            <span className="commit-hash">{commit.hash.slice(0, 7)}</span>
+            <span className="commit-meta-separator">·</span>
+            <span className="commit-author" title={commit.author}>{commit.author}</span>
+          </span>
         </button>
       ))}
     </section>
