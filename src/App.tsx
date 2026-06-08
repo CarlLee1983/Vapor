@@ -5,6 +5,7 @@ import { PushDialog } from "./components/PushDialog";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { ThemeToggle, ThemeMode } from "./components/ThemeToggle";
 import { CliInstallBanner } from "./components/CliInstallBanner";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { WorkingTreePanel } from "./components/WorkingTreePanel";
 import { useRepository } from "./hooks/useRepository";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
@@ -117,6 +118,7 @@ export default function App() {
           </div>
         </header>
         <CliInstallBanner />
+        <UpdateBanner />
         {repoView.error ? (
           <div className="error-banner" role="alert">{repoView.error.message} {repoView.error.hint}</div>
         ) : null}

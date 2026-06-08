@@ -19,6 +19,12 @@ vi.mock("./lib/launch", () => ({
   onOpenRepo: (handler: (path: string) => void) => onOpenRepo(handler),
 }));
 
+const checkForUpdate = vi.fn();
+vi.mock("./lib/update", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/update")>();
+  return { ...actual, checkForUpdate: () => checkForUpdate(), openReleasePage: vi.fn() };
+});
+
 const loadRepository = vi.fn();
 const refreshRepository = vi.fn();
 
@@ -52,6 +58,7 @@ beforeEach(() => {
   pickRepositoryFolder.mockReset();
   getLaunchPath.mockReset().mockResolvedValue(null);
   onOpenRepo.mockReset().mockResolvedValue(() => {});
+  checkForUpdate.mockReset().mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -114,5 +121,16 @@ describe("App", () => {
     });
 
     expect(refreshRepository).toHaveBeenCalledOnce();
+  });
+
+  it("有新版時顯示更新橫幅", async () => {
+    checkForUpdate.mockResolvedValue({
+      currentVersion: "0.1.0",
+      latestVersion: "0.2.0",
+      releaseUrl: "https://github.com/CarlLee1983/Vapor/releases/tag/v0.2.0",
+      source: "dmg",
+    });
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "開啟下載頁" })).toBeInTheDocument();
   });
 });
