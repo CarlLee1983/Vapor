@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { previewPull, pullBranch } from "../lib/tauriApi";
 import type { GitCommandPreview, GitError, PullRequest, RepositoryState } from "../types/git";
 
@@ -77,11 +78,12 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
 
   useEffect(() => {
     let isCancelled = false;
-    if (!request.remote || !request.remoteBranch) {
+    if (!hasRemotes || !request.remote || !request.remoteBranch) {
       setPreview(null);
       setError(null);
       return;
     }
+    setPreview(null);
     previewPull(request)
       .then((value) => {
         if (!isCancelled) {
@@ -98,7 +100,7 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
     return () => {
       isCancelled = true;
     };
-  }, [request]);
+  }, [hasRemotes, request]);
 
   useEffect(() => {
     dialogRef.current?.focus();
@@ -108,9 +110,11 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
     if (!preview || !hasRemotes) {
       return;
     }
-    setIsPulling(true);
-    setOutput("");
-    setError(null);
+    flushSync(() => {
+      setIsPulling(true);
+      setOutput("");
+      setError(null);
+    });
     try {
       const response = await pullBranch(request);
       setOutput([response.stdout, response.stderr].filter(Boolean).join("\n"));
@@ -182,7 +186,7 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
             </label>
             <pre className="command-preview">{preview?.display ?? "Complete the pull fields to preview the command."}</pre>
             {error ? (
-              <div className="error-banner">
+              <div className="error-banner" role="alert">
                 {error.message} {error.hint}
                 <pre>{error.stderr}</pre>
               </div>
