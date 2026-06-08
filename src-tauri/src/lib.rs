@@ -1,6 +1,7 @@
 pub mod cli;
 pub mod commands;
 pub mod git;
+pub mod update;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -31,7 +32,8 @@ pub fn run() {
             commands::push_branch,
             commands::get_launch_path,
             commands::install_cli,
-            commands::cli_status
+            commands::cli_status,
+            commands::detect_install_source
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -63,3 +63,8 @@ pub fn cli_status() -> Result<bool, GitError> {
     let binary = resolve_binary()?;
     Ok(cli::cli_installed(&binary))
 }
+
+#[tauri::command]
+pub fn detect_install_source() -> crate::update::InstallSource {
+    crate::update::detect_install_source()
+}
