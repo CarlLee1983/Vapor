@@ -153,6 +153,41 @@ button {
   font-size: 12px;
 }
 
+.commit-refs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.ref-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ref-badge--head {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.ref-badge--branch {
+  background: #e6e8eb;
+  color: #344054;
+}
+
+.ref-badge--tag {
+  background: #fde9c8;
+  color: #92500e;
+}
+
 .diff-viewer pre {
   margin: 0;
   overflow: auto;

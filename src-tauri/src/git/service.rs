@@ -50,6 +50,7 @@ impl<R: GitRunner> GitService<R> {
             path,
             &[
                 "log".to_string(),
+                "--all".to_string(),
                 format!("--max-count={}", limit.min(500)),
                 format!("--pretty=format:{format}"),
                 "--decorate=short".to_string(),

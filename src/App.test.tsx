@@ -51,7 +51,7 @@ beforeEach(() => {
 describe("App", () => {
   it("renders repository state, commits, remotes, and working tree", () => {
     render(<App />);
-    expect(screen.getByText("main")).toBeInTheDocument();
+    expect(screen.getAllByText("main").length).toBeGreaterThan(0);
     expect(screen.getByText("origin")).toBeInTheDocument();
     expect(screen.getByText("Initial commit")).toBeInTheDocument();
     expect(screen.getByText("src/App.tsx")).toBeInTheDocument();
