@@ -58,9 +58,9 @@ fn wrapper_candidates() -> Vec<PathBuf> {
     candidates
 }
 
-/// 若任一候選 wrapper 存在且內容指向 `app_binary`,回傳 true。
+/// 若任一候選 wrapper 存在且其 `exec "<app_binary>"` 行指向 `app_binary`,回傳 true。
 fn cli_installed_in(candidates: &[PathBuf], app_binary: &Path) -> bool {
-    let needle = app_binary.display().to_string();
+    let needle = format!("exec \"{}\"", app_binary.display());
     candidates.iter().any(|path| {
         fs::read_to_string(path)
             .map(|contents| contents.contains(&needle))

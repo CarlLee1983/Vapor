@@ -7,6 +7,16 @@ use crate::git::service::GitService;
 use crate::cli::{self, LaunchPath};
 use tauri::State;
 
+/// 解析目前執行檔路徑;找不到時回傳一致的 GitError。
+fn resolve_binary() -> Result<std::path::PathBuf, GitError> {
+    std::env::current_exe().map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Could not locate the Vapor binary.".to_string(),
+        hint: "Reinstall Vapor and try again.".to_string(),
+        stderr: error.to_string(),
+    })
+}
+
 #[tauri::command]
 pub fn get_repository_state(request: RepositoryRequest) -> Result<RepositoryState, GitError> {
     GitService::new(SystemGitRunner).repository_state(&request.path)
@@ -44,22 +54,12 @@ pub fn get_launch_path(launch: State<'_, LaunchPath>) -> Option<String> {
 
 #[tauri::command]
 pub fn install_cli() -> Result<String, GitError> {
-    let binary = std::env::current_exe().map_err(|error| GitError {
-        code: crate::git::models::GitErrorCode::CommandFailed,
-        message: "Could not locate the Vapor binary.".to_string(),
-        hint: "Reinstall Vapor and try again.".to_string(),
-        stderr: error.to_string(),
-    })?;
+    let binary = resolve_binary()?;
     cli::install_cli(&binary)
 }
 
 #[tauri::command]
 pub fn cli_status() -> Result<bool, GitError> {
-    let binary = std::env::current_exe().map_err(|error| GitError {
-        code: crate::git::models::GitErrorCode::CommandFailed,
-        message: "Could not locate the Vapor binary.".to_string(),
-        hint: "Reinstall Vapor and try again.".to_string(),
-        stderr: error.to_string(),
-    })?;
+    let binary = resolve_binary()?;
     Ok(cli::cli_installed(&binary))
 }

@@ -20,7 +20,6 @@ beforeEach(() => {
 describe("CliInstallBanner", () => {
   it("renders nothing when already dismissed", () => {
     localStorage.setItem(DISMISS_KEY, "1");
-    cliStatus.mockResolvedValue(false);
     render(<CliInstallBanner />);
     expect(screen.queryByRole("button", { name: "Install" })).not.toBeInTheDocument();
   });
