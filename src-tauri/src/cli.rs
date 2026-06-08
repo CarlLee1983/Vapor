@@ -25,6 +25,75 @@ pub fn wrapper_script(app_binary: &Path) -> String {
     )
 }
 
+use crate::git::models::{GitError, GitErrorCode};
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+
+/// Holds the repository path Vapor was launched with, if any.
+pub struct LaunchPath(pub Option<PathBuf>);
+
+/// Pick where the `vapor` wrapper should be installed: prefer
+/// `/usr/local/bin`, fall back to `~/.local/bin`. Returns the target path
+/// and whether the fallback (needs PATH hint) was used.
+pub fn install_target() -> (PathBuf, bool) {
+    let primary = PathBuf::from("/usr/local/bin");
+    if primary.is_dir()
+        && fs::metadata(&primary)
+            .map(|meta| meta.permissions().mode() & 0o200 != 0)
+            .unwrap_or(false)
+    {
+        (primary.join("vapor"), false)
+    } else {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        (home.join(".local/bin/vapor"), true)
+    }
+}
+
+/// Write the wrapper script for `app_binary` to the chosen target and make
+/// it executable. Returns a user-facing message.
+pub fn install_cli(app_binary: &Path) -> Result<String, GitError> {
+    let (target, needs_path_hint) = install_target();
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| io_error(&error.to_string()))?;
+    }
+    fs::write(&target, wrapper_script(app_binary)).map_err(|error| io_error(&error.to_string()))?;
+    let mut perms = fs::metadata(&target)
+        .map_err(|error| io_error(&error.to_string()))?
+        .permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(&target, perms).map_err(|error| io_error(&error.to_string()))?;
+
+    let hint = if needs_path_hint {
+        format!(
+            " Add it to your PATH: echo 'export PATH=\"{}:$PATH\"' >> ~/.zshrc",
+            target.parent().map(|p| p.display().to_string()).unwrap_or_default()
+        )
+    } else {
+        String::new()
+    };
+    Ok(format!("Installed `vapor` to {}.{hint}", target.display()))
+}
+
+fn io_error(detail: &str) -> GitError {
+    GitError {
+        code: GitErrorCode::CommandFailed,
+        message: "Could not install the vapor command.".to_string(),
+        hint: "Check write permissions for /usr/local/bin or ~/.local/bin.".to_string(),
+        stderr: detail.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod install_tests {
+    use super::*;
+
+    #[test]
+    fn install_target_returns_a_vapor_path() {
+        let (target, _) = install_target();
+        assert_eq!(target.file_name().and_then(|n| n.to_str()), Some("vapor"));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -4,6 +4,8 @@ use crate::git::models::{
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
+use crate::cli::{self, LaunchPath};
+use tauri::State;
 
 #[tauri::command]
 pub fn get_repository_state(request: RepositoryRequest) -> Result<RepositoryState, GitError> {
@@ -33,4 +35,20 @@ pub fn preview_push(request: PushRequest) -> Result<GitCommandPreview, GitError>
 #[tauri::command]
 pub fn push_branch(request: PushRequest) -> Result<PushResponse, GitError> {
     GitService::new(SystemGitRunner).push(&request)
+}
+
+#[tauri::command]
+pub fn get_launch_path(launch: State<'_, LaunchPath>) -> Option<String> {
+    launch.0.as_ref().map(|path| path.display().to_string())
+}
+
+#[tauri::command]
+pub fn install_cli() -> Result<String, GitError> {
+    let binary = std::env::current_exe().map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Could not locate the Vapor binary.".to_string(),
+        hint: "Reinstall Vapor and try again.".to_string(),
+        stderr: error.to_string(),
+    })?;
+    cli::install_cli(&binary)
 }
