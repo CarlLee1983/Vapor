@@ -1,9 +1,16 @@
+import { isStaged, isUnstaged } from "../lib/workingTree";
 import type { FileStatus, RepositoryState } from "../types/git";
+import { CommitBox } from "./CommitBox";
 
 interface Props {
   repository: RepositoryState | null;
   selectedFile: FileStatus | null;
   onSelectFile: (file: FileStatus) => void;
+  onStage: (paths: string[]) => void;
+  onUnstage: (paths: string[]) => void;
+  onCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<unknown>;
+  onPreviewCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<{ display: string }>;
+  onLoadLastMessage: () => Promise<string>;
 }
 
 const FileCodeIcon = () => (
@@ -112,32 +119,127 @@ function getStatusInfo(indexStatus: string, worktreeStatus: string) {
   return { label: "M", className: "status-badge status-badge--modified status-modified" };
 }
 
-export function WorkingTreePanel({ repository, selectedFile, onSelectFile }: Props) {
+interface FileRowProps {
+  file: FileStatus;
+  isActive: boolean;
+  actionLabel: string;
+  actionGlyph: string;
+  onSelect: (file: FileStatus) => void;
+  onAction: (path: string) => void;
+}
+
+function FileRow({ file, isActive, actionLabel, actionGlyph, onSelect, onAction }: FileRowProps) {
+  const status = getStatusInfo(file.indexStatus, file.worktreeStatus);
   return (
-    <section className="panel" aria-label="Working tree">
+    <div className={`file-row${isActive ? " active" : ""}`}>
+      <button type="button" className="file-row__select" onClick={() => onSelect(file)}>
+        <span className="file-name-container">
+          {getFileIcon(file.path)}
+          <span>{file.path}</span>
+        </span>
+        <span className={status.className}>{status.label}</span>
+      </button>
+      <button
+        type="button"
+        className="file-row__action"
+        aria-label={`${actionLabel} ${file.path}`}
+        onClick={() => onAction(file.path)}
+      >
+        {actionGlyph}
+      </button>
+    </div>
+  );
+}
+
+export function WorkingTreePanel({
+  repository,
+  selectedFile,
+  onSelectFile,
+  onStage,
+  onUnstage,
+  onCommit,
+  onPreviewCommit,
+  onLoadLastMessage,
+}: Props) {
+  const files = repository?.workingTree ?? [];
+  const staged = files.filter(isStaged);
+  const unstaged = files.filter(isUnstaged);
+
+  return (
+    <section className="panel working-tree" aria-label="Working tree">
       <h2>Working Tree</h2>
-      {repository?.workingTree.length ? (
-        repository.workingTree.map((file) => {
-          const status = getStatusInfo(file.indexStatus, file.worktreeStatus);
-          const isActive = selectedFile?.path === file.path;
-          return (
-            <button
-              type="button"
-              className={`file-row${isActive ? " active" : ""}`}
-              key={file.path}
-              onClick={() => onSelectFile(file)}
-            >
-              <span className="file-name-container">
-                {getFileIcon(file.path)}
-                <span>{file.path}</span>
-              </span>
-              <span className={status.className}>{status.label}</span>
-            </button>
-          );
-        })
-      ) : (
+
+      {files.length === 0 ? (
         <p className="muted">No local changes</p>
+      ) : (
+        <>
+          <div className="working-tree__group" role="group" aria-label="Staged changes">
+            <div className="working-tree__group-header">
+              <span>Staged</span>
+              <button
+                type="button"
+                disabled={staged.length === 0}
+                onClick={() => onUnstage(staged.map((file) => file.path))}
+              >
+                Unstage all
+              </button>
+            </div>
+            {staged.length === 0 ? (
+              <p className="muted">Nothing staged</p>
+            ) : (
+              staged.map((file) => (
+                <FileRow
+                  key={`staged-${file.path}`}
+                  file={file}
+                  isActive={selectedFile?.path === file.path}
+                  actionLabel="Unstage"
+                  actionGlyph="−"
+                  onSelect={onSelectFile}
+                  onAction={(path) => onUnstage([path])}
+                />
+              ))
+            )}
+          </div>
+
+          <div className="working-tree__group" role="group" aria-label="Unstaged changes">
+            <div className="working-tree__group-header">
+              <span>Unstaged</span>
+              <button
+                type="button"
+                disabled={unstaged.length === 0}
+                onClick={() => onStage(unstaged.map((file) => file.path))}
+              >
+                Stage all
+              </button>
+            </div>
+            {unstaged.length === 0 ? (
+              <p className="muted">Nothing unstaged</p>
+            ) : (
+              unstaged.map((file) => (
+                <FileRow
+                  key={`unstaged-${file.path}`}
+                  file={file}
+                  isActive={selectedFile?.path === file.path}
+                  actionLabel="Stage"
+                  actionGlyph="+"
+                  onSelect={onSelectFile}
+                  onAction={(path) => onStage([path])}
+                />
+              ))
+            )}
+          </div>
+        </>
       )}
+
+      {repository ? (
+        <CommitBox
+          repository={repository}
+          hasStagedChanges={staged.length > 0}
+          onCommit={onCommit}
+          onPreview={onPreviewCommit}
+          onLoadLastMessage={onLoadLastMessage}
+        />
+      ) : null}
     </section>
   );
 }
