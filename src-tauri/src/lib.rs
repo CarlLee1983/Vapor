@@ -30,7 +30,8 @@ pub fn run() {
             commands::preview_push,
             commands::push_branch,
             commands::get_launch_path,
-            commands::install_cli
+            commands::install_cli,
+            commands::cli_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

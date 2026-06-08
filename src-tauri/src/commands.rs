@@ -52,3 +52,14 @@ pub fn install_cli() -> Result<String, GitError> {
     })?;
     cli::install_cli(&binary)
 }
+
+#[tauri::command]
+pub fn cli_status() -> Result<bool, GitError> {
+    let binary = std::env::current_exe().map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Could not locate the Vapor binary.".to_string(),
+        hint: "Reinstall Vapor and try again.".to_string(),
+        stderr: error.to_string(),
+    })?;
+    Ok(cli::cli_installed(&binary))
+}
