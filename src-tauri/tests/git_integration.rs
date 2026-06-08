@@ -1,7 +1,10 @@
 use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
-use vapor_lib::git::models::{PushRequest, TagPushMode};
+use vapor_lib::git::models::{
+    AddRemoteRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest,
+    TagPushMode,
+};
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
 
@@ -63,4 +66,92 @@ fn pushes_selected_branch_and_tags_to_selected_remote() {
     let stdout = String::from_utf8_lossy(&refs.stdout);
     assert!(stdout.contains("refs/heads/main"));
     assert!(stdout.contains("refs/tags/v0.1.0"));
+}
+
+#[test]
+fn pulls_fast_forward_changes_from_remote() {
+    let (work, remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    // 先把 main 推上 bare remote。
+    service
+        .push(&PushRequest {
+            repository_path: work.path().to_path_buf(),
+            remote: "origin".to_string(),
+            local_branch: "main".to_string(),
+            target_branch: "main".to_string(),
+            tag_mode: TagPushMode::None,
+            force_with_lease: false,
+        })
+        .expect("push");
+
+    // 第二個 clone 推進一個新 commit,讓原 work 落後。
+    let other = TempDir::new().expect("other temp");
+    git(
+        other.path(),
+        &["clone", remote.path().to_str().expect("remote path"), "."],
+    );
+    git(other.path(), &["config", "user.email", "other@example.com"]);
+    git(other.path(), &["config", "user.name", "Other Test"]);
+    std::fs::write(other.path().join("CHANGELOG.md"), "v1\n").expect("write changelog");
+    git(other.path(), &["add", "CHANGELOG.md"]);
+    git(other.path(), &["commit", "-m", "Add changelog"]);
+    git(other.path(), &["push", "origin", "main"]);
+
+    let response = service
+        .pull(&PullRequest {
+            repository_path: work.path().to_path_buf(),
+            remote: "origin".to_string(),
+            remote_branch: "main".to_string(),
+            rebase: false,
+        })
+        .expect("pull");
+    assert_eq!(response.preview.display, "git pull origin main");
+    assert!(work.path().join("CHANGELOG.md").exists());
+}
+
+#[test]
+fn adds_updates_and_removes_a_remote() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    service
+        .add_remote(&AddRemoteRequest {
+            repository_path: work.path().to_path_buf(),
+            name: "backup".to_string(),
+            url: "https://example.com/vapor.git".to_string(),
+        })
+        .expect("add remote");
+
+    service
+        .set_remote_url(&SetRemoteUrlRequest {
+            repository_path: work.path().to_path_buf(),
+            name: "backup".to_string(),
+            url: "https://example.com/vapor-2.git".to_string(),
+        })
+        .expect("set url");
+
+    let after_update = service.repository_state(work.path()).expect("state");
+    let backup = after_update
+        .remotes
+        .iter()
+        .find(|remote| remote.name == "backup")
+        .expect("backup remote present");
+    assert_eq!(
+        backup.fetch_url.as_deref(),
+        Some("https://example.com/vapor-2.git")
+    );
+
+    service
+        .remove_remote(&RemoveRemoteRequest {
+            repository_path: work.path().to_path_buf(),
+            name: "backup".to_string(),
+        })
+        .expect("remove remote");
+
+    let after_remove = service.repository_state(work.path()).expect("state");
+    assert!(after_remove
+        .remotes
+        .iter()
+        .all(|remote| remote.name != "backup"));
 }
