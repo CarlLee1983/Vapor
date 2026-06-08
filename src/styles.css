@@ -21,6 +21,8 @@
   
   --accent-blue: #2563eb;
   --accent-blue-hover: #1d4ed8;
+  --accent-blue-bg: #dbeafe;
+  --accent-blue-text: #1d4ed8;
   --accent-green: #16a34a;
   --accent-green-bg: #dcfce7;
   --accent-green-text: #15803d;
@@ -66,6 +68,8 @@
 
   --accent-blue: #3b82f6;
   --accent-blue-hover: #60a5fa;
+  --accent-blue-bg: rgba(59, 130, 246, 0.15);
+  --accent-blue-text: #60a5fa;
   --accent-green: #22c55e;
   --accent-green-bg: rgba(34, 197, 94, 0.15);
   --accent-green-text: #4ade80;
@@ -492,3 +496,51 @@ button:not(.commit-row):disabled {
   transform: scale(0.96);
 }
 
+/* Working Tree Status Badges & File Container */
+.file-name-container {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+}
+
+.status-added {
+  background-color: var(--accent-green-bg);
+  color: var(--accent-green-text);
+}
+
+.status-modified {
+  background-color: var(--accent-orange-bg);
+  color: var(--accent-orange-text);
+}
+
+.status-deleted {
+  background-color: var(--accent-red-bg);
+  color: var(--accent-red-text);
+}
+
+.status-untracked {
+  background-color: var(--accent-green-bg);
+  color: var(--accent-green-text);
+}
+
+.status-renamed {
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
+}
