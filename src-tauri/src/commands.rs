@@ -43,8 +43,15 @@ pub fn preview_push(request: PushRequest) -> Result<GitCommandPreview, GitError>
 }
 
 #[tauri::command]
-pub fn push_branch(request: PushRequest) -> Result<PushResponse, GitError> {
-    GitService::new(SystemGitRunner).push(&request)
+pub async fn push_branch(request: PushRequest) -> Result<PushResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).push(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Push task failed before Git completed.".to_string(),
+            hint: "Try the push again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
 }
 
 #[tauri::command]

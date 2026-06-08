@@ -31,7 +31,7 @@ function pushDefaults(repository: RepositoryState, branchName: string) {
 
   return {
     remote: upstream && upstreamRemoteExists ? upstream.remote : repository.remotes[0]?.name ?? "",
-    targetBranch: upstream?.branch ?? branchName,
+    targetBranch: branchName,
   };
 }
 
@@ -41,6 +41,7 @@ export function PushDialog({ repository, onClose, onPushed }: Props) {
   const [remote, setRemote] = useState(initialDefaults.remote);
   const [localBranch, setLocalBranch] = useState(currentBranch);
   const [targetBranch, setTargetBranch] = useState(initialDefaults.targetBranch);
+  const [usesCustomTargetBranch, setUsesCustomTargetBranch] = useState(false);
   const [tagMode, setTagMode] = useState<TagPushMode>("none");
   const [forceWithLease, setForceWithLease] = useState(false);
   const [preview, setPreview] = useState<GitCommandPreview | null>(null);
@@ -54,20 +55,31 @@ export function PushDialog({ repository, onClose, onPushed }: Props) {
       repositoryPath: repository.root,
       remote,
       localBranch,
-      targetBranch,
+      targetBranch: usesCustomTargetBranch ? targetBranch : localBranch,
       tagMode,
       forceWithLease,
     }),
-    [forceWithLease, localBranch, remote, repository.root, tagMode, targetBranch],
+    [forceWithLease, localBranch, remote, repository.root, tagMode, targetBranch, usesCustomTargetBranch],
   );
   const selectedRemote = repository.remotes.find((item) => item.name === remote);
   const selectedBranch = repository.branches.find((branch) => branch.name === localBranch);
   const pushUrl = selectedRemote?.pushUrl ?? selectedRemote?.fetchUrl ?? "";
+  const destinationBranch = `${remote}/${request.targetBranch}`;
   const branchStatus = [
     `${repository.ahead} outgoing ${repository.ahead === 1 ? "commit" : "commits"}`,
     `${repository.behind} incoming ${repository.behind === 1 ? "commit" : "commits"}`,
   ].join(" · ");
   const hasRemotes = repository.remotes.length > 0;
+  const pendingPushView = isPushing ? (
+    <div className="push-progress-panel" role="status" aria-live="polite">
+      <span className="push-progress-spinner" aria-hidden="true" />
+      <div>
+        <h3>Push in progress</h3>
+        <p>Pushing {localBranch} to {destinationBranch}...</p>
+      </div>
+      <pre className="command-preview">{preview?.display ?? "Starting push..."}</pre>
+    </div>
+  ) : null;
 
   useEffect(() => {
     let isCancelled = false;
@@ -111,6 +123,7 @@ export function PushDialog({ repository, onClose, onPushed }: Props) {
       const response = await pushBranch(request);
       setOutput([response.stdout, response.stderr].filter(Boolean).join("\n"));
       onPushed();
+      onClose();
     } catch (value) {
       setError(value as GitError);
     } finally {
@@ -128,7 +141,7 @@ export function PushDialog({ repository, onClose, onPushed }: Props) {
         tabIndex={-1}
         ref={dialogRef}
         onKeyDown={(event) => {
-          if (event.key === "Escape") onClose();
+          if (event.key === "Escape" && !isPushing) onClose();
         }}
       >
         <header className="dialog-header">
@@ -136,10 +149,13 @@ export function PushDialog({ repository, onClose, onPushed }: Props) {
             <h2>Push Branch</h2>
             <p className="dialog-subtitle">{branchStatus}</p>
           </div>
-          <button type="button" onClick={onClose}>
+          <button type="button" disabled={isPushing} onClick={onClose}>
             Close
           </button>
         </header>
+        {pendingPushView}
+        {isPushing ? null : (
+          <>
         {!hasRemotes ? (
           <div className="error-banner" role="alert">
             No remotes configured for this repository.
@@ -167,6 +183,7 @@ export function PushDialog({ repository, onClose, onPushed }: Props) {
               setLocalBranch(nextBranch);
               setRemote(defaults.remote);
               setTargetBranch(defaults.targetBranch);
+              setUsesCustomTargetBranch(false);
             }}
           >
             {repository.branches.map((branch) => (
@@ -177,10 +194,29 @@ export function PushDialog({ repository, onClose, onPushed }: Props) {
           </select>
           {selectedBranch?.upstream ? <span className="field-hint">Tracking {selectedBranch.upstream}</span> : null}
         </label>
-        <label>
-          Target branch
-          <input aria-label="Target branch" value={targetBranch} onChange={(event) => setTargetBranch(event.target.value)} />
+        <div className="push-destination" aria-label="Push destination">
+          <span>Remote branch</span>
+          <strong>{destinationBranch}</strong>
+        </div>
+        <label className="checkbox-row">
+          <input
+            checked={usesCustomTargetBranch}
+            type="checkbox"
+            onChange={(event) => {
+              setUsesCustomTargetBranch(event.target.checked);
+              if (!event.target.checked) {
+                setTargetBranch(localBranch);
+              }
+            }}
+          />
+          Use a different remote branch name
         </label>
+        {usesCustomTargetBranch ? (
+          <label>
+            Remote branch
+            <input aria-label="Remote branch" value={targetBranch} onChange={(event) => setTargetBranch(event.target.value)} />
+          </label>
+        ) : null}
         <label>
           Push tags
           <select aria-label="Push tags" value={tagMode} onChange={(event) => setTagMode(event.target.value as TagPushMode)}>
@@ -201,13 +237,15 @@ export function PushDialog({ repository, onClose, onPushed }: Props) {
         ) : null}
         {output ? <pre className="push-output">{output}</pre> : null}
         <footer className="dialog-actions">
-          <button type="button" onClick={onClose}>
+          <button type="button" disabled={isPushing} onClick={onClose}>
             Cancel
           </button>
           <button type="button" disabled={!preview || !hasRemotes || isPushing} onClick={onSubmit}>
-            Push
+            {isPushing ? "Pushing..." : "Push"}
           </button>
         </footer>
+          </>
+        )}
       </section>
     </div>
   );

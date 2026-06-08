@@ -39,18 +39,57 @@ describe("PushDialog", () => {
     vi.clearAllMocks();
   });
 
-  it("previews and executes push with tags", async () => {
+  it("shows progress while pushing and closes after a successful push", async () => {
     const user = userEvent.setup();
+    let resolvePush: ((value: Awaited<ReturnType<typeof tauriApi.pushBranch>>) => void) | undefined;
+    vi.mocked(tauriApi.pushBranch).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolvePush = resolve;
+      }),
+    );
     const onPushed = vi.fn();
-    render(<PushDialog repository={repository} onClose={vi.fn()} onPushed={onPushed} />);
+    const onClose = vi.fn();
+    render(<PushDialog repository={repository} onClose={onClose} onPushed={onPushed} />);
     await user.selectOptions(screen.getByLabelText("Push tags"), "all");
     expect(await screen.findByText("git push origin main:main --tags")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Push" }));
-    expect(await screen.findByText("pushed")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Pushing main to origin/main...");
+    expect(screen.getByText("Push in progress")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Remote")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Local branch")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Push" })).not.toBeInTheDocument();
+
+    resolvePush?.({
+      preview: { program: "git", args: ["push"], display: "git push origin main:main --tags" },
+      stdout: "pushed",
+      stderr: "",
+    });
+
+    await screen.findByText("Push in progress");
     expect(onPushed).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("defaults target branch from the current branch upstream", async () => {
+  it("renders the progress state before starting the push command", async () => {
+    const user = userEvent.setup();
+    vi.mocked(tauriApi.pushBranch).mockImplementationOnce(async () => {
+      expect(screen.getByRole("status")).toHaveTextContent("Pushing main to origin/main...");
+      return {
+        preview: { program: "git", args: ["push"], display: "git push origin main:main" },
+        stdout: "pushed",
+        stderr: "",
+      };
+    });
+
+    render(<PushDialog repository={repository} onClose={vi.fn()} onPushed={vi.fn()} />);
+    expect(await screen.findByText("git push origin main:main")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Push" }));
+
+    expect(tauriApi.pushBranch).toHaveBeenCalledOnce();
+  });
+
+  it("defaults the target branch to the selected local branch instead of the upstream branch", async () => {
     render(
       <PushDialog
         repository={{
@@ -62,18 +101,18 @@ describe("PushDialog", () => {
       />,
     );
 
-    expect(await screen.findByDisplayValue("release/main")).toBeInTheDocument();
+    expect(await screen.findByText("origin/main")).toBeInTheDocument();
     expect(tauriApi.previewPush).toHaveBeenLastCalledWith({
       repositoryPath: "/repo",
       remote: "origin",
       localBranch: "main",
-      targetBranch: "release/main",
+      targetBranch: "main",
       tagMode: "none",
       forceWithLease: false,
     });
   });
 
-  it("updates remote and target defaults when the local branch changes", async () => {
+  it("updates remote defaults while keeping the target branch equal to the local branch", async () => {
     const user = userEvent.setup();
     render(
       <PushDialog
@@ -96,13 +135,32 @@ describe("PushDialog", () => {
 
     await user.selectOptions(screen.getByLabelText("Local branch"), "feature/source-tree");
 
-    expect(await screen.findByDisplayValue("review/source-tree")).toBeInTheDocument();
+    expect(await screen.findByText("backup/feature/source-tree")).toBeInTheDocument();
     expect(screen.getByDisplayValue("backup")).toBeInTheDocument();
     expect(tauriApi.previewPush).toHaveBeenLastCalledWith({
       repositoryPath: "/repo",
       remote: "backup",
       localBranch: "feature/source-tree",
-      targetBranch: "review/source-tree",
+      targetBranch: "feature/source-tree",
+      tagMode: "none",
+      forceWithLease: false,
+    });
+  });
+
+  it("allows an advanced custom target branch when explicitly enabled", async () => {
+    const user = userEvent.setup();
+    render(<PushDialog repository={repository} onClose={vi.fn()} onPushed={vi.fn()} />);
+
+    await user.click(screen.getByLabelText("Use a different remote branch name"));
+    await user.clear(screen.getByLabelText("Remote branch"));
+    await user.type(screen.getByLabelText("Remote branch"), "release/main");
+
+    expect(await screen.findByText("git push origin main:release/main")).toBeInTheDocument();
+    expect(tauriApi.previewPush).toHaveBeenLastCalledWith({
+      repositoryPath: "/repo",
+      remote: "origin",
+      localBranch: "main",
+      targetBranch: "release/main",
       tagMode: "none",
       forceWithLease: false,
     });

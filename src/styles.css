@@ -660,6 +660,74 @@ button:not(.commit-row):disabled {
   align-items: center;
 }
 
+.push-destination {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  padding: 9px;
+}
+
+.push-destination span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.push-destination strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.push-progress-panel {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-md);
+  background: var(--bg-active);
+  color: var(--text-primary);
+  padding: 28px 18px;
+  text-align: center;
+}
+
+.push-progress-panel h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.push-progress-panel p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.push-progress-panel .command-preview {
+  width: 100%;
+  text-align: left;
+}
+
+.push-progress-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: push-progress-spin 0.8s linear infinite;
+}
+
+@keyframes push-progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .command-preview,
 .push-output {
   margin: 0;
