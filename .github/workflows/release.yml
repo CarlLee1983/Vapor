@@ -72,7 +72,17 @@ jobs:
           # tag 觸發時才建立 Release;手動執行只編譯不發布。
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('Vapor {0}', github.ref_name) || '' }}
-          releaseBody: '請見 CHANGELOG 或 commit 紀錄。'
+          releaseBody: |
+            ### 下載
+            - Apple Silicon(M 系列):`Vapor_*_aarch64.dmg`
+            - Intel:`Vapor_*_x64.dmg`
+
+            ### 首次開啟(macOS)
+            Vapor 未經 Apple 公證,第一次開啟會跳「無法驗證開發者」。放行一次即可:
+            1. 雙擊 Vapor,跳出提醒先按「完成」
+            2. 系統設定 → 隱私權與安全性 → 往下找到「已封鎖 Vapor」→ 按「仍要打開」
+
+            偏好終端機:`xattr -dr com.apple.quarantine /Applications/Vapor.app`
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

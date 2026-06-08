@@ -22,6 +22,30 @@ Vapor 用 [Tauri](https://tauri.app/) 打造，以較低的記憶體佔用提供
 > 合併衝突編輯器與分支建立 UI。詳見
 > [`docs/superpowers/specs`](docs/superpowers/specs)。
 
+## 下載與安裝(macOS)
+
+到 [Releases 頁面](https://github.com/CarlLee1983/Vapor/releases) 下載對應晶片的 `.dmg`:
+
+- Apple Silicon(M 系列):`Vapor_x.y.z_aarch64.dmg`
+- Intel:`Vapor_x.y.z_x64.dmg`
+
+開啟 `.dmg` 後把 **Vapor** 拖進「應用程式」資料夾即可。
+
+### 首次開啟
+
+Vapor 目前**未經 Apple 公證**(這是個免費分享的專案),因此 macOS 第一次開啟會跳出
+「無法驗證開發者」的提醒。這是正常的,放行一次後就再也不會出現:
+
+1. 雙擊 **Vapor**,跳出提醒時先按「**完成**」
+2. 開啟「**系統設定 → 隱私權與安全性**」
+3. 往下捲動,會看到「已封鎖 Vapor」→ 按「**仍要打開**」
+4. 再確認一次即可正常啟動
+
+> 偏好終端機的話,也可以直接移除隔離標記:
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/Vapor.app
+> ```
+
 ## 技術棧
 
 | 層級     | 技術                                            |
