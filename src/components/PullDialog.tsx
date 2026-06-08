@@ -36,13 +36,18 @@ function pullDefaults(repository: RepositoryState, branchName: string) {
   };
 }
 
+interface PreviewState {
+  key: string;
+  preview: GitCommandPreview;
+}
+
 export function PullDialog({ repository, onClose, onPulled }: Props) {
   const currentBranch = repository.currentBranch ?? repository.branches.find((branch) => branch.isCurrent)?.name ?? "";
   const initialDefaults = pullDefaults(repository, currentBranch);
   const [remote, setRemote] = useState(initialDefaults.remote);
   const [remoteBranch, setRemoteBranch] = useState(initialDefaults.remoteBranch);
   const [rebase, setRebase] = useState(false);
-  const [preview, setPreview] = useState<GitCommandPreview | null>(null);
+  const [previewState, setPreviewState] = useState<PreviewState | null>(null);
   const [output, setOutput] = useState("");
   const [error, setError] = useState<GitError | null>(null);
   const [isPulling, setIsPulling] = useState(false);
@@ -57,6 +62,8 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
     }),
     [rebase, remote, remoteBranch, repository.root],
   );
+  const requestKey = JSON.stringify(request);
+  const activePreview = previewState?.key === requestKey ? previewState.preview : null;
   const selectedRemote = repository.remotes.find((item) => item.name === remote);
   const fetchUrl = selectedRemote?.fetchUrl ?? selectedRemote?.pushUrl ?? "";
   const source = `${remote}/${remoteBranch}`;
@@ -72,42 +79,41 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
         <h3>Pull in progress</h3>
         <p>Pulling from {source}...</p>
       </div>
-      <pre className="command-preview">{preview?.display ?? "Starting pull..."}</pre>
+      <pre className="command-preview">{activePreview?.display ?? "Starting pull..."}</pre>
     </div>
   ) : null;
 
   useEffect(() => {
     let isCancelled = false;
     if (!hasRemotes || !request.remote || !request.remoteBranch) {
-      setPreview(null);
+      setPreviewState(null);
       setError(null);
       return;
     }
-    setPreview(null);
     previewPull(request)
       .then((value) => {
         if (!isCancelled) {
-          setPreview(value);
+          setPreviewState({ key: requestKey, preview: value });
           setError(null);
         }
       })
       .catch((value) => {
         if (!isCancelled) {
-          setPreview(null);
+          setPreviewState(null);
           setError(value as GitError);
         }
       });
     return () => {
       isCancelled = true;
     };
-  }, [hasRemotes, request]);
+  }, [hasRemotes, request, requestKey]);
 
   useEffect(() => {
     dialogRef.current?.focus();
   }, []);
 
   async function onSubmit() {
-    if (!preview || !hasRemotes) {
+    if (!activePreview || !hasRemotes) {
       return;
     }
     flushSync(() => {
@@ -184,7 +190,9 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
               <input checked={rebase} type="checkbox" onChange={(event) => setRebase(event.target.checked)} />
               Rebase instead of merge
             </label>
-            <pre className="command-preview">{preview?.display ?? "Complete the pull fields to preview the command."}</pre>
+            <pre className="command-preview">
+              {activePreview?.display ?? "Complete the pull fields to preview the command."}
+            </pre>
             {error ? (
               <div className="error-banner" role="alert">
                 {error.message} {error.hint}
@@ -196,7 +204,7 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
               <button type="button" disabled={isPulling} onClick={onClose}>
                 Cancel
               </button>
-              <button type="button" disabled={!preview || !hasRemotes || isPulling} onClick={onSubmit}>
+              <button type="button" disabled={!activePreview || !hasRemotes || isPulling} onClick={onSubmit}>
                 {isPulling ? "Pulling..." : "Pull"}
               </button>
             </footer>
