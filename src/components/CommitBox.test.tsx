@@ -58,4 +58,22 @@ describe("CommitBox", () => {
     expect(props.onLoadLastMessage).toHaveBeenCalled();
     expect(await screen.findByDisplayValue("previous subject")).toBeInTheDocument();
   });
+
+  it("passes sign-off through to onCommit", async () => {
+    const user = userEvent.setup();
+    const props = setup();
+    await user.type(screen.getByLabelText(/commit message/i), "Add thing");
+    await user.click(screen.getByRole("button", { name: /advanced/i }));
+    await user.click(screen.getByLabelText(/sign-off/i));
+    await user.click(screen.getByRole("button", { name: /^commit$/i }));
+    expect(props.onCommit).toHaveBeenCalledWith({ message: "Add thing", amend: false, signOff: true });
+  });
+
+  it("shows an error alert when the commit fails", async () => {
+    const user = userEvent.setup();
+    setup({ onCommit: vi.fn(async () => { throw new Error("nothing to commit"); }) });
+    await user.type(screen.getByLabelText(/commit message/i), "Add thing");
+    await user.click(screen.getByRole("button", { name: /^commit$/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("nothing to commit");
+  });
 });

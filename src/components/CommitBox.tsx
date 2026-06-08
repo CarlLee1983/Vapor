@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import type { RepositoryState } from "../types/git";
 
 interface CommitInput {
@@ -29,20 +29,16 @@ export function CommitBox({
   const [preview, setPreview] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const previewGenRef = useRef(0);
 
-  // 切換 amend 時:勾選且訊息為空 → 預填上一筆訊息。
-  useEffect(() => {
-    if (amend && message.trim() === "") {
-      void onLoadLastMessage().then((last) => setMessage(last));
-    }
-    // 僅在 amend 切換時觸發。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amend]);
-
+  // amend with an empty message is allowed: the backend commits with --amend --no-edit (reuse prior message).
   const trimmed = message.trim();
   const canCommit = !isCommitting && (amend || (trimmed !== "" && hasStagedChanges));
 
   const refreshPreview = async (next: Partial<CommitInput> = {}) => {
+    // `next` carries the just-changed field because React state updates are async;
+    // closure values of amend/signOff are from the previous render.
+    const gen = ++previewGenRef.current;
     const input: CommitInput = { message, amend, signOff, ...next };
     if (input.message.trim() === "" && !input.amend) {
       setPreview("");
@@ -50,9 +46,9 @@ export function CommitBox({
     }
     try {
       const result = await onPreview(input);
-      setPreview(result.display);
+      if (gen === previewGenRef.current) setPreview(result.display);
     } catch {
-      setPreview("");
+      if (gen === previewGenRef.current) setPreview("");
     }
   };
 
@@ -107,11 +103,14 @@ export function CommitBox({
           <label className="commit-box__option commit-box__option--amend">
             <input
               type="checkbox"
-              aria-label="Amend previous commit"
               checked={amend}
               onChange={(event) => {
-                setAmend(event.target.checked);
-                void refreshPreview({ amend: event.target.checked });
+                const checked = event.target.checked;
+                setAmend(checked);
+                if (checked && message.trim() === "") {
+                  void onLoadLastMessage().then(setMessage);
+                }
+                void refreshPreview({ amend: checked });
               }}
             />
             Amend previous commit
