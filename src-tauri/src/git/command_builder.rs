@@ -1,6 +1,6 @@
 use super::models::{
-    AddRemoteRequest, GitCommandPreview, GitError, GitErrorCode, PullRequest, PushRequest,
-    RemoveRemoteRequest, SetRemoteUrlRequest, TagPushMode,
+    AddRemoteRequest, CommitRequest, GitCommandPreview, GitError, GitErrorCode, PullRequest,
+    PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest, TagPushMode,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -132,6 +132,81 @@ pub fn remove_remote_preview(request: &RemoveRemoteRequest) -> Result<GitCommand
         "remove".to_string(),
         request.name.clone(),
     ]))
+}
+
+fn require_paths(paths: &[String]) -> Result<(), GitError> {
+    if paths.is_empty() {
+        return Err(GitError {
+            code: GitErrorCode::CommandFailed,
+            message: "No files selected.".to_string(),
+            hint: "Select at least one file to stage or unstage.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    if paths.iter().any(|path| path.is_empty()) {
+        return Err(GitError {
+            code: GitErrorCode::CommandFailed,
+            message: "One or more file paths are empty.".to_string(),
+            hint: "All selected paths must be non-empty strings.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    Ok(())
+}
+
+// Stage/unstage are fire-and-forget; they return raw args (no preview dialog), unlike *_preview builders.
+pub fn stage_args(paths: &[String]) -> Result<Vec<String>, GitError> {
+    require_paths(paths)?;
+    let mut args = vec!["add".to_string(), "--".to_string()];
+    args.extend(paths.iter().cloned());
+    Ok(args)
+}
+
+pub fn unstage_args(paths: &[String], has_head: bool) -> Result<Vec<String>, GitError> {
+    require_paths(paths)?;
+    let mut args = if has_head {
+        vec!["reset".to_string(), "--".to_string()]
+    } else {
+        // 未誕生分支尚無 HEAD,git reset 會失敗;改以 rm --cached 從 index 移除。
+        vec!["rm".to_string(), "--cached".to_string(), "--".to_string()]
+    };
+    args.extend(paths.iter().cloned());
+    Ok(args)
+}
+
+pub fn commit_preview(request: &CommitRequest) -> Result<GitCommandPreview, GitError> {
+    let trimmed = request.message.trim();
+    if trimmed.is_empty() && !request.amend {
+        return Err(GitError {
+            code: GitErrorCode::CommandFailed,
+            message: "Commit message is empty.".to_string(),
+            hint: "Enter a commit message before committing.".to_string(),
+            stderr: String::new(),
+        });
+    }
+
+    let mut args = vec!["commit".to_string()];
+    if !trimmed.is_empty() {
+        args.push("-m".to_string());
+        // 訊息為單一參數,內含換行 / 引號 / 前導 dash 皆安全。
+        // Push the original (untrimmed) message; git's default commit cleanup strips trailing whitespace.
+        args.push(request.message.clone());
+    }
+    if request.amend {
+        args.push("--amend".to_string());
+        if trimmed.is_empty() {
+            // 沿用上一筆訊息,且不開啟編輯器。
+            args.push("--no-edit".to_string());
+        }
+    }
+    if request.sign_off {
+        args.push("--signoff".to_string());
+    }
+    Ok(preview(args))
+}
+
+pub fn last_commit_message_args() -> Vec<String> {
+    vec!["log".to_string(), "-1".to_string(), "--pretty=%B".to_string()]
 }
 
 #[cfg(test)]
@@ -279,5 +354,93 @@ mod tests {
         };
         let error = add_remote_preview(&request).expect_err("invalid url");
         assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_stage_args_with_paths_after_separator() {
+        let args = stage_args(&["src/app.rs".to_string(), "README.md".to_string()]).expect("args");
+        assert_eq!(args, vec!["add", "--", "src/app.rs", "README.md"]);
+    }
+
+    #[test]
+    fn rejects_empty_stage_paths() {
+        let error = stage_args(&[]).expect_err("empty");
+        assert_eq!(error.code, GitErrorCode::CommandFailed);
+    }
+
+    #[test]
+    fn rejects_stage_paths_containing_empty_string() {
+        let error = stage_args(&["src/app.rs".to_string(), String::new()]).expect_err("empty path");
+        assert_eq!(error.code, GitErrorCode::CommandFailed);
+    }
+
+    #[test]
+    fn builds_unstage_reset_args_when_head_present() {
+        let args = unstage_args(&["src/app.rs".to_string()], true).expect("args");
+        assert_eq!(args, vec!["reset", "--", "src/app.rs"]);
+    }
+
+    #[test]
+    fn builds_unstage_rm_cached_args_on_unborn_branch() {
+        let args = unstage_args(&["src/app.rs".to_string()], false).expect("args");
+        assert_eq!(args, vec!["rm", "--cached", "--", "src/app.rs"]);
+    }
+
+    fn commit_request() -> CommitRequest {
+        CommitRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            message: "Add feature".to_string(),
+            amend: false,
+            sign_off: false,
+        }
+    }
+
+    #[test]
+    fn builds_commit_args_with_message_as_single_param() {
+        let preview = commit_preview(&commit_request()).expect("preview");
+        assert_eq!(preview.args, vec!["commit", "-m", "Add feature"]);
+    }
+
+    #[test]
+    fn appends_amend_and_sign_off_flags() {
+        let mut request = commit_request();
+        request.amend = true;
+        request.sign_off = true;
+        let preview = commit_preview(&request).expect("preview");
+        assert_eq!(
+            preview.args,
+            vec!["commit", "-m", "Add feature", "--amend", "--signoff"]
+        );
+    }
+
+    #[test]
+    fn keeps_message_with_leading_dash_as_one_argument() {
+        let mut request = commit_request();
+        request.message = "-rf dangerous".to_string();
+        let preview = commit_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["commit", "-m", "-rf dangerous"]);
+    }
+
+    #[test]
+    fn rejects_empty_commit_message_without_amend() {
+        let mut request = commit_request();
+        request.message = "   ".to_string();
+        let error = commit_preview(&request).expect_err("empty message");
+        assert_eq!(error.code, GitErrorCode::CommandFailed);
+    }
+
+    #[test]
+    fn amends_without_editor_when_message_empty() {
+        let mut request = commit_request();
+        request.message = String::new();
+        request.amend = true;
+        // 空訊息 amend 必須加 --no-edit,否則 git 會開啟編輯器並卡住子行程。
+        let preview = commit_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["commit", "--amend", "--no-edit"]);
+    }
+
+    #[test]
+    fn builds_last_commit_message_args() {
+        assert_eq!(last_commit_message_args(), vec!["log", "-1", "--pretty=%B"]);
     }
 }

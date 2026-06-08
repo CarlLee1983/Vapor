@@ -1,6 +1,14 @@
 import { useCallback, useRef, useState } from "react";
-import { getCommitLog, getDiff, getRepositoryState } from "../lib/tauriApi";
-import type { CommitSummary, FileStatus, GitError, RepositoryState } from "../types/git";
+import {
+  createCommit,
+  getCommitLog,
+  getDiff,
+  getLastCommitMessage,
+  getRepositoryState,
+  stageFiles as stageFilesApi,
+  unstageFiles as unstageFilesApi,
+} from "../lib/tauriApi";
+import type { CommitResponse, CommitSummary, FileStatus, GitError, RepositoryState } from "../types/git";
 
 export interface RepositoryViewState {
   repositoryPath: string | null;
@@ -140,11 +148,73 @@ export function useRepository() {
     }
   }, []);
 
+  const stageFiles = useCallback(
+    async (paths: string[]) => {
+      const path = repositoryPathRef.current;
+      if (!path || paths.length === 0) {
+        return;
+      }
+      try {
+        await stageFilesApi({ repositoryPath: path, paths });
+        await refreshRepository();
+      } catch (error) {
+        setState((current) => ({ ...current, isLoading: false, error: error as GitError }));
+      }
+    },
+    [refreshRepository],
+  );
+
+  const unstageFiles = useCallback(
+    async (paths: string[]) => {
+      const path = repositoryPathRef.current;
+      if (!path || paths.length === 0) {
+        return;
+      }
+      try {
+        await unstageFilesApi({ repositoryPath: path, paths });
+        await refreshRepository();
+      } catch (error) {
+        setState((current) => ({ ...current, isLoading: false, error: error as GitError }));
+      }
+    },
+    [refreshRepository],
+  );
+
+  /**
+   * Creates a commit and refreshes repository state.
+   * Throws on failure — callers must handle the rejected promise.
+   * Unlike stageFiles/unstageFiles, errors are NOT written to hook state.
+   */
+  const commit = useCallback(
+    async (input: { message: string; amend: boolean; signOff: boolean }): Promise<CommitResponse> => {
+      const path = repositoryPathRef.current;
+      if (!path) {
+        throw new Error("No repository open");
+      }
+      const response = await createCommit({ repositoryPath: path, ...input });
+      await refreshRepository();
+      return response;
+    },
+    [refreshRepository],
+  );
+
+  const loadLastCommitMessage = useCallback(async (): Promise<string> => {
+    const path = repositoryPathRef.current;
+    if (!path) {
+      return "";
+    }
+    return getLastCommitMessage(path);
+  }, []);
+
   return {
     ...state,
     loadRepository,
     refreshRepository,
     selectCommit,
     selectFile,
+    stageFiles,
+    unstageFiles,
+    commit,
+    loadLastCommitMessage,
   };
 }

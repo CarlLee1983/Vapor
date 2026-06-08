@@ -138,4 +138,69 @@ impl<R: GitRunner> GitService<R> {
             stderr: output.stderr,
         })
     }
+
+    pub fn stage(
+        &self,
+        request: &super::models::StageRequest,
+    ) -> Result<super::models::StageResponse, GitError> {
+        let args = super::command_builder::stage_args(&request.paths)?;
+        let output = self.runner.run(&request.repository_path, &args)?;
+        Ok(super::models::StageResponse {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn unstage(
+        &self,
+        request: &super::models::StageRequest,
+    ) -> Result<super::models::StageResponse, GitError> {
+        let probe = self.runner.run(
+            &request.repository_path,
+            &[
+                "rev-parse".to_string(),
+                "--verify".to_string(),
+                "HEAD".to_string(),
+            ],
+        );
+        let has_head = match probe {
+            Ok(_) => true,
+            // git exits 128 with no specific classification when HEAD does not exist yet (unborn branch).
+            Err(ref error) if error.code == super::models::GitErrorCode::CommandFailed => false,
+            // Any other error (missing repo path, git not on PATH, not a repository, …) is a real failure.
+            Err(error) => return Err(error),
+        };
+        let args = super::command_builder::unstage_args(&request.paths, has_head)?;
+        let output = self.runner.run(&request.repository_path, &args)?;
+        Ok(super::models::StageResponse {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn create_commit(
+        &self,
+        request: &super::models::CommitRequest,
+    ) -> Result<super::models::CommitResponse, GitError> {
+        let preview = super::command_builder::commit_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::CommitResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn commit_preview(
+        &self,
+        request: &super::models::CommitRequest,
+    ) -> Result<super::models::GitCommandPreview, GitError> {
+        super::command_builder::commit_preview(request)
+    }
+
+    pub fn last_commit_message(&self, path: &std::path::Path) -> Result<String, GitError> {
+        let args = super::command_builder::last_commit_message_args();
+        let output = self.runner.run(path, &args)?;
+        Ok(output.stdout.trim_end().to_string())
+    }
 }

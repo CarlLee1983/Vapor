@@ -12,6 +12,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { WorkingTreePanel } from "./components/WorkingTreePanel";
 import { useRepository } from "./hooks/useRepository";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
+import { previewCommit } from "./lib/tauriApi";
 import "./styles.css";
 
 export const AUTO_REFRESH_INTERVAL_MS = 5000;
@@ -148,6 +149,13 @@ export default function App() {
               repository={repoView.repository}
               selectedFile={repoView.selectedFile}
               onSelectFile={repoView.selectFile}
+              onStage={repoView.stageFiles}
+              onUnstage={repoView.unstageFiles}
+              onCommit={repoView.commit}
+              onPreviewCommit={(input) =>
+                previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })
+              }
+              onLoadLastMessage={repoView.loadLastCommitMessage}
             />
             <DiffViewer
               diff={repoView.diff}

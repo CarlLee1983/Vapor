@@ -2,8 +2,8 @@ use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 use vapor_lib::git::models::{
-    AddRemoteRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest,
-    TagPushMode,
+    AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest,
+    SetRemoteUrlRequest, StageRequest, TagPushMode,
 };
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
@@ -202,4 +202,114 @@ fn adds_updates_and_removes_a_remote() {
         .remotes
         .iter()
         .all(|remote| remote.name != "backup"));
+}
+
+#[test]
+fn stages_commits_and_unstages_files() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("feature.txt"), "alpha\n").expect("write file");
+
+    // 暫存後 index 應出現該檔。
+    service
+        .stage(&StageRequest {
+            repository_path: work.path().to_path_buf(),
+            paths: vec!["feature.txt".to_string()],
+        })
+        .expect("stage");
+    let staged = git_stdout(work.path(), &["diff", "--cached", "--name-only"]);
+    assert!(staged.contains("feature.txt"), "expected staged file, got {staged}");
+
+    // 建立提交後 log 應多一筆。
+    let response = service
+        .create_commit(&CommitRequest {
+            repository_path: work.path().to_path_buf(),
+            message: "Add feature file".to_string(),
+            amend: false,
+            sign_off: false,
+        })
+        .expect("commit");
+    assert_eq!(response.preview.args[0], "commit");
+    let subject = git_stdout(work.path(), &["log", "-1", "--pretty=%s"]);
+    assert_eq!(subject, "Add feature file");
+
+    // 再改一個既有檔並暫存,然後取消暫存,index 應恢復乾淨。
+    std::fs::write(work.path().join("README.md"), "changed\n").expect("write readme");
+    service
+        .stage(&StageRequest {
+            repository_path: work.path().to_path_buf(),
+            paths: vec!["README.md".to_string()],
+        })
+        .expect("stage readme");
+    service
+        .unstage(&StageRequest {
+            repository_path: work.path().to_path_buf(),
+            paths: vec!["README.md".to_string()],
+        })
+        .expect("unstage readme");
+    let cached = git_stdout(work.path(), &["diff", "--cached", "--name-only"]);
+    assert!(!cached.contains("README.md"), "expected clean index, got {cached}");
+}
+
+#[test]
+fn reads_last_commit_message() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+    let message = service.last_commit_message(work.path()).expect("message");
+    assert_eq!(message, "Initial commit");
+}
+
+#[test]
+fn amends_last_commit_without_growing_log() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    let before = service.commit_log(work.path(), 20).expect("log before").len();
+
+    std::fs::write(work.path().join("README.md"), "changed\n").expect("write readme");
+    service
+        .stage(&StageRequest {
+            repository_path: work.path().to_path_buf(),
+            paths: vec!["README.md".to_string()],
+        })
+        .expect("stage");
+
+    // Empty message + amend exercises the --no-edit safeguard against a real git process;
+    // if it ever dropped into an editor, this call would hang instead of returning.
+    service
+        .create_commit(&CommitRequest {
+            repository_path: work.path().to_path_buf(),
+            message: String::new(),
+            amend: true,
+            sign_off: false,
+        })
+        .expect("amend must not hang");
+
+    let after = service.commit_log(work.path(), 20).expect("log after").len();
+    assert_eq!(after, before, "amend must not add a new commit");
+
+    // The amended commit keeps the original subject (--no-edit reuses it).
+    let subject = git_stdout(work.path(), &["log", "-1", "--pretty=%s"]);
+    assert_eq!(subject, "Initial commit");
+}
+
+#[test]
+fn amends_last_commit_message() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    service
+        .create_commit(&CommitRequest {
+            repository_path: work.path().to_path_buf(),
+            message: "Reworded initial commit".to_string(),
+            amend: true,
+            sign_off: false,
+        })
+        .expect("amend reword");
+
+    let subject = git_stdout(work.path(), &["log", "-1", "--pretty=%s"]);
+    assert_eq!(subject, "Reworded initial commit");
+    let count = service.commit_log(work.path(), 20).expect("log").len();
+    assert_eq!(count, 1, "amend reword must not add a commit");
 }

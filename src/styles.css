@@ -263,13 +263,6 @@ button:not(.commit-row):disabled {
 
 .file-row {
   width: 100%;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  text-align: left;
-  cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -910,4 +903,89 @@ button:not(.commit-row):disabled {
 .copied-text {
   color: var(--accent-green);
   font-weight: 600;
+}
+
+.working-tree__group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.file-row__select {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+}
+
+.file-row__action {
+  opacity: 0;
+  border: none;
+  background: none;
+  color: var(--accent-blue);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 0.4rem;
+  line-height: 1;
+}
+
+.file-row:hover .file-row__action {
+  opacity: 1;
+}
+
+.commit-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.2));
+}
+
+.commit-box__message {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+}
+
+.commit-box__advanced-toggle {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.75;
+  padding: 0;
+}
+
+.commit-box__option--amend {
+  color: var(--accent-danger, #c0392b);
+}
+
+.commit-box__preview {
+  display: block;
+  font-size: 0.78rem;
+  opacity: 0.8;
+  word-break: break-all;
+}
+
+.commit-box__submit {
+  align-self: flex-end;
+}
+
+.commit-box__error {
+  color: var(--accent-danger, #c0392b);
+  font-size: 0.8rem;
 }
