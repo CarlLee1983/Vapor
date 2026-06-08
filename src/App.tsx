@@ -28,6 +28,7 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() => {
     return (localStorage.getItem("vapor-theme") as ThemeMode) || "system";
   });
+  const [viewMode, setViewMode] = useState<"history" | "status">("history");
 
   useEffect(() => {
     const root = document.documentElement;
@@ -100,7 +101,11 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <RepositorySidebar repository={repoView.repository} />
+      <RepositorySidebar
+        repository={repoView.repository}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
       <section className="workspace" aria-label="Git workbench">
         <header className="toolbar">
           <div>

@@ -2,6 +2,8 @@ import type { RepositoryState } from "../types/git";
 
 interface Props {
   repository: RepositoryState | null;
+  viewMode: "history" | "status";
+  onViewModeChange: (mode: "history" | "status") => void;
 }
 
 const FolderIcon = () => (
@@ -80,8 +82,12 @@ const VaporLogo = () => (
   </svg>
 );
 
-export function RepositorySidebar({ repository }: Props) {
+export function RepositorySidebar({ repository, viewMode, onViewModeChange }: Props) {
   const repoName = repository ? (repository.root.split(/[/\\]/).pop() || repository.root) : null;
+
+  // Temporarily reference props to prevent TS unused parameter warnings
+  void viewMode;
+  void onViewModeChange;
 
   return (
     <aside className="sidebar" aria-label="Repositories">
