@@ -143,9 +143,18 @@ fn require_paths(paths: &[String]) -> Result<(), GitError> {
             stderr: String::new(),
         });
     }
+    if paths.iter().any(|path| path.is_empty()) {
+        return Err(GitError {
+            code: GitErrorCode::CommandFailed,
+            message: "One or more file paths are empty.".to_string(),
+            hint: "All selected paths must be non-empty strings.".to_string(),
+            stderr: String::new(),
+        });
+    }
     Ok(())
 }
 
+// Stage/unstage are fire-and-forget; they return raw args (no preview dialog), unlike *_preview builders.
 pub fn stage_args(paths: &[String]) -> Result<Vec<String>, GitError> {
     require_paths(paths)?;
     let mut args = vec!["add".to_string(), "--".to_string()];
@@ -180,6 +189,7 @@ pub fn commit_preview(request: &CommitRequest) -> Result<GitCommandPreview, GitE
     if !trimmed.is_empty() {
         args.push("-m".to_string());
         // 訊息為單一參數,內含換行 / 引號 / 前導 dash 皆安全。
+        // Push the original (untrimmed) message; git's default commit cleanup strips trailing whitespace.
         args.push(request.message.clone());
     }
     if request.amend {
@@ -355,6 +365,12 @@ mod tests {
     #[test]
     fn rejects_empty_stage_paths() {
         let error = stage_args(&[]).expect_err("empty");
+        assert_eq!(error.code, GitErrorCode::CommandFailed);
+    }
+
+    #[test]
+    fn rejects_stage_paths_containing_empty_string() {
+        let error = stage_args(&["src/app.rs".to_string(), String::new()]).expect_err("empty path");
         assert_eq!(error.code, GitErrorCode::CommandFailed);
     }
 

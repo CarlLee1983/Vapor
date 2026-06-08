@@ -190,6 +190,7 @@ pub struct StageRequest {
     pub paths: Vec<String>,
 }
 
+/// Stage/unstage are fire-and-forget; no preview field is needed.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct StageResponse {
