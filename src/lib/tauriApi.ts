@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AddRemoteRequest,
+  CommitRequest,
+  CommitResponse,
   CommitSummary,
   GitCommandPreview,
   PullRequest,
@@ -11,6 +13,8 @@ import type {
   RemoveRemoteRequest,
   RepositoryState,
   SetRemoteUrlRequest,
+  StageRequest,
+  StageResponse,
 } from "../types/git";
 
 export async function getRepositoryState(path: string): Promise<RepositoryState> {
@@ -54,4 +58,24 @@ export async function setRemoteUrl(request: SetRemoteUrlRequest): Promise<Remote
 
 export async function removeRemote(request: RemoveRemoteRequest): Promise<RemoteMutationResponse> {
   return invoke<RemoteMutationResponse>("remove_remote", { request });
+}
+
+export async function stageFiles(request: StageRequest): Promise<StageResponse> {
+  return invoke<StageResponse>("stage_files", { request });
+}
+
+export async function unstageFiles(request: StageRequest): Promise<StageResponse> {
+  return invoke<StageResponse>("unstage_files", { request });
+}
+
+export async function previewCommit(request: CommitRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_commit", { request });
+}
+
+export async function createCommit(request: CommitRequest): Promise<CommitResponse> {
+  return invoke<CommitResponse>("create_commit", { request });
+}
+
+export async function getLastCommitMessage(repositoryPath: string): Promise<string> {
+  return invoke<string>("get_last_commit_message", { request: { path: repositoryPath } });
 }

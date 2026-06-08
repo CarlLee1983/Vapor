@@ -114,3 +114,26 @@ export interface RemoteMutationResponse {
   stdout: string;
   stderr: string;
 }
+
+export interface StageRequest {
+  repositoryPath: string;
+  paths: string[];
+}
+
+export interface StageResponse {
+  stdout: string;
+  stderr: string;
+}
+
+export interface CommitRequest {
+  repositoryPath: string;
+  message: string;
+  amend: boolean;
+  signOff: boolean;
+}
+
+export interface CommitResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}

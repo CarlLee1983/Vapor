@@ -2,17 +2,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import {
   addRemote,
+  createCommit,
   getCommitLog,
   getDiff,
+  getLastCommitMessage,
   getRepositoryState,
+  previewCommit,
   previewPull,
   previewPush,
   pullBranch,
   pushBranch,
   removeRemote,
   setRemoteUrl,
+  stageFiles,
+  unstageFiles,
 } from "./tauriApi";
-import type { AddRemoteRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest } from "../types/git";
+import type { AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest } from "../types/git";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -128,5 +133,42 @@ describe("tauriApi", () => {
     invokeMock.mockResolvedValue({ preview: { program: "git", args: [], display: "" }, stdout: "", stderr: "" } as never);
     await removeRemote(request);
     expect(invokeMock).toHaveBeenCalledWith("remove_remote", { request });
+  });
+
+  it("stageFiles invokes stage_files with paths", async () => {
+    invokeMock.mockResolvedValue({ stdout: "", stderr: "" } as never);
+    await stageFiles({ repositoryPath: "/repo", paths: ["a.ts"] });
+    expect(invokeMock).toHaveBeenCalledWith("stage_files", {
+      request: { repositoryPath: "/repo", paths: ["a.ts"] },
+    });
+  });
+
+  it("unstageFiles invokes unstage_files with paths", async () => {
+    invokeMock.mockResolvedValue({ stdout: "", stderr: "" } as never);
+    await unstageFiles({ repositoryPath: "/repo", paths: ["a.ts"] });
+    expect(invokeMock).toHaveBeenCalledWith("unstage_files", {
+      request: { repositoryPath: "/repo", paths: ["a.ts"] },
+    });
+  });
+
+  it("previewCommit invokes preview_commit with the request", async () => {
+    invokeMock.mockResolvedValue({ program: "git", args: [], display: "" } as never);
+    const request: CommitRequest = { repositoryPath: "/repo", message: "m", amend: false, signOff: false };
+    await previewCommit(request);
+    expect(invokeMock).toHaveBeenCalledWith("preview_commit", { request });
+  });
+
+  it("createCommit invokes create_commit with the request", async () => {
+    invokeMock.mockResolvedValue({ preview: { program: "git", args: [], display: "" }, stdout: "", stderr: "" } as never);
+    const request: CommitRequest = { repositoryPath: "/repo", message: "m", amend: false, signOff: false };
+    await createCommit(request);
+    expect(invokeMock).toHaveBeenCalledWith("create_commit", { request });
+  });
+
+  it("getLastCommitMessage invokes get_last_commit_message with the path", async () => {
+    invokeMock.mockResolvedValue("previous message" as never);
+    const result = await getLastCommitMessage("/repo");
+    expect(invokeMock).toHaveBeenCalledWith("get_last_commit_message", { request: { path: "/repo" } });
+    expect(result).toBe("previous message");
   });
 });
