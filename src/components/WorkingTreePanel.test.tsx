@@ -48,8 +48,21 @@ describe("WorkingTreePanel", () => {
   it("stages a single unstaged file", async () => {
     const user = userEvent.setup();
     const props = setup();
-    await user.click(screen.getByRole("button", { name: /stage dirty.ts/i }));
+    await user.click(screen.getByRole("button", { name: "Stage dirty.ts" }));
     expect(props.onStage).toHaveBeenCalledWith(["dirty.ts"]);
+  });
+
+  it("marks both rows active when a partially-staged file is selected", () => {
+    const partial = { path: "partial.ts", indexStatus: "M", worktreeStatus: "M" };
+    setup({
+      repository: { ...baseRepo, workingTree: [partial] },
+      selectedFile: partial,
+    });
+    const rows = screen
+      .getAllByText("partial.ts")
+      .map((el) => el.closest(".file-row"));
+    expect(rows).toHaveLength(2);
+    rows.forEach((row) => expect(row).toHaveClass("active"));
   });
 
   it("unstages all staged files", async () => {
