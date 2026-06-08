@@ -49,6 +49,30 @@ pub fn install_target() -> (PathBuf, bool) {
     }
 }
 
+/// `vapor` wrapper 可能存在的預設候選位置。
+fn wrapper_candidates() -> Vec<PathBuf> {
+    let mut candidates = vec![PathBuf::from("/usr/local/bin/vapor")];
+    if let Some(home) = dirs::home_dir() {
+        candidates.push(home.join(".local/bin/vapor"));
+    }
+    candidates
+}
+
+/// 若任一候選 wrapper 存在且內容指向 `app_binary`,回傳 true。
+fn cli_installed_in(candidates: &[PathBuf], app_binary: &Path) -> bool {
+    let needle = app_binary.display().to_string();
+    candidates.iter().any(|path| {
+        fs::read_to_string(path)
+            .map(|contents| contents.contains(&needle))
+            .unwrap_or(false)
+    })
+}
+
+/// 檢查真實候選位置,回傳 vapor CLI 是否已安裝且指向目前 bundle。
+pub fn cli_installed(app_binary: &Path) -> bool {
+    cli_installed_in(&wrapper_candidates(), app_binary)
+}
+
 /// Write the wrapper script for `app_binary` to the chosen target and make
 /// it executable. Returns a user-facing message.
 pub fn install_cli(app_binary: &Path) -> Result<String, GitError> {
@@ -91,6 +115,39 @@ mod install_tests {
     fn install_target_returns_a_vapor_path() {
         let (target, _) = install_target();
         assert_eq!(target.file_name().and_then(|n| n.to_str()), Some("vapor"));
+    }
+}
+
+#[cfg(test)]
+mod status_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn installed_when_wrapper_references_binary() {
+        let dir = TempDir::new().expect("temp dir");
+        let wrapper = dir.path().join("vapor");
+        let binary = PathBuf::from("/Applications/Vapor.app/Contents/MacOS/vapor");
+        fs::write(&wrapper, wrapper_script(&binary)).expect("write wrapper");
+        assert!(cli_installed_in(&[wrapper], &binary));
+    }
+
+    #[test]
+    fn not_installed_when_wrapper_absent() {
+        let dir = TempDir::new().expect("temp dir");
+        let wrapper = dir.path().join("vapor"); // 不建立
+        let binary = PathBuf::from("/Applications/Vapor.app/Contents/MacOS/vapor");
+        assert!(!cli_installed_in(&[wrapper], &binary));
+    }
+
+    #[test]
+    fn not_installed_when_wrapper_points_elsewhere() {
+        let dir = TempDir::new().expect("temp dir");
+        let wrapper = dir.path().join("vapor");
+        let old = PathBuf::from("/old/path/vapor");
+        fs::write(&wrapper, wrapper_script(&old)).expect("write wrapper");
+        let current = PathBuf::from("/Applications/Vapor.app/Contents/MacOS/vapor");
+        assert!(!cli_installed_in(&[wrapper], &current));
     }
 }
 
