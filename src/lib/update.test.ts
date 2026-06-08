@@ -84,3 +84,13 @@ describe("openReleasePage", () => {
     expect(openUrl).toHaveBeenCalledWith("https://example.com");
   });
 });
+
+describe("copyBrewCommand", () => {
+  it("copyBrewCommand 寫入 brew 指令到剪貼簿", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const { copyBrewCommand } = await import("./update");
+    await copyBrewCommand();
+    expect(writeText).toHaveBeenCalledWith("brew upgrade --cask vapor");
+  });
+});

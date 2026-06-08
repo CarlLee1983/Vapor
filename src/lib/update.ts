@@ -30,6 +30,11 @@ export async function openReleasePage(url: string): Promise<void> {
   await openUrl(url);
 }
 
+/** 複製 brew 更新指令到剪貼簿。剪貼簿不可用時靜默失敗(指令文字仍顯示於橫幅)。 */
+export async function copyBrewCommand(): Promise<void> {
+  await navigator.clipboard.writeText(BREW_UPGRADE_COMMAND);
+}
+
 /**
  * 檢查是否有新版。有新版回傳 UpdateInfo;
  * 無新版或任何失敗(離線、rate-limit、解析錯誤)一律回傳 null,絕不拋錯。

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   BREW_UPGRADE_COMMAND,
   checkForUpdate,
+  copyBrewCommand,
   openReleasePage,
   type UpdateInfo,
 } from "../lib/update";
@@ -30,7 +31,7 @@ export function UpdateBanner() {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(BREW_UPGRADE_COMMAND);
+      await copyBrewCommand();
       setCopied(true);
     } catch {
       // 剪貼簿不可用時不阻斷;指令文字仍顯示於橫幅供手動複製

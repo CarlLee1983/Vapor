@@ -6,6 +6,7 @@ import type { UpdateInfo } from "../lib/update";
 
 const checkForUpdate = vi.fn();
 const openReleasePage = vi.fn();
+const copyBrewCommand = vi.fn();
 
 vi.mock("../lib/update", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/update")>();
@@ -13,10 +14,9 @@ vi.mock("../lib/update", async (importOriginal) => {
     ...actual,
     checkForUpdate: () => checkForUpdate(),
     openReleasePage: (url: string) => openReleasePage(url),
+    copyBrewCommand: () => copyBrewCommand(),
   };
 });
-
-const writeText = vi.fn().mockResolvedValue(undefined);
 
 const brewInfo: UpdateInfo = {
   currentVersion: "0.1.0",
@@ -29,8 +29,7 @@ const dmgInfo: UpdateInfo = { ...brewInfo, source: "dmg" };
 beforeEach(() => {
   checkForUpdate.mockReset().mockResolvedValue(null);
   openReleasePage.mockReset();
-  writeText.mockClear();
-  Object.assign(navigator, { clipboard: { writeText } });
+  copyBrewCommand.mockReset().mockResolvedValue(undefined);
 });
 
 describe("UpdateBanner", () => {
@@ -46,7 +45,7 @@ describe("UpdateBanner", () => {
     render(<UpdateBanner />);
     const copyButton = await screen.findByRole("button", { name: "複製更新指令" });
     await user.click(copyButton);
-    expect(writeText).toHaveBeenCalledWith("brew upgrade --cask vapor");
+    expect(copyBrewCommand).toHaveBeenCalled();
     expect(await screen.findByRole("button", { name: "已複製" })).toBeInTheDocument();
   });
 
