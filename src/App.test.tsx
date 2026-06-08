@@ -15,6 +15,7 @@ vi.mock("./lib/launch", () => ({
   pickRepositoryFolder: () => pickRepositoryFolder(),
   getLaunchPath: () => getLaunchPath(),
   installCli: vi.fn(),
+  cliStatus: () => Promise.resolve(true),
   onOpenRepo: (handler: (path: string) => void) => onOpenRepo(handler),
 }));
 

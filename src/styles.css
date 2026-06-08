@@ -550,6 +550,30 @@ button:not(.commit-row):disabled {
   white-space: pre-wrap;
 }
 
+.cli-banner {
+  margin: 12px 12px 0;
+  border: 1px solid var(--accent-blue);
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.cli-banner-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.cli-banner-error {
+  width: 100%;
+  color: var(--text-error);
+}
+
 .dialog-backdrop {
   position: fixed;
   inset: 0;
