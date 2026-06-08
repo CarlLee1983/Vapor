@@ -1,9 +1,9 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
-    AddRemoteRequest, CommitLogRequest, CommitSummary, DiffRequest, DiffResponse,
-    GitCommandPreview, GitError, PullRequest, PullResponse, PushRequest, PushResponse,
-    RemoteMutationResponse, RemoveRemoteRequest, RepositoryRequest, RepositoryState,
-    SetRemoteUrlRequest,
+    AddRemoteRequest, CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, DiffRequest,
+    DiffResponse, GitCommandPreview, GitError, PullRequest, PullResponse, PushRequest,
+    PushResponse, RemoteMutationResponse, RemoveRemoteRequest, RepositoryRequest, RepositoryState,
+    SetRemoteUrlRequest, StageRequest, StageResponse,
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
@@ -86,6 +86,38 @@ pub fn set_remote_url(request: SetRemoteUrlRequest) -> Result<RemoteMutationResp
 #[tauri::command]
 pub fn remove_remote(request: RemoveRemoteRequest) -> Result<RemoteMutationResponse, GitError> {
     GitService::new(SystemGitRunner).remove_remote(&request)
+}
+
+#[tauri::command]
+pub fn stage_files(request: StageRequest) -> Result<StageResponse, GitError> {
+    GitService::new(SystemGitRunner).stage(&request)
+}
+
+#[tauri::command]
+pub fn unstage_files(request: StageRequest) -> Result<StageResponse, GitError> {
+    GitService::new(SystemGitRunner).unstage(&request)
+}
+
+#[tauri::command]
+pub fn preview_commit(request: CommitRequest) -> Result<GitCommandPreview, GitError> {
+    GitService::new(SystemGitRunner).commit_preview(&request)
+}
+
+#[tauri::command]
+pub async fn create_commit(request: CommitRequest) -> Result<CommitResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).create_commit(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Commit task failed before Git completed.".to_string(),
+            hint: "Try committing again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub fn get_last_commit_message(request: RepositoryRequest) -> Result<String, GitError> {
+    GitService::new(SystemGitRunner).last_commit_message(&request.path)
 }
 
 #[tauri::command]
