@@ -134,3 +134,20 @@ pub struct PushResponse {
     pub stdout: String,
     pub stderr: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequest {
+    pub repository_path: PathBuf,
+    pub remote: String,
+    pub remote_branch: String,
+    pub rebase: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullResponse {
+    pub preview: GitCommandPreview,
+    pub stdout: String,
+    pub stderr: String,
+}

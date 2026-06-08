@@ -1,4 +1,6 @@
-use super::models::{GitCommandPreview, GitError, GitErrorCode, PushRequest, TagPushMode};
+use super::models::{
+    GitCommandPreview, GitError, GitErrorCode, PullRequest, PushRequest, TagPushMode,
+};
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
     let is_valid = !value.is_empty()
@@ -61,6 +63,23 @@ pub fn push_preview(request: &PushRequest) -> Result<GitCommandPreview, GitError
     Ok(preview(args))
 }
 
+pub fn pull_preview(request: &PullRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.remote, "remote")?;
+    validate_ref_part(&request.remote_branch, "remote branch")?;
+
+    let mut args = vec![
+        "pull".to_string(),
+        request.remote.clone(),
+        request.remote_branch.clone(),
+    ];
+
+    if request.rebase {
+        args.push("--rebase".to_string());
+    }
+
+    Ok(preview(args))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +128,37 @@ mod tests {
         request.force_with_lease = true;
         let preview = push_preview(&request).expect("preview");
         assert!(preview.args.contains(&"--force-with-lease".to_string()));
+    }
+
+    fn pull_request() -> PullRequest {
+        PullRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            remote: "origin".to_string(),
+            remote_branch: "main".to_string(),
+            rebase: false,
+        }
+    }
+
+    #[test]
+    fn builds_pull_args_without_rebase() {
+        let preview = pull_preview(&pull_request()).expect("preview");
+        assert_eq!(preview.args, vec!["pull", "origin", "main"]);
+        assert_eq!(preview.display, "git pull origin main");
+    }
+
+    #[test]
+    fn appends_rebase_flag_when_set() {
+        let mut request = pull_request();
+        request.rebase = true;
+        let preview = pull_preview(&request).expect("preview");
+        assert!(preview.args.contains(&"--rebase".to_string()));
+    }
+
+    #[test]
+    fn rejects_pull_ref_injection() {
+        let mut request = pull_request();
+        request.remote_branch = "main --tags".to_string();
+        let error = pull_preview(&request).expect_err("invalid ref");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
     }
 }
