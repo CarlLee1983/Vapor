@@ -1,5 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { CommitSummary, GitCommandPreview, PushRequest, PushResponse, RepositoryState } from "../types/git";
+import type {
+  AddRemoteRequest,
+  CommitSummary,
+  GitCommandPreview,
+  PullRequest,
+  PullResponse,
+  PushRequest,
+  PushResponse,
+  RemoteMutationResponse,
+  RemoveRemoteRequest,
+  RepositoryState,
+  SetRemoteUrlRequest,
+} from "../types/git";
 
 export async function getRepositoryState(path: string): Promise<RepositoryState> {
   return invoke<RepositoryState>("get_repository_state", { request: { path } });
@@ -22,4 +34,24 @@ export async function previewPush(request: PushRequest): Promise<GitCommandPrevi
 
 export async function pushBranch(request: PushRequest): Promise<PushResponse> {
   return invoke<PushResponse>("push_branch", { request });
+}
+
+export async function previewPull(request: PullRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_pull", { request });
+}
+
+export async function pullBranch(request: PullRequest): Promise<PullResponse> {
+  return invoke<PullResponse>("pull_branch", { request });
+}
+
+export async function addRemote(request: AddRemoteRequest): Promise<RemoteMutationResponse> {
+  return invoke<RemoteMutationResponse>("add_remote", { request });
+}
+
+export async function setRemoteUrl(request: SetRemoteUrlRequest): Promise<RemoteMutationResponse> {
+  return invoke<RemoteMutationResponse>("set_remote_url", { request });
+}
+
+export async function removeRemote(request: RemoveRemoteRequest): Promise<RemoteMutationResponse> {
+  return invoke<RemoteMutationResponse>("remove_remote", { request });
 }
