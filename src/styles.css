@@ -420,3 +420,51 @@ button:not(.commit-row):disabled {
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
 }
+
+/* Theme Toggle Segmented Control */
+.theme-toggle-group {
+  display: inline-flex;
+  background: var(--bg-active);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  gap: 2px;
+}
+
+.theme-toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: none;
+  outline: none;
+}
+
+.theme-toggle-item:hover {
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.theme-dark .theme-toggle-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.theme-toggle-item.active {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-toggle-item:active {
+  transform: scale(0.96);
+}
+
