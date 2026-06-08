@@ -1,13 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { useRepository } from "./useRepository";
 import * as tauriApi from "../lib/tauriApi";
-import type { CommitSummary, RepositoryState } from "../types/git";
+import type { CommitResponse, CommitSummary, RepositoryState } from "../types/git";
 
 vi.mock("../lib/tauriApi", () => ({
   getRepositoryState: vi.fn(),
   getCommitLog: vi.fn(),
   getDiff: vi.fn(),
+  stageFiles: vi.fn(),
+  unstageFiles: vi.fn(),
+  createCommit: vi.fn(),
+  getLastCommitMessage: vi.fn(),
 }));
 
 describe("useRepository", () => {
@@ -150,5 +154,73 @@ describe("useRepository", () => {
     expect(result.current.commits.map((item) => item.hash)).toEqual(["newer", "original"]);
     expect(result.current.selectedCommit?.hash).toBe("original");
     expect(result.current.selectedCommit?.subject).toBe("Updated original");
+  });
+});
+
+const emptyRepo: RepositoryState = {
+  root: "/repo",
+  currentBranch: "main",
+  ahead: 0,
+  behind: 0,
+  branches: [],
+  remotes: [],
+  workingTree: [],
+};
+
+describe("useRepository commit actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(tauriApi.getRepositoryState).mockResolvedValue(emptyRepo);
+    vi.mocked(tauriApi.getCommitLog).mockResolvedValue([]);
+    vi.mocked(tauriApi.stageFiles).mockResolvedValue({ stdout: "", stderr: "" });
+    vi.mocked(tauriApi.unstageFiles).mockResolvedValue({ stdout: "", stderr: "" });
+    vi.mocked(tauriApi.createCommit).mockResolvedValue({
+      preview: { program: "git", args: ["commit"], display: "git commit" },
+      stdout: "",
+      stderr: "",
+    });
+    vi.mocked(tauriApi.getLastCommitMessage).mockResolvedValue("prev");
+  });
+
+  it("stageFiles calls the API then refreshes", async () => {
+    const { result } = renderHook(() => useRepository());
+    await act(async () => {
+      await result.current.loadRepository("/repo");
+    });
+    await act(async () => {
+      await result.current.stageFiles(["a.ts"]);
+    });
+    expect(tauriApi.stageFiles).toHaveBeenCalledWith({ repositoryPath: "/repo", paths: ["a.ts"] });
+    await waitFor(() => expect(tauriApi.getRepositoryState).toHaveBeenCalledTimes(2));
+  });
+
+  it("commit calls createCommit then refreshes and returns the response", async () => {
+    const { result } = renderHook(() => useRepository());
+    await act(async () => {
+      await result.current.loadRepository("/repo");
+    });
+    let response: CommitResponse | undefined;
+    await act(async () => {
+      response = await result.current.commit({ message: "m", amend: false, signOff: false });
+    });
+    expect(tauriApi.createCommit).toHaveBeenCalledWith({
+      repositoryPath: "/repo",
+      message: "m",
+      amend: false,
+      signOff: false,
+    });
+    expect(response?.preview.args).toEqual(["commit"]);
+  });
+
+  it("loadLastCommitMessage returns the previous message", async () => {
+    const { result } = renderHook(() => useRepository());
+    await act(async () => {
+      await result.current.loadRepository("/repo");
+    });
+    let message = "";
+    await act(async () => {
+      message = await result.current.loadLastCommitMessage();
+    });
+    expect(message).toBe("prev");
   });
 });
