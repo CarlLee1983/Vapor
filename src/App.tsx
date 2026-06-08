@@ -95,7 +95,11 @@ export default function App() {
             onSelectCommit={repoView.selectCommit}
           />
           <div className="side-stack">
-            <WorkingTreePanel repository={repoView.repository} />
+            <WorkingTreePanel
+              repository={repoView.repository}
+              selectedFile={repoView.selectedFile}
+              onSelectFile={repoView.selectFile}
+            />
             <DiffViewer diff={repoView.diff} />
           </div>
         </div>

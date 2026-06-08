@@ -262,12 +262,34 @@ button:not(.commit-row):disabled {
 }
 
 .file-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
-  padding: 7px 0;
+  padding: 7px 8px;
   border-bottom: 1px solid var(--border-color-light);
   transition: var(--transition-smooth);
+  box-sizing: border-box;
+}
+
+.file-row:hover:not(.active) {
+  background: var(--bg-active);
+  border-radius: var(--radius-md);
+  opacity: 0.85;
+}
+
+.file-row.active {
+  background: var(--bg-active);
+  border-radius: var(--radius-md);
+  font-weight: 600;
 }
 
 .muted {
@@ -668,27 +690,32 @@ button:not(.commit-row):disabled {
   text-transform: capitalize;
 }
 
-.status-added {
+.status-added,
+.status-badge--added {
   background-color: var(--accent-green-bg);
   color: var(--accent-green-text);
 }
 
-.status-modified {
+.status-modified,
+.status-badge--modified {
   background-color: var(--accent-orange-bg);
   color: var(--accent-orange-text);
 }
 
-.status-deleted {
+.status-deleted,
+.status-badge--deleted {
   background-color: var(--accent-red-bg);
   color: var(--accent-red-text);
 }
 
-.status-untracked {
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green-text);
+.status-untracked,
+.status-badge--untracked {
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
 }
 
-.status-renamed {
+.status-renamed,
+.status-badge--renamed {
   background-color: var(--accent-blue-bg);
   color: var(--accent-blue-text);
 }
