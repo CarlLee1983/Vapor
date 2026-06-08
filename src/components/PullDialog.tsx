@@ -79,6 +79,7 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
     let isCancelled = false;
     if (!request.remote || !request.remoteBranch) {
       setPreview(null);
+      setError(null);
       return;
     }
     previewPull(request)
