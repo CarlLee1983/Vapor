@@ -145,45 +145,37 @@ export default function App() {
         ) : null}
         <div className="workbench-grid">
           {viewMode === "history" ? (
-            <>
-              <CommitList
-                commits={repoView.commits}
-                selectedCommit={repoView.selectedCommit}
-                onSelectCommit={repoView.selectCommit}
-              />
-              <DiffViewer
-                diff={repoView.diff}
-                title={
-                  repoView.selectedCommit
-                    ? `Commit: ${repoView.selectedCommit.hash.slice(0, 7)} · ${repoView.selectedCommit.author}`
-                    : undefined
-                }
-              />
-            </>
+            <CommitList
+              commits={repoView.commits}
+              selectedCommit={repoView.selectedCommit}
+              onSelectCommit={repoView.selectCommit}
+            />
           ) : (
-            <>
-              <WorkingTreePanel
-                repository={repoView.repository}
-                selectedFile={repoView.selectedFile}
-                onSelectFile={repoView.selectFile}
-                onStage={repoView.stageFiles}
-                onUnstage={repoView.unstageFiles}
-                onCommit={repoView.commit}
-                onPreviewCommit={(input) =>
-                  previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })
-                }
-                onLoadLastMessage={repoView.loadLastCommitMessage}
-              />
-              <DiffViewer
-                diff={repoView.diff}
-                title={
-                  repoView.selectedFile
-                    ? repoView.selectedFile.path
-                    : undefined
-                }
-              />
-            </>
+            <WorkingTreePanel
+              repository={repoView.repository}
+              selectedFile={repoView.selectedFile}
+              onSelectFile={repoView.selectFile}
+              onStage={repoView.stageFiles}
+              onUnstage={repoView.unstageFiles}
+              onCommit={repoView.commit}
+              onPreviewCommit={(input) =>
+                previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })
+              }
+              onLoadLastMessage={repoView.loadLastCommitMessage}
+            />
           )}
+          <DiffViewer
+            diff={repoView.diff}
+            title={
+              viewMode === "history"
+                ? repoView.selectedCommit
+                  ? `Commit: ${repoView.selectedCommit.hash.slice(0, 7)} · ${repoView.selectedCommit.author}`
+                  : undefined
+                : repoView.selectedFile
+                ? repoView.selectedFile.path
+                : undefined
+            }
+          />
         </div>
       </section>
       {isPushOpen && repoView.repository ? (
