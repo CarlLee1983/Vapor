@@ -34,4 +34,28 @@ describe("CommitList", () => {
     render(<CommitList commits={[commits[1]]} selectedCommit={null} onSelectCommit={vi.fn()} />);
     expect(screen.queryByText("main")).not.toBeInTheDocument();
   });
+
+  it("renders initials avatars correctly for single and multi-word names", () => {
+    const testCommits: CommitSummary[] = [
+      {
+        hash: "c1",
+        parents: [],
+        author: "Carl",
+        date: "2026-06-08T10:00:00",
+        subject: "Commit 1",
+        refs: [],
+      },
+      {
+        hash: "c2",
+        parents: [],
+        author: "John Doe",
+        date: "2026-06-08T11:00:00",
+        subject: "Commit 2",
+        refs: [],
+      },
+    ];
+    render(<CommitList commits={testCommits} selectedCommit={null} onSelectCommit={vi.fn()} />);
+    expect(screen.getByText("C")).toBeInTheDocument();
+    expect(screen.getByText("JD")).toBeInTheDocument();
+  });
 });

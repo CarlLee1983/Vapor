@@ -7,6 +7,35 @@ interface Props {
   onSelectCommit: (commit: CommitSummary) => void;
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) {
+    return parts[0][0].toUpperCase();
+  }
+  const first = parts[0][0] || "";
+  const last = parts[parts.length - 1][0] || "";
+  return (first + last).toUpperCase();
+}
+
+function getAvatarColor(name: string): string {
+  const colors = [
+    "#3b82f6", // blue
+    "#10b981", // green
+    "#f59e0b", // amber
+    "#ef4444", // red
+    "#8b5cf6", // purple
+    "#ec4899", // pink
+    "#14b8a6", // teal
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+}
+
 export function CommitList({ commits, selectedCommit, onSelectCommit }: Props) {
   return (
     <section className="panel commit-list" aria-label="Commit history">
@@ -19,7 +48,12 @@ export function CommitList({ commits, selectedCommit, onSelectCommit }: Props) {
           aria-pressed={commit.hash === selectedCommit?.hash}
           onClick={() => onSelectCommit(commit)}
         >
-          <span className="commit-dot" />
+          <div
+            className="commit-avatar"
+            style={{ backgroundColor: `${getAvatarColor(commit.author)}e6` }}
+          >
+            {getInitials(commit.author)}
+          </div>
           <span className="commit-subject">
             {commit.refs.length > 0 ? (
               <span className="commit-refs">
