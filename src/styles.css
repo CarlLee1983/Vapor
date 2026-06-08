@@ -48,6 +48,11 @@ button {
   background: #ffffff;
 }
 
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .toolbar span {
   display: block;
   color: #667085;

@@ -1,15 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
 import { PushDialog } from "./components/PushDialog";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { WorkingTreePanel } from "./components/WorkingTreePanel";
 import { useRepository } from "./hooks/useRepository";
+import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
 import "./styles.css";
 
 export default function App() {
   const repoView = useRepository();
   const [isPushOpen, setIsPushOpen] = useState(false);
+  const { loadRepository } = repoView;
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void (async () => {
+      const launchPath = await getLaunchPath();
+      if (launchPath) {
+        void loadRepository(launchPath);
+      }
+      unlisten = await onOpenRepo((path) => {
+        void loadRepository(path);
+      });
+    })();
+    return () => unlisten?.();
+  }, [loadRepository]);
+
+  const handleOpen = async () => {
+    const path = await pickRepositoryFolder();
+    if (path) {
+      void loadRepository(path);
+    }
+  };
 
   return (
     <main className="app-shell">
@@ -24,9 +47,14 @@ export default function App() {
                 : "Open a Git repository to inspect history and push branches."}
             </span>
           </div>
-          <button type="button" disabled={!repoView.repository} onClick={() => setIsPushOpen(true)}>
-            Push
-          </button>
+          <div className="toolbar-actions">
+            <button type="button" onClick={() => void handleOpen()}>
+              Open Repository
+            </button>
+            <button type="button" disabled={!repoView.repository} onClick={() => setIsPushOpen(true)}>
+              Push
+            </button>
+          </div>
         </header>
         {repoView.error ? (
           <div className="error-banner" role="alert">{repoView.error.message} {repoView.error.hint}</div>

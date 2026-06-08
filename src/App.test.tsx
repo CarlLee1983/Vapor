@@ -1,10 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { useRepository } from "./hooks/useRepository";
 
 vi.mock("./hooks/useRepository", () => ({ useRepository: vi.fn() }));
 const useRepositoryMock = vi.mocked(useRepository);
+
+const pickRepositoryFolder = vi.fn();
+const getLaunchPath = vi.fn();
+const onOpenRepo = vi.fn();
+
+vi.mock("./lib/launch", () => ({
+  pickRepositoryFolder: () => pickRepositoryFolder(),
+  getLaunchPath: () => getLaunchPath(),
+  installCli: vi.fn(),
+  onOpenRepo: (handler: (path: string) => void) => onOpenRepo(handler),
+}));
+
+const loadRepository = vi.fn();
 
 const loadedState = {
   repositoryPath: "/repo",
@@ -22,12 +36,16 @@ const loadedState = {
   diff: "",
   isLoading: false,
   error: null,
-  loadRepository: vi.fn(),
+  loadRepository,
   selectCommit: vi.fn(),
 } as unknown as ReturnType<typeof useRepository>;
 
 beforeEach(() => {
   useRepositoryMock.mockReturnValue(loadedState);
+  loadRepository.mockReset();
+  pickRepositoryFolder.mockReset();
+  getLaunchPath.mockReset().mockResolvedValue(null);
+  onOpenRepo.mockReset().mockResolvedValue(() => {});
 });
 
 describe("App", () => {
@@ -43,5 +61,27 @@ describe("App", () => {
     useRepositoryMock.mockReturnValue({ ...loadedState, repositoryPath: null, repository: null, commits: [], selectedCommit: null } as unknown as ReturnType<typeof useRepository>);
     render(<App />);
     expect(screen.getAllByText("No repository selected").length).toBeGreaterThan(0);
+  });
+
+  it("loads the folder chosen from the Open Repository dialog", async () => {
+    pickRepositoryFolder.mockResolvedValue("/picked");
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Open Repository" }));
+    await waitFor(() => expect(loadRepository).toHaveBeenCalledWith("/picked"));
+  });
+
+  it("does not load when the dialog is cancelled", async () => {
+    pickRepositoryFolder.mockResolvedValue(null);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Open Repository" }));
+    expect(loadRepository).not.toHaveBeenCalled();
+  });
+
+  it("auto-loads the launch path on mount", async () => {
+    getLaunchPath.mockResolvedValue("/launched");
+    render(<App />);
+    await waitFor(() => expect(loadRepository).toHaveBeenCalledWith("/launched"));
   });
 });
