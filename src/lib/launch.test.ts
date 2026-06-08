@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { getLaunchPath, installCli, pickRepositoryFolder } from "./launch";
+import { cliStatus, getLaunchPath, installCli, pickRepositoryFolder } from "./launch";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
@@ -26,6 +26,12 @@ describe("launch", () => {
     invokeMock.mockResolvedValue("Installed" as never);
     expect(await installCli()).toBe("Installed");
     expect(invokeMock).toHaveBeenCalledWith("install_cli");
+  });
+
+  it("cliStatus invokes cli_status", async () => {
+    invokeMock.mockResolvedValue(true as never);
+    expect(await cliStatus()).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("cli_status");
   });
 
   it("pickRepositoryFolder returns a selected directory", async () => {
