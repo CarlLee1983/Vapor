@@ -3,6 +3,10 @@
   --radius-md: 8px;
   --radius-sm: 4px;
   --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --bg-panel-rgb: 255, 255, 255;
+  --font-mono: "SFMono-Regular", Consolas, Menlo, Monaco, monospace;
+  --sidebar-width: 260px;
+  --toolbar-height: 64px;
   
   --bg-app: #f8fafc;
   --bg-sidebar: #ffffff;
@@ -21,7 +25,7 @@
   
   --accent-blue: #2563eb;
   --accent-blue-hover: #1d4ed8;
-  --accent-blue-bg: #dbeafe;
+  --accent-blue-bg: #eff6ff;
   --accent-blue-text: #1d4ed8;
   --accent-green: #16a34a;
   --accent-green-bg: #dcfce7;
@@ -54,6 +58,7 @@
   --bg-app: #080d16;
   --bg-sidebar: #0f1320;
   --bg-panel: #161c2c;
+  --bg-panel-rgb: 22, 28, 44;
   --bg-active: #20293a;
   --bg-input: #0b0f19;
   --text-primary: #f8fafc;
@@ -134,10 +139,16 @@ button:not(.commit-row) {
 button:not(.commit-row):hover:not(:disabled) {
   background: var(--bg-active);
   border-color: var(--border-focus);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.theme-dark button:not(.commit-row):hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 button:not(.commit-row):active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.98);
 }
 
 button:not(.commit-row):disabled {
@@ -147,7 +158,7 @@ button:not(.commit-row):disabled {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   height: 100vh;
 }
@@ -170,7 +181,7 @@ button:not(.commit-row):disabled {
 }
 
 .toolbar {
-  height: 64px;
+  height: var(--toolbar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -251,12 +262,11 @@ button:not(.commit-row):disabled {
 
 .workbench-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(340px, 42%);
-  grid-template-rows: minmax(0, 1fr);
-  gap: 12px;
-  min-height: 0;
-  padding: 12px;
-  flex: 1;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
+  padding: 16px;
+  height: calc(100vh - 64px - 32px);
+  box-sizing: border-box;
 }
 
 .panel {
@@ -271,8 +281,8 @@ button:not(.commit-row):disabled {
 
 .side-stack {
   display: grid;
-  grid-template-rows: minmax(160px, 30%) minmax(240px, 1fr);
-  gap: 12px;
+  grid-template-rows: 220px 1fr; /* 固定 Working Tree 高度，剩餘全部留給 Diff */
+  gap: 16px;
   min-height: 0;
 }
 
@@ -384,11 +394,32 @@ button:not(.commit-row):disabled {
   color: var(--text-badge-tag);
 }
 
+.diff-viewer {
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition-smooth);
+}
+
+.diff-viewer--maximized {
+  position: fixed;
+  top: var(--toolbar-height);          /* 剛好在頂部 Toolbar 下方 */
+  left: var(--sidebar-width);        /* 剛好在左側 Sidebar 右方 */
+  right: 0;
+  bottom: 0;
+  width: calc(100vw - var(--sidebar-width));
+  height: calc(100vh - var(--toolbar-height));
+  z-index: 100;
+  border-radius: 0;   /* 最大化時去除圓角，貼合邊緣 */
+  border: none;
+  border-left: 1px solid var(--border-color);
+  box-shadow: none;
+}
+
 .diff-viewer pre {
   margin: 0;
   overflow: auto;
   white-space: pre-wrap;
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
   font-size: 12px;
 }
 
@@ -407,12 +438,14 @@ button:not(.commit-row):disabled {
 }
 
 .diff-line {
+  display: block;
   padding: 2px 8px;
   margin: 0;
   border-left: 3px solid transparent;
   line-height: 1.6;
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
   font-size: 12px;
+  white-space: pre-wrap;
 }
 
 .diff-added {
@@ -432,6 +465,27 @@ button:not(.commit-row):disabled {
   color: var(--text-secondary);
   font-weight: 500;
   opacity: 0.9;
+}
+
+.diff-line--added {
+  background-color: var(--accent-green-bg);
+  color: var(--accent-green-text);
+}
+
+.diff-line--deleted {
+  background-color: var(--accent-red-bg);
+  color: var(--accent-red-text);
+}
+
+.diff-line--hunk {
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
+  font-weight: bold;
+}
+
+.diff-line--meta {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .error-banner {
@@ -454,6 +508,9 @@ button:not(.commit-row):disabled {
   display: grid;
   place-items: center;
   background: var(--bg-backdrop);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 1000;
 }
 
 .dialog {
@@ -461,10 +518,14 @@ button:not(.commit-row):disabled {
   display: grid;
   gap: 12px;
   border-radius: var(--radius-lg);
-  background: var(--bg-panel);
-  padding: 16px;
+  background: rgba(var(--bg-panel-rgb), 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 24px;
+  border: 1px solid var(--border-color);
   box-shadow: var(--shadow-dialog);
   color: var(--text-primary);
+  transition: var(--transition-smooth);
 }
 
 .dialog-header,
