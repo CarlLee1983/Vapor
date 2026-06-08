@@ -15,6 +15,15 @@ pub fn classify_git_error(stderr: &str) -> GitError {
             "Remote rejected the push because it is not a fast-forward update.",
             "Fetch the remote branch and reconcile changes before pushing again.",
         )
+    } else if lower.contains("merge conflict")
+        || lower.contains("automatic merge failed")
+        || lower.contains("could not apply")
+    {
+        (
+            GitErrorCode::MergeConflict,
+            "Pull stopped because of merge conflicts.",
+            "Resolve the conflicts in your working tree, then commit or continue the rebase.",
+        )
     } else if lower.contains("authentication failed")
         || lower.contains("permission denied")
         || lower.contains("could not read from remote repository")
@@ -60,6 +69,13 @@ mod tests {
     fn classifies_non_fast_forward() {
         let error = classify_git_error("! [rejected] main -> main (non-fast-forward)");
         assert_eq!(error.code, GitErrorCode::NonFastForward);
+    }
+
+    #[test]
+    fn classifies_merge_conflict() {
+        let error =
+            classify_git_error("Automatic merge failed; fix conflicts and then commit the result.");
+        assert_eq!(error.code, GitErrorCode::MergeConflict);
     }
 
     #[test]

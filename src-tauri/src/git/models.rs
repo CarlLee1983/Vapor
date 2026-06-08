@@ -17,6 +17,7 @@ pub enum GitErrorCode {
     GitMissing,
     RemoteMissing,
     NonFastForward,
+    MergeConflict,
     AuthenticationFailed,
     EmptyRepository,
     DetachedHead,
