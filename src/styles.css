@@ -1,9 +1,105 @@
+:root, .theme-light {
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-sm: 4px;
+  --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  --bg-app: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-active: #f1f5f9;
+  --bg-input: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border-color: #e2e8f0;
+  --border-color-light: #f1f5f9;
+  --border-focus: #3b82f6;
+  --border-input: #cfd6e3;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-panel: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  
+  --accent-blue: #2563eb;
+  --accent-blue-hover: #1d4ed8;
+  --accent-green: #16a34a;
+  --accent-green-bg: #dcfce7;
+  --accent-green-text: #15803d;
+  --accent-red: #dc2626;
+  --accent-red-bg: #fee2e2;
+  --accent-red-text: #b91c1c;
+  --accent-orange: #ea580c;
+  --accent-orange-bg: #ffedd5;
+  --accent-orange-text: #c2410c;
+  
+  --bg-badge-head: #dbeafe;
+  --text-badge-head: #1d4ed8;
+  --bg-badge-branch: #e6e8eb;
+  --text-badge-branch: #344054;
+  --bg-badge-tag: #fde9c8;
+  --text-badge-tag: #92500e;
+  
+  --bg-error: #fff4f4;
+  --border-error: #f5b5b5;
+  --text-error: #912018;
+  
+  --bg-backdrop: rgba(32, 33, 36, 0.42);
+  --shadow-dialog: 0 20px 50px rgba(32, 33, 36, 0.24);
+  --bg-terminal: #101828;
+  --text-terminal: #f9fafb;
+}
+
+.theme-dark {
+  --bg-app: #080d16;
+  --bg-sidebar: #0f1320;
+  --bg-panel: #161c2c;
+  --bg-active: #20293a;
+  --bg-input: #0b0f19;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-color: #242f41;
+  --border-color-light: #1e293b;
+  --border-focus: #60a5fa;
+  --border-input: #334155;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-panel: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #60a5fa;
+  --accent-green: #22c55e;
+  --accent-green-bg: rgba(34, 197, 94, 0.15);
+  --accent-green-text: #4ade80;
+  --accent-red: #ef4444;
+  --accent-red-bg: rgba(239, 68, 68, 0.15);
+  --accent-red-text: #f87171;
+  --accent-orange: #f97316;
+  --accent-orange-bg: rgba(249, 115, 22, 0.15);
+  --accent-orange-text: #fb923c;
+  
+  --bg-badge-head: #1e3a8a;
+  --text-badge-head: #93c5fd;
+  --bg-badge-branch: #334155;
+  --text-badge-branch: #e2e8f0;
+  --bg-badge-tag: #78350f;
+  --text-badge-tag: #fde68a;
+  
+  --bg-error: #450a0a;
+  --border-error: #7f1d1d;
+  --text-error: #fca5a5;
+  
+  --bg-backdrop: rgba(0, 0, 0, 0.6);
+  --shadow-dialog: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --bg-terminal: #020617;
+  --text-terminal: #f9fafb;
+}
+
 :root {
-  color: #202124;
-  background: #f6f7f9;
+  color: var(--text-primary);
+  background: var(--bg-app);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: 1.4;
+  transition: var(--transition-smooth);
 }
 
 body {
@@ -12,17 +108,49 @@ body {
 
 button {
   font: inherit;
+  transition: var(--transition-smooth);
+}
+
+button:not(.commit-row) {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: var(--transition-smooth);
+}
+
+button:not(.commit-row):hover:not(:disabled) {
+  background: var(--bg-active);
+  border-color: var(--border-focus);
+}
+
+button:not(.commit-row):active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+button:not(.commit-row):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .app-shell {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
-  min-height: 100vh;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100vh;
 }
 
 .sidebar {
-  border-right: 1px solid #d8dde6;
-  background: #ffffff;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-sidebar);
   padding: 16px;
 }
 
@@ -44,8 +172,8 @@ button {
   justify-content: space-between;
   gap: 16px;
   padding: 0 20px;
-  border-bottom: 1px solid #d8dde6;
-  background: #ffffff;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-sidebar);
 }
 
 .toolbar-actions {
@@ -55,7 +183,7 @@ button {
 
 .toolbar span {
   display: block;
-  color: #667085;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -63,7 +191,7 @@ button {
   display: grid;
   place-items: center;
   flex: 1;
-  color: #667085;
+  color: var(--text-muted);
 }
 
 .sidebar-section {
@@ -73,7 +201,7 @@ button {
 .sidebar-section h2,
 .panel h2 {
   margin: 0 0 10px;
-  color: #475467;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -85,16 +213,18 @@ button {
   justify-content: space-between;
   gap: 12px;
   padding: 7px 0;
-  border-bottom: 1px solid #eef1f5;
+  border-bottom: 1px solid var(--border-color-light);
+  transition: var(--transition-smooth);
 }
 
 .muted {
-  color: #667085;
+  color: var(--text-muted);
 }
 
 .workbench-grid {
   display: grid;
   grid-template-columns: minmax(320px, 1fr) minmax(340px, 42%);
+  grid-template-rows: minmax(0, 1fr);
   gap: 12px;
   min-height: 0;
   padding: 12px;
@@ -104,10 +234,11 @@ button {
 .panel {
   min-width: 0;
   overflow: auto;
-  border: 1px solid #d8dde6;
-  background: #ffffff;
-  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-panel);
+  border-radius: var(--radius-lg);
   padding: 12px;
+  box-shadow: var(--shadow-panel);
 }
 
 .side-stack {
@@ -124,22 +255,28 @@ button {
   align-items: center;
   gap: 8px;
   border: 0;
-  border-bottom: 1px solid #eef1f5;
+  border-bottom: 1px solid var(--border-color-light);
   background: transparent;
+  color: inherit;
   padding: 9px 4px;
   text-align: left;
   cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.commit-row:hover:not(.commit-row--selected) {
+  background: var(--bg-active);
 }
 
 .commit-row--selected {
-  background: #eef4ff;
+  background: var(--bg-active);
 }
 
 .commit-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #2563eb;
+  background: var(--accent-blue);
 }
 
 .commit-subject {
@@ -149,7 +286,7 @@ button {
 }
 
 .commit-meta {
-  color: #667085;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -166,7 +303,7 @@ button {
   align-items: center;
   height: 16px;
   padding: 0 6px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
@@ -174,18 +311,18 @@ button {
 }
 
 .ref-badge--head {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--bg-badge-head);
+  color: var(--text-badge-head);
 }
 
 .ref-badge--branch {
-  background: #e6e8eb;
-  color: #344054;
+  background: var(--bg-badge-branch);
+  color: var(--text-badge-branch);
 }
 
 .ref-badge--tag {
-  background: #fde9c8;
-  color: #92500e;
+  background: var(--bg-badge-tag);
+  color: var(--text-badge-tag);
 }
 
 .diff-viewer pre {
@@ -198,10 +335,10 @@ button {
 
 .error-banner {
   margin: 12px 12px 0;
-  border: 1px solid #f5b5b5;
-  background: #fff4f4;
-  color: #912018;
-  border-radius: 6px;
+  border: 1px solid var(--border-error);
+  background: var(--bg-error);
+  color: var(--text-error);
+  border-radius: var(--radius-md);
   padding: 10px 12px;
 }
 
@@ -215,17 +352,18 @@ button {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgb(32 33 36 / 42%);
+  background: var(--bg-backdrop);
 }
 
 .dialog {
   width: min(560px, calc(100vw - 32px));
   display: grid;
   gap: 12px;
-  border-radius: 8px;
-  background: #ffffff;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
   padding: 16px;
-  box-shadow: 0 20px 50px rgb(32 33 36 / 24%);
+  box-shadow: var(--shadow-dialog);
+  color: var(--text-primary);
 }
 
 .dialog-header,
@@ -244,7 +382,7 @@ button {
 .dialog label {
   display: grid;
   gap: 5px;
-  color: #475467;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 700;
 }
@@ -252,10 +390,18 @@ button {
 .dialog input,
 .dialog select {
   min-height: 34px;
-  border: 1px solid #cfd6e3;
-  border-radius: 6px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
   padding: 0 9px;
   font: inherit;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.dialog input:focus,
+.dialog select:focus {
+  outline: none;
+  border-color: var(--border-focus);
 }
 
 .checkbox-row {
@@ -267,9 +413,9 @@ button {
 .push-output {
   margin: 0;
   overflow: auto;
-  border-radius: 6px;
-  background: #101828;
-  color: #f9fafb;
+  border-radius: var(--radius-md);
+  background: var(--bg-terminal);
+  color: var(--text-terminal);
   padding: 10px;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
