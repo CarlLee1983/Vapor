@@ -194,6 +194,17 @@ describe("useRepository commit actions", () => {
     await waitFor(() => expect(tauriApi.getRepositoryState).toHaveBeenCalledTimes(2));
   });
 
+  it("unstageFiles calls the API then refreshes", async () => {
+    const { result } = renderHook(() => useRepository());
+    await act(async () => {
+      await result.current.loadRepository("/repo");
+    });
+    await act(async () => {
+      await result.current.unstageFiles(["a.ts"]);
+    });
+    expect(tauriApi.unstageFiles).toHaveBeenCalledWith({ repositoryPath: "/repo", paths: ["a.ts"] });
+  });
+
   it("commit calls createCommit then refreshes and returns the response", async () => {
     const { result } = renderHook(() => useRepository());
     await act(async () => {

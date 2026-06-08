@@ -158,7 +158,7 @@ export function useRepository() {
         await stageFilesApi({ repositoryPath: path, paths });
         await refreshRepository();
       } catch (error) {
-        setState((current) => ({ ...current, error: error as GitError }));
+        setState((current) => ({ ...current, isLoading: false, error: error as GitError }));
       }
     },
     [refreshRepository],
@@ -174,12 +174,17 @@ export function useRepository() {
         await unstageFilesApi({ repositoryPath: path, paths });
         await refreshRepository();
       } catch (error) {
-        setState((current) => ({ ...current, error: error as GitError }));
+        setState((current) => ({ ...current, isLoading: false, error: error as GitError }));
       }
     },
     [refreshRepository],
   );
 
+  /**
+   * Creates a commit and refreshes repository state.
+   * Throws on failure — callers must handle the rejected promise.
+   * Unlike stageFiles/unstageFiles, errors are NOT written to hook state.
+   */
   const commit = useCallback(
     async (input: { message: string; amend: boolean; signOff: boolean }): Promise<CommitResponse> => {
       const path = repositoryPathRef.current;
