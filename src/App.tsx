@@ -144,35 +144,46 @@ export default function App() {
           <div className="error-banner" role="alert">{repoView.error.message} {repoView.error.hint}</div>
         ) : null}
         <div className="workbench-grid">
-          <CommitList
-            commits={repoView.commits}
-            selectedCommit={repoView.selectedCommit}
-            onSelectCommit={repoView.selectCommit}
-          />
-          <div className="side-stack">
-            <WorkingTreePanel
-              repository={repoView.repository}
-              selectedFile={repoView.selectedFile}
-              onSelectFile={repoView.selectFile}
-              onStage={repoView.stageFiles}
-              onUnstage={repoView.unstageFiles}
-              onCommit={repoView.commit}
-              onPreviewCommit={(input) =>
-                previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })
-              }
-              onLoadLastMessage={repoView.loadLastCommitMessage}
-            />
-            <DiffViewer
-              diff={repoView.diff}
-              title={
-                repoView.selectedFile
-                  ? repoView.selectedFile.path
-                  : repoView.selectedCommit
-                  ? `Commit: ${repoView.selectedCommit.hash.slice(0, 7)} · ${repoView.selectedCommit.author}`
-                  : undefined
-              }
-            />
-          </div>
+          {viewMode === "history" ? (
+            <>
+              <CommitList
+                commits={repoView.commits}
+                selectedCommit={repoView.selectedCommit}
+                onSelectCommit={repoView.selectCommit}
+              />
+              <DiffViewer
+                diff={repoView.diff}
+                title={
+                  repoView.selectedCommit
+                    ? `Commit: ${repoView.selectedCommit.hash.slice(0, 7)} · ${repoView.selectedCommit.author}`
+                    : undefined
+                }
+              />
+            </>
+          ) : (
+            <>
+              <WorkingTreePanel
+                repository={repoView.repository}
+                selectedFile={repoView.selectedFile}
+                onSelectFile={repoView.selectFile}
+                onStage={repoView.stageFiles}
+                onUnstage={repoView.unstageFiles}
+                onCommit={repoView.commit}
+                onPreviewCommit={(input) =>
+                  previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })
+                }
+                onLoadLastMessage={repoView.loadLastCommitMessage}
+              />
+              <DiffViewer
+                diff={repoView.diff}
+                title={
+                  repoView.selectedFile
+                    ? repoView.selectedFile.path
+                    : undefined
+                }
+              />
+            </>
+          )}
         </div>
       </section>
       {isPushOpen && repoView.repository ? (

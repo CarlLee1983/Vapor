@@ -169,67 +169,69 @@ export function WorkingTreePanel({
     <section className="panel working-tree" aria-label="Working tree">
       <h2>Working Tree</h2>
 
-      {files.length === 0 ? (
-        <p className="muted">No local changes</p>
-      ) : (
-        <>
-          <div className="working-tree__group" role="group" aria-label="Staged changes">
-            <div className="working-tree__group-header">
-              <span>Staged</span>
-              <button
-                type="button"
-                disabled={staged.length === 0}
-                onClick={() => onUnstage(staged.map((file) => file.path))}
-              >
-                Unstage all
-              </button>
+      <div className="working-tree__files">
+        {files.length === 0 ? (
+          <p className="muted">No local changes</p>
+        ) : (
+          <>
+            <div className="working-tree__group" role="group" aria-label="Staged changes">
+              <div className="working-tree__group-header">
+                <span>Staged</span>
+                <button
+                  type="button"
+                  disabled={staged.length === 0}
+                  onClick={() => onUnstage(staged.map((file) => file.path))}
+                >
+                  Unstage all
+                </button>
+              </div>
+              {staged.length === 0 ? (
+                <p className="muted">Nothing staged</p>
+              ) : (
+                staged.map((file) => (
+                  <FileRow
+                    key={`staged-${file.path}`}
+                    file={file}
+                    isActive={selectedFile?.path === file.path}
+                    actionLabel="Unstage"
+                    actionGlyph="−"
+                    onSelect={onSelectFile}
+                    onAction={(path) => onUnstage([path])}
+                  />
+                ))
+              )}
             </div>
-            {staged.length === 0 ? (
-              <p className="muted">Nothing staged</p>
-            ) : (
-              staged.map((file) => (
-                <FileRow
-                  key={`staged-${file.path}`}
-                  file={file}
-                  isActive={selectedFile?.path === file.path}
-                  actionLabel="Unstage"
-                  actionGlyph="−"
-                  onSelect={onSelectFile}
-                  onAction={(path) => onUnstage([path])}
-                />
-              ))
-            )}
-          </div>
 
-          <div className="working-tree__group" role="group" aria-label="Unstaged changes">
-            <div className="working-tree__group-header">
-              <span>Unstaged</span>
-              <button
-                type="button"
-                disabled={unstaged.length === 0}
-                onClick={() => onStage(unstaged.map((file) => file.path))}
-              >
-                Stage all
-              </button>
+            <div className="working-tree__group" role="group" aria-label="Unstaged changes">
+              <div className="working-tree__group-header">
+                <span>Unstaged</span>
+                <button
+                  type="button"
+                  disabled={unstaged.length === 0}
+                  onClick={() => onStage(unstaged.map((file) => file.path))}
+                >
+                  Stage all
+                </button>
+              </div>
+              {unstaged.length === 0 ? (
+                <p className="muted">Nothing unstaged</p>
+              ) : (
+                unstaged.map((file) => (
+                  <FileRow
+                    key={`unstaged-${file.path}`}
+                    file={file}
+                    isActive={selectedFile?.path === file.path}
+                    actionLabel="Stage"
+                    actionGlyph="+"
+                    onSelect={onSelectFile}
+                    onAction={(path) => onStage([path])}
+                  />
+                ))
+              )}
             </div>
-            {unstaged.length === 0 ? (
-              <p className="muted">Nothing unstaged</p>
-            ) : (
-              unstaged.map((file) => (
-                <FileRow
-                  key={`unstaged-${file.path}`}
-                  file={file}
-                  isActive={selectedFile?.path === file.path}
-                  actionLabel="Stage"
-                  actionGlyph="+"
-                  onSelect={onSelectFile}
-                  onAction={(path) => onStage([path])}
-                />
-              ))
-            )}
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
 
       {repository ? (
         <CommitBox

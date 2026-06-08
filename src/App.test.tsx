@@ -66,11 +66,15 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("renders repository state, commits, remotes, and working tree", () => {
+  it("renders repository state, commits, remotes, and working tree", async () => {
+    const user = userEvent.setup();
     render(<App />);
     expect(screen.getAllByText("main").length).toBeGreaterThan(0);
     expect(screen.getByText("origin")).toBeInTheDocument();
     expect(screen.getByText("Initial commit")).toBeInTheDocument();
+
+    const fileStatusBtn = screen.getByRole("button", { name: /File Status/i });
+    await user.click(fileStatusBtn);
     expect(screen.getByText("src/App.tsx")).toBeInTheDocument();
   });
 
