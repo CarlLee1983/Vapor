@@ -207,7 +207,31 @@ button:not(.commit-row):disabled {
   text-transform: uppercase;
 }
 
-.sidebar-row,
+.sidebar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.sidebar-row:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.sidebar-row--active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .file-row {
   display: flex;
   justify-content: space-between;
