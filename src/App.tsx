@@ -3,6 +3,7 @@ import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
 import { PushDialog } from "./components/PushDialog";
 import { RepositorySidebar } from "./components/RepositorySidebar";
+import { ThemeToggle, ThemeMode } from "./components/ThemeToggle";
 import { WorkingTreePanel } from "./components/WorkingTreePanel";
 import { useRepository } from "./hooks/useRepository";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
@@ -12,6 +13,33 @@ export default function App() {
   const repoView = useRepository();
   const [isPushOpen, setIsPushOpen] = useState(false);
   const { loadRepository } = repoView;
+
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    return (localStorage.getItem("vapor-theme") as ThemeMode) || "system";
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    localStorage.setItem("vapor-theme", theme);
+
+    const applyTheme = (isDark: boolean) => {
+      root.classList.remove("theme-light", "theme-dark");
+      root.classList.add(isDark ? "theme-dark" : "theme-light");
+    };
+
+    if (theme === "system") {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      applyTheme(mediaQuery.matches);
+
+      const listener = (e: MediaQueryListEvent) => {
+        applyTheme(e.matches);
+      };
+      mediaQuery.addEventListener("change", listener);
+      return () => mediaQuery.removeEventListener("change", listener);
+    } else {
+      applyTheme(theme === "dark");
+    }
+  }, [theme]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -48,6 +76,7 @@ export default function App() {
             </span>
           </div>
           <div className="toolbar-actions">
+            <ThemeToggle currentTheme={theme} onThemeChange={setTheme} />
             <button type="button" onClick={() => void handleOpen()}>
               Open Repository
             </button>
