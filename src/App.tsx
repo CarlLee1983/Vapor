@@ -4,6 +4,7 @@ import { DiffViewer } from "./components/DiffViewer";
 import { PushDialog } from "./components/PushDialog";
 import { PullDialog } from "./components/PullDialog";
 import { RemotesDialog } from "./components/RemotesDialog";
+import { AboutDialog } from "./components/AboutDialog";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { ThemeToggle, ThemeMode } from "./components/ThemeToggle";
 import { CliInstallBanner } from "./components/CliInstallBanner";
@@ -20,6 +21,7 @@ export default function App() {
   const [isPushOpen, setIsPushOpen] = useState(false);
   const [isPullOpen, setIsPullOpen] = useState(false);
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
   const { loadRepository, refreshRepository } = repoView;
 
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -116,6 +118,9 @@ export default function App() {
             <button type="button" onClick={() => void handleOpen()}>
               Open Repository
             </button>
+            <button type="button" onClick={() => setIsAboutOpen(true)}>
+              About
+            </button>
             <button type="button" disabled={!repoView.repository} onClick={() => setIsPushOpen(true)}>
               Push
             </button>
@@ -190,6 +195,7 @@ export default function App() {
           }}
         />
       ) : null}
+      {isAboutOpen ? <AboutDialog onClose={() => setIsAboutOpen(false)} /> : null}
     </main>
   );
 }

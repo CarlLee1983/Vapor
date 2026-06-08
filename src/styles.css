@@ -620,6 +620,26 @@ button:not(.commit-row):disabled {
   font-weight: 600;
 }
 
+.about-version {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.about-description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.about-copyright {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 .dialog label {
   display: grid;
   gap: 5px;
