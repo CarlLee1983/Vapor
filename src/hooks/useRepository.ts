@@ -1,12 +1,13 @@
 import { useCallback, useRef, useState } from "react";
 import { getCommitLog, getDiff, getRepositoryState } from "../lib/tauriApi";
-import type { CommitSummary, GitError, RepositoryState } from "../types/git";
+import type { CommitSummary, FileStatus, GitError, RepositoryState } from "../types/git";
 
 export interface RepositoryViewState {
   repositoryPath: string | null;
   repository: RepositoryState | null;
   commits: CommitSummary[];
   selectedCommit: CommitSummary | null;
+  selectedFile: FileStatus | null;
   diff: string;
   isLoading: boolean;
   error: GitError | null;
@@ -18,6 +19,7 @@ export function useRepository() {
     repository: null,
     commits: [],
     selectedCommit: null,
+    selectedFile: null,
     diff: "",
     isLoading: false,
     error: null,
@@ -36,6 +38,7 @@ export function useRepository() {
         repository,
         commits,
         selectedCommit: commits[0] ?? null,
+        selectedFile: null,
         diff: "",
         isLoading: false,
         error: null,
@@ -47,14 +50,25 @@ export function useRepository() {
   }, []);
 
   const selectCommit = useCallback(async (commit: CommitSummary) => {
-    setState((current) => ({ ...current, selectedCommit: commit, isLoading: true, error: null }));
+    setState((current) => ({ ...current, selectedCommit: commit, selectedFile: null, isLoading: true, error: null }));
     // TODO: cancel/ignore stale in-flight requests when load/select are called in quick succession.
     try {
       const repositoryPath = repositoryPathRef.current;
       const diff = repositoryPath ? await getDiff(repositoryPath, commit.hash) : "";
-      setState((current) => ({ ...current, selectedCommit: commit, diff, isLoading: false }));
+      setState((current) => ({ ...current, selectedCommit: commit, selectedFile: null, diff, isLoading: false }));
     } catch (error) {
       // TODO: narrow error type with a type guard instead of casting
+      setState((current) => ({ ...current, isLoading: false, error: error as GitError }));
+    }
+  }, []);
+
+  const selectFile = useCallback(async (file: FileStatus) => {
+    setState((current) => ({ ...current, selectedFile: file, selectedCommit: null, isLoading: true, error: null }));
+    try {
+      const repositoryPath = repositoryPathRef.current;
+      const diff = repositoryPath ? await getDiff(repositoryPath, undefined, file.path) : "";
+      setState((current) => ({ ...current, selectedFile: file, selectedCommit: null, diff, isLoading: false }));
+    } catch (error) {
       setState((current) => ({ ...current, isLoading: false, error: error as GitError }));
     }
   }, []);
@@ -63,5 +77,6 @@ export function useRepository() {
     ...state,
     loadRepository,
     selectCommit,
+    selectFile,
   };
 }
