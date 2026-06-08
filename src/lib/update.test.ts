@@ -7,7 +7,8 @@ vi.mock("@tauri-apps/api/app", () => ({ getVersion: () => getVersion() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (cmd: string) => invoke(cmd) }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 
-import { checkForUpdate, detectInstallSource } from "./update";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { checkForUpdate, detectInstallSource, openReleasePage } from "./update";
 
 const RELEASE = {
   tag_name: "v0.2.0",
@@ -17,6 +18,7 @@ const RELEASE = {
 beforeEach(() => {
   getVersion.mockReset().mockResolvedValue("0.1.0");
   invoke.mockReset().mockResolvedValue("dmg");
+  vi.mocked(openUrl).mockReset();
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(RELEASE) }),
@@ -64,8 +66,21 @@ describe("checkForUpdate", () => {
 });
 
 describe("detectInstallSource", () => {
+  it("invoke 回傳 brew 時原樣回傳", async () => {
+    invoke.mockResolvedValue("brew");
+    expect(await detectInstallSource()).toBe("brew");
+    expect(invoke).toHaveBeenCalledWith("detect_install_source");
+  });
+
   it("invoke 失敗時退回 dmg", async () => {
     invoke.mockRejectedValue(new Error("no tauri"));
     expect(await detectInstallSource()).toBe("dmg");
+  });
+});
+
+describe("openReleasePage", () => {
+  it("委派給 openUrl 開啟連結", async () => {
+    await openReleasePage("https://example.com");
+    expect(openUrl).toHaveBeenCalledWith("https://example.com");
   });
 });
