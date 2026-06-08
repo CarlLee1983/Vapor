@@ -66,6 +66,15 @@ describe("PullDialog", () => {
       remoteBranch: "main",
       rebase: true,
     });
+
+    await user.click(screen.getByRole("button", { name: "Pull" }));
+
+    expect(tauriApi.pullBranch).toHaveBeenCalledWith({
+      repositoryPath: "/repo",
+      remote: "origin",
+      remoteBranch: "main",
+      rebase: true,
+    });
   });
 
   it("shows progress while pulling and closes after a successful pull", async () => {
@@ -196,6 +205,8 @@ describe("PullDialog", () => {
 
   it("renders an alert when pull fails", async () => {
     const user = userEvent.setup();
+    const onPulled = vi.fn();
+    const onClose = vi.fn();
     vi.mocked(tauriApi.pullBranch).mockRejectedValueOnce({
       code: "mergeConflict",
       message: "Pull stopped because of conflicts.",
@@ -203,12 +214,15 @@ describe("PullDialog", () => {
       stderr: "CONFLICT",
     });
 
-    render(<PullDialog repository={repository} onClose={vi.fn()} onPulled={vi.fn()} />);
+    render(<PullDialog repository={repository} onClose={onClose} onPulled={onPulled} />);
     expect(await screen.findByText("git pull origin main")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Pull" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Pull stopped because of conflicts.");
     expect(screen.getByRole("alert")).toHaveTextContent("Resolve conflicts, then pull again.");
+    expect(onPulled).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Pull" })).toBeEnabled();
   });
 });
