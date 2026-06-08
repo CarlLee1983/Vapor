@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CommitList } from "./CommitList";
+import { CommitList, getInitials, getAvatarColor } from "./CommitList";
 import type { CommitSummary } from "../types/git";
 
 const commits: CommitSummary[] = [
@@ -59,3 +59,61 @@ describe("CommitList", () => {
     expect(screen.getByText("JD")).toBeInTheDocument();
   });
 });
+
+describe("CommitList helpers", () => {
+  describe("getInitials", () => {
+    it("handles empty or whitespace-only names", () => {
+      expect(getInitials("")).toBe("?");
+      expect(getInitials("   ")).toBe("?");
+    });
+
+    it("handles single name correctly and capitalizes", () => {
+      expect(getInitials("carl")).toBe("C");
+      expect(getInitials("Carl")).toBe("C");
+    });
+
+    it("handles multiple words and picks first and last", () => {
+      expect(getInitials("John Doe")).toBe("JD");
+      expect(getInitials("John Fitzgerald Kennedy")).toBe("JK");
+    });
+
+    it("handles multiple spaces and leading/trailing whitespace", () => {
+      expect(getInitials("  John   Doe  ")).toBe("JD");
+    });
+
+    it("handles non-alphabetic character prefixes", () => {
+      expect(getInitials("@john")).toBe("@");
+      expect(getInitials("@john doe")).toBe("@D");
+    });
+
+    it("handles surrogate pair Unicode characters (emojis) correctly", () => {
+      expect(getInitials("🤖 Bot")).toBe("🤖B");
+      expect(getInitials("🚀")).toBe("🚀");
+    });
+
+    it("handles Chinese characters correctly", () => {
+      expect(getInitials("李小龍")).toBe("李");
+      expect(getInitials("李 小龍")).toBe("李小");
+    });
+  });
+
+  describe("getAvatarColor", () => {
+    it("returns a hex color consistently for the same name", () => {
+      const color1 = getAvatarColor("Carl");
+      const color2 = getAvatarColor("Carl");
+      expect(color1).toBe(color2);
+      expect(color1).toMatch(/^#[0-9a-f]{6}$/i);
+    });
+
+    it("returns different colors for different names", () => {
+      const color1 = getAvatarColor("Carl");
+      const color2 = getAvatarColor("John Doe");
+      expect(color1).not.toBe(color2);
+    });
+
+    it("handles empty string without throwing errors", () => {
+      expect(getAvatarColor("")).toMatch(/^#[0-9a-f]{6}$/i);
+    });
+  });
+});
+

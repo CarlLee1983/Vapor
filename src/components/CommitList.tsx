@@ -7,18 +7,18 @@ interface Props {
   onSelectCommit: (commit: CommitSummary) => void;
 }
 
-function getInitials(name: string): string {
+export function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) {
-    return parts[0][0].toUpperCase();
+    return Array.from(parts[0])[0].toUpperCase();
   }
-  const first = parts[0][0] || "";
-  const last = parts[parts.length - 1][0] || "";
+  const first = Array.from(parts[0])[0] || "";
+  const last = Array.from(parts[parts.length - 1])[0] || "";
   return (first + last).toUpperCase();
 }
 
-function getAvatarColor(name: string): string {
+export function getAvatarColor(name: string): string {
   const colors = [
     "#3b82f6", // blue
     "#10b981", // green
