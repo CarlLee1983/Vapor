@@ -137,4 +137,26 @@ describe("App", () => {
     render(<App />);
     expect(await screen.findByRole("button", { name: "開啟下載頁" })).toBeInTheDocument();
   });
+
+  it("toggles viewMode between History and File Status", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    // Default mode is History: CommitList is shown, WorkingTreePanel is not
+    expect(screen.getByText("Initial commit")).toBeInTheDocument();
+    expect(screen.queryByText("Working Tree")).not.toBeInTheDocument();
+
+    // Switch to File Status
+    const fileStatusBtn = screen.getByRole("button", { name: /File Status/i });
+    await user.click(fileStatusBtn);
+    expect(screen.getByText("Working Tree")).toBeInTheDocument();
+    expect(screen.queryByText("Initial commit")).not.toBeInTheDocument();
+
+    // Switch back to History
+    const historyBtn = screen.getByRole("button", { name: /History/i });
+    await user.click(historyBtn);
+    expect(screen.getByText("Initial commit")).toBeInTheDocument();
+    expect(screen.queryByText("Working Tree")).not.toBeInTheDocument();
+  });
 });
+
