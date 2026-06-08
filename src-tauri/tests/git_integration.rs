@@ -259,3 +259,57 @@ fn reads_last_commit_message() {
     let message = service.last_commit_message(work.path()).expect("message");
     assert_eq!(message, "Initial commit");
 }
+
+#[test]
+fn amends_last_commit_without_growing_log() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    let before = service.commit_log(work.path(), 20).expect("log before").len();
+
+    std::fs::write(work.path().join("README.md"), "changed\n").expect("write readme");
+    service
+        .stage(&StageRequest {
+            repository_path: work.path().to_path_buf(),
+            paths: vec!["README.md".to_string()],
+        })
+        .expect("stage");
+
+    // Empty message + amend exercises the --no-edit safeguard against a real git process;
+    // if it ever dropped into an editor, this call would hang instead of returning.
+    service
+        .create_commit(&CommitRequest {
+            repository_path: work.path().to_path_buf(),
+            message: String::new(),
+            amend: true,
+            sign_off: false,
+        })
+        .expect("amend must not hang");
+
+    let after = service.commit_log(work.path(), 20).expect("log after").len();
+    assert_eq!(after, before, "amend must not add a new commit");
+
+    // The amended commit keeps the original subject (--no-edit reuses it).
+    let subject = git_stdout(work.path(), &["log", "-1", "--pretty=%s"]);
+    assert_eq!(subject, "Initial commit");
+}
+
+#[test]
+fn amends_last_commit_message() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    service
+        .create_commit(&CommitRequest {
+            repository_path: work.path().to_path_buf(),
+            message: "Reworded initial commit".to_string(),
+            amend: true,
+            sign_off: false,
+        })
+        .expect("amend reword");
+
+    let subject = git_stdout(work.path(), &["log", "-1", "--pretty=%s"]);
+    assert_eq!(subject, "Reworded initial commit");
+    let count = service.commit_log(work.path(), 20).expect("log").len();
+    assert_eq!(count, 1, "amend reword must not add a commit");
+}
