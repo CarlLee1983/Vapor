@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
 import { PushDialog } from "./components/PushDialog";
+import { PullDialog } from "./components/PullDialog";
+import { RemotesDialog } from "./components/RemotesDialog";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { ThemeToggle, ThemeMode } from "./components/ThemeToggle";
 import { CliInstallBanner } from "./components/CliInstallBanner";
@@ -16,6 +18,8 @@ export const AUTO_REFRESH_INTERVAL_MS = 5000;
 export default function App() {
   const repoView = useRepository();
   const [isPushOpen, setIsPushOpen] = useState(false);
+  const [isPullOpen, setIsPullOpen] = useState(false);
+  const [isRemotesOpen, setIsRemotesOpen] = useState(false);
   const { loadRepository, refreshRepository } = repoView;
 
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -115,6 +119,12 @@ export default function App() {
             <button type="button" disabled={!repoView.repository} onClick={() => setIsPushOpen(true)}>
               Push
             </button>
+            <button type="button" disabled={!repoView.repository} onClick={() => setIsPullOpen(true)}>
+              Pull
+            </button>
+            <button type="button" disabled={!repoView.repository} onClick={() => setIsRemotesOpen(true)}>
+              Remotes
+            </button>
           </div>
         </header>
         <CliInstallBanner />
@@ -152,6 +162,28 @@ export default function App() {
           repository={repoView.repository}
           onClose={() => setIsPushOpen(false)}
           onPushed={() => {
+            if (repoView.repositoryPath) {
+              void repoView.loadRepository(repoView.repositoryPath);
+            }
+          }}
+        />
+      ) : null}
+      {isPullOpen && repoView.repository ? (
+        <PullDialog
+          repository={repoView.repository}
+          onClose={() => setIsPullOpen(false)}
+          onPulled={() => {
+            if (repoView.repositoryPath) {
+              void repoView.loadRepository(repoView.repositoryPath);
+            }
+          }}
+        />
+      ) : null}
+      {isRemotesOpen && repoView.repository ? (
+        <RemotesDialog
+          repository={repoView.repository}
+          onClose={() => setIsRemotesOpen(false)}
+          onChanged={() => {
             if (repoView.repositoryPath) {
               void repoView.loadRepository(repoView.repositoryPath);
             }
