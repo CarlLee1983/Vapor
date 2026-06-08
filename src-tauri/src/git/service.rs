@@ -86,4 +86,56 @@ impl<R: GitRunner> GitService<R> {
             stderr: output.stderr,
         })
     }
+
+    pub fn pull(
+        &self,
+        request: &super::models::PullRequest,
+    ) -> Result<super::models::PullResponse, GitError> {
+        let preview = super::command_builder::pull_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::PullResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn add_remote(
+        &self,
+        request: &super::models::AddRemoteRequest,
+    ) -> Result<super::models::RemoteMutationResponse, GitError> {
+        let preview = super::command_builder::add_remote_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::RemoteMutationResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn set_remote_url(
+        &self,
+        request: &super::models::SetRemoteUrlRequest,
+    ) -> Result<super::models::RemoteMutationResponse, GitError> {
+        let preview = super::command_builder::set_remote_url_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::RemoteMutationResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn remove_remote(
+        &self,
+        request: &super::models::RemoveRemoteRequest,
+    ) -> Result<super::models::RemoteMutationResponse, GitError> {
+        let preview = super::command_builder::remove_remote_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::RemoteMutationResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
 }
