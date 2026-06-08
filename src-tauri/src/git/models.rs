@@ -17,6 +17,7 @@ pub enum GitErrorCode {
     GitMissing,
     RemoteMissing,
     NonFastForward,
+    MergeConflict,
     AuthenticationFailed,
     EmptyRepository,
     DetachedHead,
@@ -129,6 +130,54 @@ pub struct DiffResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PushResponse {
+    pub preview: GitCommandPreview,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequest {
+    pub repository_path: PathBuf,
+    pub remote: String,
+    pub remote_branch: String,
+    pub rebase: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullResponse {
+    pub preview: GitCommandPreview,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AddRemoteRequest {
+    pub repository_path: PathBuf,
+    pub name: String,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SetRemoteUrlRequest {
+    pub repository_path: PathBuf,
+    pub name: String,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoveRemoteRequest {
+    pub repository_path: PathBuf,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteMutationResponse {
     pub preview: GitCommandPreview,
     pub stdout: String,
     pub stderr: String,

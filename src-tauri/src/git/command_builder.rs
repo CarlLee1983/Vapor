@@ -1,4 +1,7 @@
-use super::models::{GitCommandPreview, GitError, GitErrorCode, PushRequest, TagPushMode};
+use super::models::{
+    AddRemoteRequest, GitCommandPreview, GitError, GitErrorCode, PullRequest, PushRequest,
+    RemoveRemoteRequest, SetRemoteUrlRequest, TagPushMode,
+};
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
     let is_valid = !value.is_empty()
@@ -20,6 +23,26 @@ fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
             message: format!("Invalid {label}."),
             hint: "Use a plain Git remote or branch name without whitespace or ref operators."
                 .to_string(),
+            stderr: String::new(),
+        })
+    }
+}
+
+fn validate_remote_url(value: &str) -> Result<(), GitError> {
+    let is_valid = !value.is_empty()
+        && !value.starts_with('-')
+        && !value.contains(' ')
+        && !value.contains('\t')
+        && !value.contains('\n')
+        && !value.contains('\r');
+
+    if is_valid {
+        Ok(())
+    } else {
+        Err(GitError {
+            code: GitErrorCode::InvalidRef,
+            message: "Invalid remote URL.".to_string(),
+            hint: "Use a remote URL without whitespace or a leading dash.".to_string(),
             stderr: String::new(),
         })
     }
@@ -59,6 +82,56 @@ pub fn push_preview(request: &PushRequest) -> Result<GitCommandPreview, GitError
     }
 
     Ok(preview(args))
+}
+
+pub fn pull_preview(request: &PullRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.remote, "remote")?;
+    validate_ref_part(&request.remote_branch, "remote branch")?;
+
+    let mut args = vec![
+        "pull".to_string(),
+        request.remote.clone(),
+        request.remote_branch.clone(),
+    ];
+
+    if request.rebase {
+        args.push("--rebase".to_string());
+    }
+
+    Ok(preview(args))
+}
+
+pub fn add_remote_preview(request: &AddRemoteRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.name, "remote name")?;
+    validate_remote_url(&request.url)?;
+    Ok(preview(vec![
+        "remote".to_string(),
+        "add".to_string(),
+        request.name.clone(),
+        request.url.clone(),
+    ]))
+}
+
+pub fn set_remote_url_preview(
+    request: &SetRemoteUrlRequest,
+) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.name, "remote name")?;
+    validate_remote_url(&request.url)?;
+    Ok(preview(vec![
+        "remote".to_string(),
+        "set-url".to_string(),
+        request.name.clone(),
+        request.url.clone(),
+    ]))
+}
+
+pub fn remove_remote_preview(request: &RemoveRemoteRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.name, "remote name")?;
+    Ok(preview(vec![
+        "remote".to_string(),
+        "remove".to_string(),
+        request.name.clone(),
+    ]))
 }
 
 #[cfg(test)]
@@ -109,5 +182,102 @@ mod tests {
         request.force_with_lease = true;
         let preview = push_preview(&request).expect("preview");
         assert!(preview.args.contains(&"--force-with-lease".to_string()));
+    }
+
+    fn pull_request() -> PullRequest {
+        PullRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            remote: "origin".to_string(),
+            remote_branch: "main".to_string(),
+            rebase: false,
+        }
+    }
+
+    #[test]
+    fn builds_pull_args_without_rebase() {
+        let preview = pull_preview(&pull_request()).expect("preview");
+        assert_eq!(preview.args, vec!["pull", "origin", "main"]);
+        assert_eq!(preview.display, "git pull origin main");
+    }
+
+    #[test]
+    fn appends_rebase_flag_when_set() {
+        let mut request = pull_request();
+        request.rebase = true;
+        let preview = pull_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["pull", "origin", "main", "--rebase"]);
+    }
+
+    #[test]
+    fn rejects_pull_ref_injection() {
+        let mut request = pull_request();
+        request.remote_branch = "main --tags".to_string();
+        let error = pull_preview(&request).expect_err("invalid ref");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_add_remote_args() {
+        let request = AddRemoteRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            name: "origin".to_string(),
+            url: "git@example.com:vapor.git".to_string(),
+        };
+        let preview = add_remote_preview(&request).expect("preview");
+        assert_eq!(
+            preview.args,
+            vec!["remote", "add", "origin", "git@example.com:vapor.git"]
+        );
+    }
+
+    #[test]
+    fn builds_set_remote_url_args() {
+        let request = SetRemoteUrlRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            name: "origin".to_string(),
+            url: "https://example.com/vapor.git".to_string(),
+        };
+        let preview = set_remote_url_preview(&request).expect("preview");
+        assert_eq!(
+            preview.args,
+            vec![
+                "remote",
+                "set-url",
+                "origin",
+                "https://example.com/vapor.git"
+            ]
+        );
+    }
+
+    #[test]
+    fn builds_remove_remote_args() {
+        let request = RemoveRemoteRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            name: "origin".to_string(),
+        };
+        let preview = remove_remote_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["remote", "remove", "origin"]);
+    }
+
+    #[test]
+    fn rejects_remote_name_injection() {
+        let request = AddRemoteRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            name: "--mirror".to_string(),
+            url: "git@example.com:vapor.git".to_string(),
+        };
+        let error = add_remote_preview(&request).expect_err("invalid name");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn rejects_remote_url_with_whitespace() {
+        let request = AddRemoteRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            name: "origin".to_string(),
+            url: "git@example.com:vapor.git --upload-pack=evil".to_string(),
+        };
+        let error = add_remote_preview(&request).expect_err("invalid url");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
     }
 }

@@ -5,6 +5,7 @@ export type GitErrorCode =
   | "gitMissing"
   | "remoteMissing"
   | "nonFastForward"
+  | "mergeConflict"
   | "authenticationFailed"
   | "emptyRepository"
   | "detachedHead"
@@ -73,6 +74,42 @@ export interface GitCommandPreview {
 }
 
 export interface PushResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
+export interface PullRequest {
+  repositoryPath: string;
+  remote: string;
+  remoteBranch: string;
+  rebase: boolean;
+}
+
+export interface PullResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
+export interface AddRemoteRequest {
+  repositoryPath: string;
+  name: string;
+  url: string;
+}
+
+export interface SetRemoteUrlRequest {
+  repositoryPath: string;
+  name: string;
+  url: string;
+}
+
+export interface RemoveRemoteRequest {
+  repositoryPath: string;
+  name: string;
+}
+
+export interface RemoteMutationResponse {
   preview: GitCommandPreview;
   stdout: string;
   stderr: string;

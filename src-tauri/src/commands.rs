@@ -1,10 +1,12 @@
+use crate::cli::{self, LaunchPath};
 use crate::git::models::{
-    CommitLogRequest, CommitSummary, DiffRequest, DiffResponse, GitCommandPreview, GitError, PushRequest,
-    PushResponse, RepositoryRequest, RepositoryState,
+    AddRemoteRequest, CommitLogRequest, CommitSummary, DiffRequest, DiffResponse,
+    GitCommandPreview, GitError, PullRequest, PullResponse, PushRequest, PushResponse,
+    RemoteMutationResponse, RemoveRemoteRequest, RepositoryRequest, RepositoryState,
+    SetRemoteUrlRequest,
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
-use crate::cli::{self, LaunchPath};
 use tauri::State;
 
 /// 解析目前執行檔路徑;找不到時回傳一致的 GitError。
@@ -52,6 +54,38 @@ pub async fn push_branch(request: PushRequest) -> Result<PushResponse, GitError>
             hint: "Try the push again. If it keeps failing, restart Vapor.".to_string(),
             stderr: error.to_string(),
         })?
+}
+
+#[tauri::command]
+pub fn preview_pull(request: PullRequest) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::pull_preview(&request)
+}
+
+#[tauri::command]
+pub async fn pull_branch(request: PullRequest) -> Result<PullResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).pull(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Pull task failed before Git completed.".to_string(),
+            hint: "Try the pull again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub fn add_remote(request: AddRemoteRequest) -> Result<RemoteMutationResponse, GitError> {
+    GitService::new(SystemGitRunner).add_remote(&request)
+}
+
+#[tauri::command]
+pub fn set_remote_url(request: SetRemoteUrlRequest) -> Result<RemoteMutationResponse, GitError> {
+    GitService::new(SystemGitRunner).set_remote_url(&request)
+}
+
+#[tauri::command]
+pub fn remove_remote(request: RemoveRemoteRequest) -> Result<RemoteMutationResponse, GitError> {
+    GitService::new(SystemGitRunner).remove_remote(&request)
 }
 
 #[tauri::command]
