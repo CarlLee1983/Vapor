@@ -100,6 +100,24 @@ describe("App", () => {
     expect(loadRepository).not.toHaveBeenCalled();
   });
 
+  it("exposes layout controls in the toolbar", async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Initial commit")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /side by side/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /stacked/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /focus single panel/i })).toBeInTheDocument();
+  });
+
+  it("hides Remotes and About behind the settings menu", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Initial commit")).toBeInTheDocument());
+    expect(screen.queryByRole("menuitem", { name: /remotes/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    expect(screen.getByRole("menuitem", { name: /remotes/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /about/i })).toBeInTheDocument();
+  });
+
   it("auto-loads the launch path on mount", async () => {
     getLaunchPath.mockResolvedValue("/launched");
     render(<App />);
