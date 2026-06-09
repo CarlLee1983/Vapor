@@ -22,6 +22,14 @@ describe("CommitGraph", () => {
     expect(container.querySelectorAll("path")).toHaveLength(edgeCount);
   });
 
+  it("renders dangling edges at reduced opacity", () => {
+    // c2's parent "c1" is not in the list → the bottom edge is dangling
+    const graph = buildCommitGraph([commit("c2", ["c1"])]);
+    const { container } = render(<CommitGraph graph={graph} />);
+    const opacities = Array.from(container.querySelectorAll("path")).map((p) => p.getAttribute("opacity"));
+    expect(opacities).toContain("0.35");
+  });
+
   it("renders nothing for an empty graph", () => {
     const { container } = render(<CommitGraph graph={{ rows: [], maxLaneCount: 0 }} />);
     expect(container.querySelector("svg")).toBeNull();

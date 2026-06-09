@@ -22,6 +22,7 @@ function edgePath(edge: GraphEdge, rowIndex: number): string {
     const my = (top + center) / 2;
     return `M ${fromX},${top} C ${fromX},${my} ${toX},${my} ${toX},${center}`;
   }
+  // edge.half === "bottom" — the only remaining valid case (top/through handled above)
   const my = (center + bottom) / 2;
   return `M ${fromX},${center} C ${fromX},${my} ${toX},${my} ${toX},${bottom}`;
 }
