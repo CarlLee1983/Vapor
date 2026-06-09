@@ -1,4 +1,8 @@
 use super::models::{Check, CheckId, CheckStatus, DoctorReport, Facts, Fix};
+use crate::cli;
+use crate::git::login_env;
+use std::path::Path;
+use std::process::Command;
 
 fn join_or(items: &[String], empty: &str) -> String {
     if items.is_empty() {
@@ -114,6 +118,62 @@ pub fn evaluate(facts: &Facts) -> DoctorReport {
     }
 }
 
+/// doctor 已知的開發工具目錄(顯示名稱, PATH 內比對子字串)。
+const KNOWN_TOOLS: &[(&str, &str)] = &[
+    ("Homebrew", "homebrew"),
+    ("bun", "/.bun"),
+    ("Node", "/node/"),
+    ("pnpm", "pnpm"),
+];
+
+/// 以注入 login PATH 的環境執行 `git --version`;失敗回 None。
+fn probe_git_version() -> Option<String> {
+    let output = Command::new("git")
+        .arg("--version")
+        .env("PATH", login_env::effective_path())
+        .output()
+        .ok()?;
+    if output.status.success() {
+        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        None
+    }
+}
+
+/// 讀取 ~/.config/husky/init.sh 狀態:(是否存在, 內容是否含 PATH)。
+fn probe_husky_init() -> (bool, bool) {
+    let Some(home) = dirs::home_dir() else {
+        return (false, false);
+    };
+    let path = home.join(".config/husky/init.sh");
+    match std::fs::read_to_string(&path) {
+        Ok(contents) => (true, contents.contains("PATH")),
+        Err(_) => (false, false),
+    }
+}
+
+/// 收集所有檢查所需事實。唯一碰 I/O 的地方。
+pub fn gather_facts(app_binary: &Path) -> Facts {
+    let resolution = login_env::resolution();
+    let (found_tool_dirs, missing_tool_dirs) =
+        login_env::classify_tool_dirs(&resolution.effective_path, KNOWN_TOOLS);
+    let (husky_init_present, husky_init_has_path) = probe_husky_init();
+    Facts {
+        git_version: probe_git_version(),
+        login_resolved: resolution.login_resolved,
+        found_tool_dirs,
+        missing_tool_dirs,
+        cli_installed: cli::cli_installed(app_binary),
+        husky_init_present,
+        husky_init_has_path,
+    }
+}
+
+/// 探測 + 判定,產生完整報告。
+pub fn run(app_binary: &Path) -> DoctorReport {
+    evaluate(&gather_facts(app_binary))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,5 +254,21 @@ mod tests {
                 CheckId::HuskyInit
             ]
         );
+    }
+
+    #[test]
+    fn run_produces_four_checks_for_a_nonexistent_binary() {
+        let report = run(std::path::Path::new("/nonexistent/vapor"));
+        assert_eq!(report.checks.len(), 4);
+    }
+
+    #[test]
+    fn husky_warn_when_init_present_but_path_missing() {
+        let mut f = facts();
+        f.husky_init_present = true;
+        f.husky_init_has_path = false;
+        let check = evaluate_husky_init(&f);
+        assert_eq!(check.status, CheckStatus::Warn);
+        assert!(matches!(check.fix, Fix::Auto { .. }));
     }
 }
