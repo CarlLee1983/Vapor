@@ -673,21 +673,41 @@ button:not(.commit-row):disabled {
   font-weight: 700;
 }
 
-.dialog input,
+.dialog input:not([type="checkbox"]),
 .dialog select {
-  min-height: 34px;
+  height: 38px;
+  box-sizing: border-box;
   border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
-  padding: 0 9px;
+  padding: 0 12px;
   font: inherit;
+  font-size: 13px;
   background: var(--bg-input);
   color: var(--text-primary);
+  transition: var(--transition-smooth);
 }
 
-.dialog input:focus,
+.dialog input:not([type="checkbox"]):focus,
 .dialog select:focus {
   outline: none;
   border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-blue-bg);
+}
+
+.dialog select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 36px; /* 為右側的箭頭保留空間 */
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  cursor: pointer;
+}
+
+.theme-dark .dialog select {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
 }
 
 .field-hint {
@@ -1023,4 +1043,75 @@ button:not(.commit-row):disabled {
 .commit-box__error {
   color: var(--accent-danger, #c0392b);
   font-size: 0.8rem;
+}
+
+/* Remote 列表與單列樣式 */
+.remote-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.remote-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-color);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+
+.remote-row strong {
+  min-width: 70px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.remote-row input {
+  flex: 1;
+  min-width: 0; /* 允許彈性盒模型內部的 input 縮小 */
+}
+
+
+/* 新增 Remote 區塊美化 */
+.remote-add {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin: 16px 0 0 0;
+  background: rgba(var(--bg-panel-rgb), 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.remote-add legend {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 0 8px;
+}
+
+.remote-add label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.remote-add input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.remote-add button {
+  align-self: flex-end;
+  margin-top: 4px;
 }
