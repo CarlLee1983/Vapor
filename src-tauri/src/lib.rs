@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod commands;
+pub mod doctor;
 pub mod git;
 pub mod update;
 
@@ -43,7 +44,9 @@ pub fn run() {
             commands::get_launch_path,
             commands::install_cli,
             commands::cli_status,
-            commands::detect_install_source
+            commands::detect_install_source,
+            commands::doctor_run,
+            commands::doctor_fix
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

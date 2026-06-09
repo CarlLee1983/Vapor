@@ -141,3 +141,15 @@ pub fn cli_status() -> Result<bool, GitError> {
 pub fn detect_install_source() -> crate::update::InstallSource {
     crate::update::detect_install_source()
 }
+
+#[tauri::command]
+pub fn doctor_run() -> Result<crate::doctor::models::DoctorReport, GitError> {
+    let binary = resolve_binary()?;
+    Ok(crate::doctor::checks::run(&binary))
+}
+
+#[tauri::command]
+pub fn doctor_fix(id: crate::doctor::models::CheckId) -> Result<String, GitError> {
+    let binary = resolve_binary()?;
+    crate::doctor::fixes::apply(id, &binary)
+}

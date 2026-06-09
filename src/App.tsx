@@ -5,6 +5,7 @@ import { PushDialog } from "./components/PushDialog";
 import { PullDialog } from "./components/PullDialog";
 import { RemotesDialog } from "./components/RemotesDialog";
 import { AboutDialog } from "./components/AboutDialog";
+import { DoctorDialog } from "./components/DoctorDialog";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { type ThemeMode } from "./components/ThemeToggle";
 import { SettingsMenu } from "./components/SettingsMenu";
@@ -28,6 +29,7 @@ export default function App() {
   const [isPullOpen, setIsPullOpen] = useState(false);
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isDoctorOpen, setIsDoctorOpen] = useState(false);
   const { loadRepository, refreshRepository } = repoView;
 
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -147,6 +149,7 @@ export default function App() {
               onThemeChange={setTheme}
               onOpenRemotes={() => setIsRemotesOpen(true)}
               onOpenAbout={() => setIsAboutOpen(true)}
+              onOpenDoctor={() => setIsDoctorOpen(true)}
               remotesDisabled={!repoView.repository}
             />
           </div>
@@ -230,6 +233,7 @@ export default function App() {
         />
       ) : null}
       {isAboutOpen ? <AboutDialog onClose={() => setIsAboutOpen(false)} /> : null}
+      {isDoctorOpen ? <DoctorDialog onClose={() => setIsDoctorOpen(false)} /> : null}
     </main>
   );
 }

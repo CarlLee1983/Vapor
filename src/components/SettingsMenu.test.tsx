@@ -9,6 +9,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof SettingsMenu>> = {
     onThemeChange: vi.fn(),
     onOpenRemotes: vi.fn(),
     onOpenAbout: vi.fn(),
+    onOpenDoctor: vi.fn(),
     remotesDisabled: false,
     ...overrides,
   };
@@ -63,5 +64,14 @@ describe("SettingsMenu", () => {
     setup({ remotesDisabled: true });
     await userEvent.click(screen.getByRole("button", { name: /settings/i }));
     expect(screen.getByRole("menuitem", { name: /remotes/i })).toBeDisabled();
+  });
+
+  it("invokes onOpenDoctor when the Doctor item is clicked", async () => {
+    const props = setup({ onOpenDoctor: vi.fn() });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(screen.getByRole("menuitem", { name: /doctor/i }));
+    expect(props.onOpenDoctor).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });
