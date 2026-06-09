@@ -1,14 +1,15 @@
 name: Update Homebrew Cask
 
-# 當 Vapor 的 Release 被 Publish 時,自動把 homebrew-tap 的 cask 升到該版本。
-# 也可手動指定 tag 重跑(補救用)。
+# 手動補救工具:指定 tag 把 homebrew-tap 的 cask 重新同步到該 release。
+# 正常發版時 cask 由 release.yml 的 update-cask job 自動處理;此 workflow 只在
+# 需要重跑(例如某次自動更新失敗)時手動執行。
+# 註:由 GITHUB_TOKEN 自動發佈的 Release 不會觸發 `release: published` 事件,
+# 所以這裡不再掛 release 觸發器,改為純手動。
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: '要同步的 release tag(例如 v0.1.0)'
+        description: '要同步的 release tag(例如 v0.3.1)'
         required: true
 
 jobs:
