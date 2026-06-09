@@ -11,8 +11,16 @@ pub fn parse_launch_path(args: &[String]) -> Option<PathBuf> {
 }
 
 /// Render the POSIX shell wrapper that resolves `.` against the caller's
-/// working directory and execs the bundle binary so the running instance
-/// receives the path.
+/// working directory and launches the bundle binary **detached** from the
+/// terminal so the running instance receives the path without tying the
+/// app's lifecycle to the shell.
+///
+/// The binary is started in the background with `nohup` and its standard
+/// streams redirected so that (a) the terminal prompt returns immediately
+/// instead of blocking, (b) Ctrl+C in the terminal no longer reaches the
+/// app's process group, and (c) closing the terminal (SIGHUP) does not
+/// kill the app. Launching the inner binary directly (rather than via
+/// `open`) preserves single-instance argv forwarding.
 pub fn wrapper_script(app_binary: &Path) -> String {
     format!(
         "#!/bin/sh\n\
@@ -20,7 +28,7 @@ pub fn wrapper_script(app_binary: &Path) -> String {
          \x20 echo \"vapor: directory not found: ${{1:-.}}\" >&2\n\
          \x20 exit 1\n\
          }}\n\
-         exec \"{}\" \"$target\"\n",
+         nohup \"{}\" \"$target\" </dev/null >/dev/null 2>&1 &\n",
         app_binary.display()
     )
 }
@@ -58,9 +66,9 @@ fn wrapper_candidates() -> Vec<PathBuf> {
     candidates
 }
 
-/// 若任一候選 wrapper 存在且其 `exec "<app_binary>"` 行指向 `app_binary`,回傳 true。
+/// 若任一候選 wrapper 存在且其啟動行指向 `app_binary`(以 `"<app_binary>"` 比對),回傳 true。
 fn cli_installed_in(candidates: &[PathBuf], app_binary: &Path) -> bool {
-    let needle = format!("exec \"{}\"", app_binary.display());
+    let needle = format!("\"{}\"", app_binary.display());
     candidates.iter().any(|path| {
         fs::read_to_string(path)
             .map(|contents| contents.contains(&needle))
@@ -178,10 +186,15 @@ mod tests {
     }
 
     #[test]
-    fn wrapper_contains_binary_and_resolution() {
+    fn wrapper_launches_detached_with_binary_and_resolution() {
         let script = wrapper_script(Path::new("/Applications/Vapor.app/Contents/MacOS/vapor"));
         assert!(script.starts_with("#!/bin/sh"));
         assert!(script.contains("cd \"${1:-.}\""));
-        assert!(script.contains("exec \"/Applications/Vapor.app/Contents/MacOS/vapor\" \"$target\""));
+        // Launched in the background, detached from the terminal — not a
+        // foreground `exec` that would block the shell and forward Ctrl+C.
+        assert!(!script.contains("exec \""));
+        assert!(script.contains(
+            "nohup \"/Applications/Vapor.app/Contents/MacOS/vapor\" \"$target\" </dev/null >/dev/null 2>&1 &"
+        ));
     }
 }
