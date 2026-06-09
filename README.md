@@ -31,7 +31,31 @@ Vapor 用 [Tauri](https://tauri.app/) 打造，以較低的記憶體佔用提供
 
 ## 下載與安裝(macOS)
 
-到 [Releases 頁面](https://github.com/CarlLee1983/Vapor/releases) 下載對應晶片的 `.dmg`:
+### 透過 Homebrew(建議)
+
+```bash
+brew tap CarlLee1983/tap
+brew install --cask vapor-git
+```
+
+> ⚠️ cask 名稱是 **`vapor-git`**,不是 `vapor`。bare `vapor` 在 Homebrew core 是另一個
+> 同名 app(NCAR VAPOR)的別名,`brew install --cask vapor` 會裝到別的東西。
+>
+> 較新版的 Homebrew 首次載入第三方 tap 會要求先信任;若出現
+> `Refusing to load cask ... from untrusted tap`,執行一次:
+> ```bash
+> brew trust CarlLee1983/tap
+> ```
+
+更新到最新版:
+
+```bash
+brew upgrade --cask vapor-git
+```
+
+### 直接下載 DMG
+
+或到 [Releases 頁面](https://github.com/CarlLee1983/Vapor/releases) 下載對應晶片的 `.dmg`:
 
 - Apple Silicon(M 系列):`Vapor_x.y.z_aarch64.dmg`
 - Intel:`Vapor_x.y.z_x64.dmg`
