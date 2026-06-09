@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod commands;
+pub mod doctor;
 pub mod git;
 pub mod update;
 
