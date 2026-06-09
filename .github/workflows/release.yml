@@ -83,6 +83,6 @@ jobs:
             2. 系統設定 → 隱私權與安全性 → 往下找到「已封鎖 Vapor」→ 按「仍要打開」
 
             偏好終端機:`xattr -dr com.apple.quarantine /Applications/Vapor.app`
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
