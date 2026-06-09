@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import type { CheckId, DoctorReport } from "../types/doctor";
 
 export async function getLaunchPath(): Promise<string | null> {
   return invoke<string | null>("get_launch_path");
@@ -21,4 +22,12 @@ export async function pickRepositoryFolder(): Promise<string | null> {
 
 export async function onOpenRepo(handler: (path: string) => void): Promise<() => void> {
   return listen<string>("open-repo", (event) => handler(event.payload));
+}
+
+export async function doctorRun(): Promise<DoctorReport> {
+  return invoke<DoctorReport>("doctor_run");
+}
+
+export async function doctorFix(id: CheckId): Promise<string> {
+  return invoke<string>("doctor_fix", { id });
 }
