@@ -6,11 +6,15 @@ import { PullDialog } from "./components/PullDialog";
 import { RemotesDialog } from "./components/RemotesDialog";
 import { AboutDialog } from "./components/AboutDialog";
 import { RepositorySidebar } from "./components/RepositorySidebar";
-import { ThemeToggle, ThemeMode } from "./components/ThemeToggle";
+import { type ThemeMode } from "./components/ThemeToggle";
+import { SettingsMenu } from "./components/SettingsMenu";
+import { LayoutControls } from "./components/LayoutControls";
+import { SplitPane } from "./components/SplitPane";
 import { CliInstallBanner } from "./components/CliInstallBanner";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { WorkingTreePanel } from "./components/WorkingTreePanel";
 import { useRepository } from "./hooks/useRepository";
+import { useLayoutPreferences } from "./hooks/useLayoutPreferences";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
 import { previewCommit } from "./lib/tauriApi";
 import "./styles.css";
@@ -19,6 +23,7 @@ export const AUTO_REFRESH_INTERVAL_MS = 5000;
 
 export default function App() {
   const repoView = useRepository();
+  const layout = useLayoutPreferences();
   const [isPushOpen, setIsPushOpen] = useState(false);
   const [isPullOpen, setIsPullOpen] = useState(false);
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
@@ -117,15 +122,11 @@ export default function App() {
             </span>
           </div>
           <div className="toolbar-actions">
-            <ThemeToggle currentTheme={theme} onThemeChange={setTheme} />
-            <button type="button" disabled={!repoView.repository} onClick={() => void refreshRepository()}>
-              Refresh
-            </button>
             <button type="button" onClick={() => void handleOpen()}>
               Open Repository
             </button>
-            <button type="button" onClick={() => setIsAboutOpen(true)}>
-              About
+            <button type="button" disabled={!repoView.repository} onClick={() => void refreshRepository()}>
+              Refresh
             </button>
             <button type="button" disabled={!repoView.repository} onClick={() => setIsPushOpen(true)}>
               Push
@@ -133,9 +134,21 @@ export default function App() {
             <button type="button" disabled={!repoView.repository} onClick={() => setIsPullOpen(true)}>
               Pull
             </button>
-            <button type="button" disabled={!repoView.repository} onClick={() => setIsRemotesOpen(true)}>
-              Remotes
-            </button>
+            <span className="toolbar-divider" aria-hidden="true" />
+            <LayoutControls
+              orientation={layout.prefs.orientation}
+              focusMode={layout.prefs.focusMode}
+              onOrientationChange={layout.setOrientation}
+              onToggleFocus={layout.toggleFocus}
+            />
+            <span className="toolbar-divider" aria-hidden="true" />
+            <SettingsMenu
+              theme={theme}
+              onThemeChange={setTheme}
+              onOpenRemotes={() => setIsRemotesOpen(true)}
+              onOpenAbout={() => setIsAboutOpen(true)}
+              remotesDisabled={!repoView.repository}
+            />
           </div>
         </header>
         <CliInstallBanner />
@@ -143,7 +156,12 @@ export default function App() {
         {repoView.error ? (
           <div className="error-banner" role="alert">{repoView.error.message} {repoView.error.hint}</div>
         ) : null}
-        <div className="workbench-grid">
+        <SplitPane
+          orientation={layout.prefs.orientation}
+          ratio={layout.prefs.splitRatio}
+          onRatioChange={layout.setSplitRatio}
+          focusMode={layout.prefs.focusMode}
+        >
           {viewMode === "history" ? (
             <CommitList
               commits={repoView.commits}
@@ -176,7 +194,7 @@ export default function App() {
                 : undefined
             }
           />
-        </div>
+        </SplitPane>
       </section>
       {isPushOpen && repoView.repository ? (
         <PushDialog
