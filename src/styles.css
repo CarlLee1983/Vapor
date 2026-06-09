@@ -346,8 +346,21 @@ button:not(.commit-row):disabled {
   margin-bottom: 12px;
 }
 
+.commit-graph-rows {
+  position: relative;
+}
+
+.commit-graph {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
 .commit-row {
   width: 100%;
+  height: 44px;            /* 對齊 commitGraph.ts 的 ROW_HEIGHT */
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;

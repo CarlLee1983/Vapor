@@ -1,5 +1,8 @@
+import { useMemo } from "react";
 import type { CommitSummary } from "../types/git";
 import { describeRef } from "../lib/refs";
+import { CommitGraph } from "./CommitGraph";
+import { buildCommitGraph, LANE_WIDTH } from "../lib/commitGraph";
 
 interface Props {
   commits: CommitSummary[];
@@ -37,45 +40,52 @@ export function getAvatarColor(name: string): string {
 }
 
 export function CommitList({ commits, selectedCommit, onSelectCommit }: Props) {
+  const graph = useMemo(() => buildCommitGraph(commits), [commits]);
+  const gutterWidth = Math.max(1, graph.maxLaneCount) * LANE_WIDTH;
+
   return (
     <section className="panel commit-list" aria-label="Commit history">
       <h2>History</h2>
-      {commits.map((commit) => (
-        <button
-          className={commit.hash === selectedCommit?.hash ? "commit-row commit-row--selected" : "commit-row"}
-          key={commit.hash}
-          type="button"
-          aria-pressed={commit.hash === selectedCommit?.hash}
-          onClick={() => onSelectCommit(commit)}
-        >
-          <div
-            className="commit-avatar"
-            style={{ backgroundColor: `${getAvatarColor(commit.author)}e6` }}
+      <div className="commit-graph-rows">
+        <CommitGraph graph={graph} />
+        {commits.map((commit) => (
+          <button
+            className={commit.hash === selectedCommit?.hash ? "commit-row commit-row--selected" : "commit-row"}
+            key={commit.hash}
+            type="button"
+            aria-pressed={commit.hash === selectedCommit?.hash}
+            onClick={() => onSelectCommit(commit)}
+            style={{ paddingLeft: gutterWidth + 8 }}
           >
-            {getInitials(commit.author)}
-          </div>
-          <span className="commit-subject">
-            {commit.refs.length > 0 ? (
-              <span className="commit-refs">
-                {commit.refs.map((ref) => {
-                  const badge = describeRef(ref);
-                  return (
-                    <span key={ref} className={`ref-badge ref-badge--${badge.kind}`}>
-                      {badge.label}
-                    </span>
-                  );
-                })}
-              </span>
-            ) : null}
-            {commit.subject}
-          </span>
-          <span className="commit-meta">
-            <span className="commit-hash">{commit.hash.slice(0, 7)}</span>
-            <span className="commit-meta-separator">·</span>
-            <span className="commit-author" title={commit.author}>{commit.author}</span>
-          </span>
-        </button>
-      ))}
+            <div
+              className="commit-avatar"
+              style={{ backgroundColor: `${getAvatarColor(commit.author)}e6` }}
+            >
+              {getInitials(commit.author)}
+            </div>
+            <span className="commit-subject">
+              {commit.refs.length > 0 ? (
+                <span className="commit-refs">
+                  {commit.refs.map((ref) => {
+                    const badge = describeRef(ref);
+                    return (
+                      <span key={ref} className={`ref-badge ref-badge--${badge.kind}`}>
+                        {badge.label}
+                      </span>
+                    );
+                  })}
+                </span>
+              ) : null}
+              {commit.subject}
+            </span>
+            <span className="commit-meta">
+              <span className="commit-hash">{commit.hash.slice(0, 7)}</span>
+              <span className="commit-meta-separator">·</span>
+              <span className="commit-author" title={commit.author}>{commit.author}</span>
+            </span>
+          </button>
+        ))}
+      </div>
     </section>
   );
 }

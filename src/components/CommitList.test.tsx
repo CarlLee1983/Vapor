@@ -35,6 +35,15 @@ describe("CommitList", () => {
     expect(screen.queryByText("main")).not.toBeInTheDocument();
   });
 
+  it("renders the branch graph gutter alongside the commit rows", () => {
+    const { container } = render(
+      <CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} />,
+    );
+    expect(container.querySelector("svg.commit-graph")).toBeInTheDocument();
+    expect(container.querySelectorAll("svg.commit-graph circle")).toHaveLength(commits.length);
+    expect(screen.getByText("Older commit")).toBeInTheDocument();
+  });
+
   it("renders initials avatars correctly for single and multi-word names", () => {
     const testCommits: CommitSummary[] = [
       {
