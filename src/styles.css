@@ -474,6 +474,7 @@ button:not(.commit-row):disabled {
 
 .diff-viewer--maximized {
   position: fixed;
+  box-sizing: border-box;              /* 讓 padding/border 計入寬高，避免溢出視窗裁掉工具列按鈕 */
   top: var(--toolbar-height);          /* 剛好在頂部 Toolbar 下方 */
   left: var(--sidebar-width);        /* 剛好在左側 Sidebar 右方 */
   right: 0;
@@ -898,6 +899,8 @@ button:not(.commit-row):disabled {
 }
 
 .diff-title {
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
@@ -910,6 +913,7 @@ button:not(.commit-row):disabled {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .diff-actions button {
