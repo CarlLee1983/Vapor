@@ -6,6 +6,7 @@ interface SettingsMenuProps {
   onThemeChange: (theme: ThemeMode) => void;
   onOpenRemotes: () => void;
   onOpenAbout: () => void;
+  onOpenDoctor: () => void;
   remotesDisabled?: boolean;
 }
 
@@ -14,6 +15,7 @@ export function SettingsMenu({
   onThemeChange,
   onOpenRemotes,
   onOpenAbout,
+  onOpenDoctor,
   remotesDisabled = false,
 }: SettingsMenuProps) {
   const [open, setOpen] = useState(false);
@@ -80,6 +82,14 @@ export function SettingsMenu({
               onClick={() => runAndClose(onOpenAbout)}
             >
               About
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="settings-menu__item"
+              onClick={() => runAndClose(onOpenDoctor)}
+            >
+              Doctor
             </button>
           </div>
         </div>

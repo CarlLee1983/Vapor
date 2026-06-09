@@ -147,6 +147,7 @@ export default function App() {
               onThemeChange={setTheme}
               onOpenRemotes={() => setIsRemotesOpen(true)}
               onOpenAbout={() => setIsAboutOpen(true)}
+              onOpenDoctor={() => {}}
               remotesDisabled={!repoView.repository}
             />
           </div>
