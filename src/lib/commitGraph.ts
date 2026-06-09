@@ -19,7 +19,9 @@ export function laneColor(lane: number): string {
   return LANE_COLORS[((lane % n) + n) % n];
 }
 
+/** Curve shape a renderer should draw. */
 export type EdgeKind = "straight" | "branch" | "merge";
+/** Which vertical half of the row this edge segment occupies. */
 export type EdgeHalf = "top" | "bottom" | "through";
 
 export interface GraphEdge {
@@ -50,6 +52,7 @@ export interface CommitGraph {
 
 export function buildCommitGraph(commits: CommitSummary[]): CommitGraph {
   const known = new Set(commits.map((c) => c.hash));
+  // Intentionally mutable: in-place lane updates avoid O(n^2) slice allocations.
   const lanes: (string | null)[] = []; // lane index -> hash the lane is waiting for
   const rows: GraphRow[] = [];
   let maxLaneCount = 0;
@@ -129,7 +132,9 @@ export function buildCommitGraph(commits: CommitSummary[]): CommitGraph {
       lanes.pop();
     }
 
-    const laneCount = Math.max(topLanes.length, lanes.length, nodeLane + 1);
+    const lastActiveTop = topLanes.reduce((m, h, i) => (h !== null ? i : m), -1);
+    const lastActiveBot = lanes.reduce((m, h, i) => (h !== null ? i : m), -1);
+    const laneCount = Math.max(lastActiveTop + 1, lastActiveBot + 1, nodeLane + 1);
     maxLaneCount = Math.max(maxLaneCount, laneCount);
 
     rows.push({ commit, node: { lane: nodeLane, color: nodeColor }, edges, laneCount });

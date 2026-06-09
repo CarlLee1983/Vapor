@@ -22,6 +22,10 @@ describe("buildCommitGraph - linear history", () => {
     expect(graph.rows.map((r) => r.node.lane)).toEqual([0, 0, 0]);
   });
 
+  it("reports laneCount 1 for every row", () => {
+    graph.rows.forEach((r) => expect(r.laneCount).toBe(1));
+  });
+
   it("produces no branch or merge edges", () => {
     const kinds = graph.rows.flatMap((r) => r.edges.map((e) => e.kind));
     expect(kinds).not.toContain("branch");
@@ -58,6 +62,14 @@ describe("buildCommitGraph - branch and merge", () => {
   it("places the feature commit on a second lane", () => {
     const bRow = graph.rows.find((r) => r.commit.hash === "b");
     expect(bRow?.node.lane).toBe(1);
+  });
+
+  it("emits pass-through edges for lanes active across a row", () => {
+    const aRow = graph.rows.find((r) => r.commit.hash === "a")!;
+    const through = aRow.edges.filter((e) => e.half === "through");
+    expect(through).toHaveLength(1);
+    expect(through[0].fromLane).toBe(1);
+    expect(through[0].toLane).toBe(1);
   });
 });
 
