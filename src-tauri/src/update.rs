@@ -27,11 +27,11 @@ fn brew_binary() -> Option<PathBuf> {
         .find(|path| path.is_file())
 }
 
-/// 以參數陣列執行 `<brew> list --cask vapor`(絕不拼 shell 字串)。
+/// 以參數陣列執行 `<brew> list --cask vapor-git`(絕不拼 shell 字串)。
 /// exit code 0 視為這份 Vapor 由 brew 管理。
 fn is_managed_by_brew(brew: &Path) -> bool {
     Command::new(brew)
-        .args(["list", "--cask", "vapor"])
+        .args(["list", "--cask", "vapor-git"])
         .output()
         .map(|output| output.status.success())
         .unwrap_or(false)

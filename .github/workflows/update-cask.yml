@@ -55,9 +55,9 @@ jobs:
             $_.sub!(/^(\s*version\s+)".*"/)            { "#{$1}\"#{ENV["NEW_VERSION"]}\"" }
             $_.sub!(/^(\s*sha256 arm:\s+)"[a-f0-9]*"/) { "#{$1}\"#{ENV["SHA_ARM"]}\"" }
             $_.sub!(/^(\s*intel:\s+)"[a-f0-9]*"/)      { "#{$1}\"#{ENV["SHA_INTEL"]}\"" }
-          ' tap/Casks/vapor.rb
+          ' tap/Casks/vapor-git.rb
           echo "--- updated cask ---"
-          cat tap/Casks/vapor.rb
+          cat tap/Casks/vapor-git.rb
 
       - name: Commit and push
         run: |
@@ -68,6 +68,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/vapor.rb
+          git add Casks/vapor-git.rb
           git commit -m "chore: bump vapor to ${{ steps.meta.outputs.version }}"
           git push

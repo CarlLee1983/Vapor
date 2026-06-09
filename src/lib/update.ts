@@ -5,7 +5,7 @@ import { isNewer, parseVersion } from "./version";
 
 export const GITHUB_LATEST_RELEASE_URL =
   "https://api.github.com/repos/CarlLee1983/Vapor/releases/latest";
-export const BREW_UPGRADE_COMMAND = "brew upgrade --cask vapor";
+export const BREW_UPGRADE_COMMAND = "brew upgrade --cask vapor-git";
 
 export type InstallSource = "brew" | "dmg";
 
