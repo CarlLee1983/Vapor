@@ -1,13 +1,10 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import type { Orientation, FocusMode } from "../hooks/useLayoutPreferences";
-import { MIN_RATIO, MAX_RATIO } from "../hooks/useLayoutPreferences";
+import { MIN_RATIO, MAX_RATIO, clampRatio } from "../hooks/useLayoutPreferences";
 
 const DIVIDER_SIZE = 12;
 const KEY_STEP = 0.02;
-
-const clampRatio = (value: number): number =>
-  Math.min(MAX_RATIO, Math.max(MIN_RATIO, value));
 
 interface SplitPaneProps {
   orientation: Orientation;
@@ -25,8 +22,31 @@ export function SplitPane({
   children,
 }: SplitPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
   const [first, second] = children;
   const isHorizontal = orientation === "horizontal";
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (event: globalThis.PointerEvent) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const raw = isHorizontal
+        ? (event.clientX - rect.left) / rect.width
+        : (event.clientY - rect.top) / rect.height;
+      onRatioChange(clampRatio(raw));
+    };
+    const stop = () => setDragging(false);
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+    };
+  }, [dragging, isHorizontal, onRatioChange]);
 
   if (focusMode !== "none") {
     return (
@@ -38,31 +58,6 @@ export function SplitPane({
       </div>
     );
   }
-
-  const computeRatio = (clientX: number, clientY: number): number => {
-    const el = containerRef.current;
-    if (!el) return ratio;
-    const rect = el.getBoundingClientRect();
-    return isHorizontal
-      ? (clientX - rect.left) / rect.width
-      : (clientY - rect.top) / rect.height;
-  };
-
-  const handlePointerMove = (event: globalThis.PointerEvent) => {
-    onRatioChange(clampRatio(computeRatio(event.clientX, event.clientY)));
-  };
-
-  const handlePointerUp = () => {
-    window.removeEventListener("pointermove", handlePointerMove);
-    window.removeEventListener("pointerup", handlePointerUp);
-    window.removeEventListener("pointercancel", handlePointerUp);
-  };
-
-  const handlePointerDown = () => {
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
-  };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const decreaseKey = isHorizontal ? "ArrowLeft" : "ArrowUp";
@@ -97,7 +92,7 @@ export function SplitPane({
         aria-valuenow={Math.round(ratio * 100)}
         aria-valuemin={Math.round(MIN_RATIO * 100)}
         aria-valuemax={Math.round(MAX_RATIO * 100)}
-        onPointerDown={handlePointerDown}
+        onPointerDown={() => setDragging(true)}
         onKeyDown={handleKeyDown}
       />
       {second}

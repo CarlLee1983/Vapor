@@ -19,7 +19,7 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   focusMode: "none",
 };
 
-const clampRatio = (value: number): number =>
+export const clampRatio = (value: number): number =>
   Math.min(MAX_RATIO, Math.max(MIN_RATIO, value));
 
 function readStoredPreferences(): LayoutPreferences {

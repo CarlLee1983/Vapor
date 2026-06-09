@@ -60,6 +60,21 @@ describe("SplitPane", () => {
     expect(onRatioChange.mock.calls[0][0]).toBeCloseTo(0.25);
   });
 
+  it("stops adjusting after pointer up", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, x: 0, y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const { onRatioChange } = renderPane({ ratio: 0.5 });
+    const divider = screen.getByRole("separator");
+    fireEvent.pointerDown(divider);
+    fireEvent.pointerMove(window, { clientX: 50, clientY: 0 });
+    fireEvent.pointerUp(window);
+    onRatioChange.mockClear();
+    fireEvent.pointerMove(window, { clientX: 80, clientY: 0 });
+    expect(onRatioChange).not.toHaveBeenCalled();
+  });
+
   it("renders only the diff panel and no divider in diff focus mode", () => {
     renderPane({ focusMode: "diff" });
     expect(screen.queryByText("left-panel")).not.toBeInTheDocument();
