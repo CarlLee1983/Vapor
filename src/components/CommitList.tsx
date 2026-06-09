@@ -1,8 +1,9 @@
 import { useMemo } from "react";
+import type { CSSProperties } from "react";
 import type { CommitSummary } from "../types/git";
 import { describeRef } from "../lib/refs";
 import { CommitGraph } from "./CommitGraph";
-import { buildCommitGraph, LANE_WIDTH } from "../lib/commitGraph";
+import { buildCommitGraph, LANE_WIDTH, ROW_HEIGHT, GUTTER_GAP } from "../lib/commitGraph";
 
 interface Props {
   commits: CommitSummary[];
@@ -46,7 +47,10 @@ export function CommitList({ commits, selectedCommit, onSelectCommit }: Props) {
   return (
     <section className="panel commit-list" aria-label="Commit history">
       <h2>History</h2>
-      <div className="commit-graph-rows">
+      <div
+        className="commit-graph-rows"
+        style={{ "--commit-row-height": `${ROW_HEIGHT}px` } as CSSProperties}
+      >
         <CommitGraph graph={graph} />
         {commits.map((commit) => (
           <button
@@ -55,7 +59,7 @@ export function CommitList({ commits, selectedCommit, onSelectCommit }: Props) {
             type="button"
             aria-pressed={commit.hash === selectedCommit?.hash}
             onClick={() => onSelectCommit(commit)}
-            style={{ paddingLeft: gutterWidth + 8 }}
+            style={{ paddingLeft: gutterWidth + GUTTER_GAP }}
           >
             <div
               className="commit-avatar"

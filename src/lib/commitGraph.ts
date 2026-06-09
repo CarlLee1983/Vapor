@@ -3,6 +3,7 @@ import type { CommitSummary } from "../types/git";
 export const LANE_WIDTH = 16;
 export const ROW_HEIGHT = 44;
 export const NODE_RADIUS = 4;
+export const GUTTER_GAP = 8; // px between the graph gutter and the first row column
 
 export const LANE_COLORS = [
   "#3b82f6",

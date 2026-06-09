@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CommitList, getInitials, getAvatarColor } from "./CommitList";
+import { LANE_WIDTH } from "../lib/commitGraph";
 import type { CommitSummary } from "../types/git";
 
 const commits: CommitSummary[] = [
@@ -42,6 +43,8 @@ describe("CommitList", () => {
     expect(container.querySelector("svg.commit-graph")).toBeInTheDocument();
     expect(container.querySelectorAll("svg.commit-graph circle")).toHaveLength(commits.length);
     expect(screen.getByText("Older commit")).toBeInTheDocument();
+    const firstRow = container.querySelector<HTMLButtonElement>(".commit-row")!;
+    expect(parseInt(firstRow.style.paddingLeft, 10)).toBeGreaterThanOrEqual(LANE_WIDTH);
   });
 
   it("renders initials avatars correctly for single and multi-word names", () => {
