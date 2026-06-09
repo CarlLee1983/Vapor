@@ -21,6 +21,9 @@ impl GitRunner for SystemGitRunner {
         let output = Command::new("git")
             .args(args)
             .current_dir(repository_path)
+            // GUI(Finder/Dock)啟動時 PATH 殘缺,會讓 git hook 找不到 bun/node 等工具。
+            // 注入 login-shell 的真實 PATH,hook 子行程才能繼承到完整路徑。
+            .env("PATH", super::login_env::effective_path())
             .output()
             .map_err(|error| GitError {
                 code: GitErrorCode::GitMissing,

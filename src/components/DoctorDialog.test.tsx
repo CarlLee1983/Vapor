@@ -44,4 +44,12 @@ describe("DoctorDialog", () => {
     expect(doctorRun).toHaveBeenCalledTimes(2);
     expect(screen.getByText("已建立 vapor 指令。")).toBeInTheDocument();
   });
+
+  it("shows an error when doctorRun fails", async () => {
+    doctorRun.mockRejectedValue({ message: "無法定位 Vapor 執行檔。" });
+    render(<DoctorDialog onClose={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByText("無法定位 Vapor 執行檔。")).toBeInTheDocument(),
+    );
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { doctorFix, doctorRun } from "../lib/launch";
 import type { CheckId, CheckStatus, DoctorReport } from "../types/doctor";
 
@@ -25,9 +25,11 @@ export function DoctorDialog({ onClose }: Props) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fixingId, setFixingId] = useState<CheckId | null>(null);
   const [fixMessage, setFixMessage] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLElement>(null);
 
   const load = async () => {
     setLoadError(null);
+    setFixMessage(null);
     try {
       setReport(await doctorRun());
     } catch (err) {
@@ -36,16 +38,20 @@ export function DoctorDialog({ onClose }: Props) {
   };
 
   useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     void load();
   }, []);
 
   const handleFix = async (id: CheckId) => {
     if (fixingId !== null) return;
     setFixingId(id);
-    setFixMessage(null);
     try {
-      setFixMessage(await doctorFix(id));
+      const result = await doctorFix(id);
       await load();
+      setFixMessage(result);
     } catch (err) {
       setFixMessage(toMessage(err));
     } finally {
@@ -56,6 +62,7 @@ export function DoctorDialog({ onClose }: Props) {
   return (
     <div className="dialog-backdrop" role="presentation">
       <section
+        ref={dialogRef}
         className="dialog doctor-dialog"
         role="dialog"
         aria-label="Doctor"
@@ -84,6 +91,10 @@ export function DoctorDialog({ onClose }: Props) {
           <p className="doctor-message" role="status">
             {fixMessage}
           </p>
+        ) : null}
+
+        {report === null && loadError === null ? (
+          <p className="doctor-loading" role="status">診斷中…</p>
         ) : null}
 
         <ul className="doctor-list">
