@@ -140,14 +140,13 @@ fn probe_git_version() -> Option<String> {
     }
 }
 
-/// 讀取 ~/.config/husky/init.sh 狀態:(是否存在, 內容是否含 PATH)。
+/// 讀取 husky init.sh 狀態:(是否存在, 內容是否匯出 PATH)。
 fn probe_husky_init() -> (bool, bool) {
-    let Some(home) = dirs::home_dir() else {
+    let Some(path) = super::husky_init_path() else {
         return (false, false);
     };
-    let path = home.join(".config/husky/init.sh");
     match std::fs::read_to_string(&path) {
-        Ok(contents) => (true, contents.contains("PATH")),
+        Ok(contents) => (true, contents.contains("export PATH")),
         Err(_) => (false, false),
     }
 }

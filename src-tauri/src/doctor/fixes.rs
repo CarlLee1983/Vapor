@@ -23,10 +23,10 @@ fn io_error(detail: &str) -> GitError {
 }
 
 fn fix_husky_init() -> Result<String, GitError> {
-    let home = dirs::home_dir().ok_or_else(|| io_error("home dir not found"))?;
-    let dir = home.join(".config/husky");
-    std::fs::create_dir_all(&dir).map_err(|error| io_error(&error.to_string()))?;
-    let target = dir.join("init.sh");
+    let target = super::husky_init_path().ok_or_else(|| io_error("home dir not found"))?;
+    if let Some(parent) = target.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| io_error(&error.to_string()))?;
+    }
     let resolution = login_env::resolution();
     std::fs::write(&target, husky_init_contents(&resolution.effective_path))
         .map_err(|error| io_error(&error.to_string()))?;
