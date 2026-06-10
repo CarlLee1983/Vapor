@@ -160,7 +160,7 @@ pub fn open_repo_window(app: AppHandle, path: String) -> Result<(), String>;
 
 前端(Vitest + Testing Library):
 
-- `useWorkspace`:open(append/去重)、close(關 active 切相鄰、關非 active)、activate、UI memory 寫回與還原、session 持久化與還原(含失效 path 剔除)。
+- `useWorkspace`:open(append/去重)、close(關 active 切相鄰、關非 active)、activate、currentBranch 回填、session 持久化與還原(persist 開關)。
 - `RepoTabs`:渲染分頁、點擊切換、關閉鈕。
 - `RepositorySidebar`:互動清單點選/關閉/開新 repo;active 高亮。
 - `App`:開機分支(`?repo=` vs launch path vs session 還原)。
