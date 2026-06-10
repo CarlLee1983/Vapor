@@ -79,8 +79,19 @@ export default function App() {
       unlisten = await onOpenRepo((path) => workspace.openRepository(path));
     })();
     return () => unlisten?.();
+    // Deps intentionally empty: we read workspace.openRepos / isSecondary once at mount to
+    // decide the boot path. useWorkspace's reducer lazy-init populates the restored session
+    // synchronously before first render, so these values are already correct here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Close any open dialog when the active repository changes, so a dialog never
+  // operates against a repo the user has switched away from.
+  useEffect(() => {
+    setIsPushOpen(false);
+    setIsPullOpen(false);
+    setIsRemotesOpen(false);
+  }, [workspace.activePath]);
 
   useEffect(() => {
     if (!repoView.repositoryPath) {

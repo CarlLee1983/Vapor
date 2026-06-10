@@ -239,5 +239,25 @@ describe("App", () => {
     render(<App />);
     await waitFor(() => expect(openRepository).toHaveBeenCalledWith("/repo/c"));
     expect(getLaunchPath).not.toHaveBeenCalled();
+    expect(onOpenRepo).not.toHaveBeenCalled();
+  });
+
+  it("main window skips the launch path when a session is already restored", async () => {
+    getRepoParamMock.mockReturnValue(null);
+    useWorkspaceMock.mockReturnValue(workspaceValue({ openRepos: [{ path: "/saved", name: "saved" }], activePath: "/saved" }));
+    getLaunchPath.mockResolvedValue("/launched");
+    render(<App />);
+    await waitFor(() => expect(getLaunchPath).not.toHaveBeenCalled());
+    expect(openRepository).not.toHaveBeenCalled();
+  });
+
+  it("closes an open dialog when the active repository changes", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<App />);
+    await user.click(screen.getByRole("button", { name: "Push" }));
+    expect(screen.getByRole("dialog", { name: "Push branch" })).toBeInTheDocument();
+    useWorkspaceMock.mockReturnValue(workspaceValue({ activePath: "/repo/other" }));
+    rerender(<App />);
+    expect(screen.queryByRole("dialog", { name: "Push branch" })).not.toBeInTheDocument();
   });
 });
