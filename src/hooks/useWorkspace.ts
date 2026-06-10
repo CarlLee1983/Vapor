@@ -6,6 +6,40 @@ export function repoNameFromPath(path: string): string {
   return path.split(/[/\\]/).filter(Boolean).pop() || path;
 }
 
+export const WORKSPACE_STORAGE_KEY = "vapor-workspace";
+
+interface StoredWorkspace {
+  paths: string[];
+  active: string | null;
+}
+
+function readStoredWorkspace(): StoredWorkspace {
+  try {
+    const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    if (!raw) return { paths: [], active: null };
+    const parsed = JSON.parse(raw) as Partial<StoredWorkspace>;
+    const paths = Array.isArray(parsed.paths)
+      ? parsed.paths.filter((p): p is string => typeof p === "string")
+      : [];
+    const active =
+      typeof parsed.active === "string" && paths.includes(parsed.active)
+        ? parsed.active
+        : paths[0] ?? null;
+    return { paths, active };
+  } catch {
+    return { paths: [], active: null };
+  }
+}
+
+function initialState(persist: boolean): WorkspaceState {
+  if (!persist) return { openRepos: [], activePath: null };
+  const stored = readStoredWorkspace();
+  return {
+    openRepos: stored.paths.map((path) => ({ path, name: repoNameFromPath(path) })),
+    activePath: stored.active,
+  };
+}
+
 export interface UseWorkspaceOptions {
   persist?: boolean;
 }
@@ -64,9 +98,9 @@ function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): Works
 }
 
 export function useWorkspace(options: UseWorkspaceOptions = {}) {
-  void options; // persistence wired in Task 3
+  const persist = options.persist ?? false;
   const repo = useRepository();
-  const [state, dispatch] = useReducer(workspaceReducer, { openRepos: [], activePath: null });
+  const [state, dispatch] = useReducer(workspaceReducer, persist, initialState);
   const { openRepos, activePath } = state;
 
   const openRepository = useCallback((path: string) => dispatch({ type: "open", path }), []);
@@ -84,6 +118,19 @@ export function useWorkspace(options: UseWorkspaceOptions = {}) {
     if (!loadedPath) return;
     dispatch({ type: "backfillBranch", path: loadedPath, branch });
   }, [loadedPath, branch]);
+
+  // persistence write-back
+  useEffect(() => {
+    if (!persist) return;
+    try {
+      localStorage.setItem(
+        WORKSPACE_STORAGE_KEY,
+        JSON.stringify({ paths: openRepos.map((r) => r.path), active: activePath }),
+      );
+    } catch {
+      // write failures (e.g. private mode) must not break the UI
+    }
+  }, [persist, openRepos, activePath]);
 
   return { repo, openRepos, activePath, openRepository, activateRepository, closeRepository };
 }

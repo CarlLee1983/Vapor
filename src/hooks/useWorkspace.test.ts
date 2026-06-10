@@ -103,3 +103,47 @@ describe("useWorkspace state", () => {
     expect(result.current.activePath).toBe("/repo/a"); // unchanged
   });
 });
+
+import { WORKSPACE_STORAGE_KEY } from "./useWorkspace";
+
+describe("useWorkspace persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(tauriApi.getRepositoryState).mockResolvedValue(repoState("/repo/a", "main"));
+    vi.mocked(tauriApi.getCommitLog).mockResolvedValue([]);
+  });
+
+  it("writes open repos to localStorage when persist=true", async () => {
+    const { result } = renderHook(() => useWorkspace({ persist: true }));
+    act(() => result.current.openRepository("/repo/a"));
+    await waitFor(() => {
+      const raw = JSON.parse(localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}");
+      expect(raw.paths).toEqual(["/repo/a"]);
+      expect(raw.active).toBe("/repo/a");
+    });
+  });
+
+  it("restores open repos from localStorage when persist=true", () => {
+    localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({ paths: ["/repo/a", "/repo/b"], active: "/repo/b" }),
+    );
+    const { result } = renderHook(() => useWorkspace({ persist: true }));
+    expect(result.current.openRepos.map((r) => r.path)).toEqual(["/repo/a", "/repo/b"]);
+    expect(result.current.activePath).toBe("/repo/b");
+  });
+
+  it("does not read or write storage when persist=false", async () => {
+    localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({ paths: ["/repo/x"], active: "/repo/x" }),
+    );
+    const { result } = renderHook(() => useWorkspace({ persist: false }));
+    expect(result.current.openRepos).toHaveLength(0);
+    act(() => result.current.openRepository("/repo/a"));
+    await waitFor(() => expect(result.current.activePath).toBe("/repo/a"));
+    const raw = JSON.parse(localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}");
+    expect(raw.paths).toEqual(["/repo/x"]); // not overwritten
+  });
+});
