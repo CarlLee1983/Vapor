@@ -7,7 +7,8 @@ use crate::git::models::{
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
-use tauri::State;
+use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use crate::window::{next_window_label, repo_title};
 
 /// 解析目前執行檔路徑;找不到時回傳一致的 GitError。
 fn resolve_binary() -> Result<std::path::PathBuf, GitError> {
@@ -152,4 +153,21 @@ pub fn doctor_run() -> Result<crate::doctor::models::DoctorReport, GitError> {
 pub fn doctor_fix(id: crate::doctor::models::CheckId) -> Result<String, GitError> {
     let binary = resolve_binary()?;
     crate::doctor::fixes::apply(id, &binary)
+}
+
+/// Open the given repository in a new, independent OS window.
+/// The new window loads `index.html?repo=<encoded>`; the frontend reads that
+/// query param to identify itself as a secondary window and load only that repo.
+#[tauri::command]
+pub fn open_repo_window(app: AppHandle, path: String) -> Result<(), String> {
+    let existing: Vec<String> = app.webview_windows().keys().cloned().collect();
+    let label = next_window_label(&existing);
+    let encoded = urlencoding::encode(&path);
+    let url = format!("index.html?repo={encoded}");
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::App(url.into()))
+        .title(repo_title(&path))
+        .inner_size(800.0, 600.0)
+        .build()
+        .map_err(|error| error.to_string())?;
+    Ok(())
 }
