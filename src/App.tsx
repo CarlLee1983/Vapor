@@ -14,23 +14,28 @@ import { SplitPane } from "./components/SplitPane";
 import { CliInstallBanner } from "./components/CliInstallBanner";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { WorkingTreePanel } from "./components/WorkingTreePanel";
-import { useRepository } from "./hooks/useRepository";
+import { useWorkspace } from "./hooks/useWorkspace";
+import { RepoTabs } from "./components/RepoTabs";
 import { useLayoutPreferences } from "./hooks/useLayoutPreferences";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
+import { getRepoParam, openRepoWindow } from "./lib/window";
 import { previewCommit } from "./lib/tauriApi";
 import "./styles.css";
 
 export const AUTO_REFRESH_INTERVAL_MS = 5000;
 
 export default function App() {
-  const repoView = useRepository();
+  const repoParam = getRepoParam();
+  const isSecondary = repoParam !== null;
+  const workspace = useWorkspace({ persist: !isSecondary });
+  const repoView = workspace.repo;
   const layout = useLayoutPreferences();
   const [isPushOpen, setIsPushOpen] = useState(false);
   const [isPullOpen, setIsPullOpen] = useState(false);
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDoctorOpen, setIsDoctorOpen] = useState(false);
-  const { loadRepository, refreshRepository } = repoView;
+  const { refreshRepository } = repoView;
 
   const [theme, setTheme] = useState<ThemeMode>(() => {
     return (localStorage.getItem("vapor-theme") as ThemeMode) || "system";
@@ -63,16 +68,30 @@ export default function App() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     void (async () => {
-      const launchPath = await getLaunchPath();
-      if (launchPath) {
-        void loadRepository(launchPath);
+      if (isSecondary) {
+        if (repoParam) workspace.openRepository(repoParam);
+        return; // secondary window: no session restore, no launch path, no open-repo listener
       }
-      unlisten = await onOpenRepo((path) => {
-        void loadRepository(path);
-      });
+      if (workspace.openRepos.length === 0) {
+        const launchPath = await getLaunchPath();
+        if (launchPath) workspace.openRepository(launchPath);
+      }
+      unlisten = await onOpenRepo((path) => workspace.openRepository(path));
     })();
     return () => unlisten?.();
-  }, [loadRepository]);
+    // Deps intentionally empty: we read workspace.openRepos / isSecondary once at mount to
+    // decide the boot path. useWorkspace's reducer lazy-init populates the restored session
+    // synchronously before first render, so these values are already correct here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close any open dialog when the active repository changes, so a dialog never
+  // operates against a repo the user has switched away from.
+  useEffect(() => {
+    setIsPushOpen(false);
+    setIsPullOpen(false);
+    setIsRemotesOpen(false);
+  }, [workspace.activePath]);
 
   useEffect(() => {
     if (!repoView.repositoryPath) {
@@ -101,17 +120,20 @@ export default function App() {
 
   const handleOpen = async () => {
     const path = await pickRepositoryFolder();
-    if (path) {
-      void loadRepository(path);
-    }
+    if (path) workspace.openRepository(path);
   };
 
   return (
     <main className="app-shell">
       <RepositorySidebar
         repository={repoView.repository}
+        openRepos={workspace.openRepos}
+        activePath={workspace.activePath}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        onActivate={workspace.activateRepository}
+        onClose={workspace.closeRepository}
+        onOpen={() => void handleOpen()}
       />
       <section className="workspace" aria-label="Git workbench">
         <header className="toolbar">
@@ -154,6 +176,13 @@ export default function App() {
             />
           </div>
         </header>
+        <RepoTabs
+          repos={workspace.openRepos}
+          activePath={workspace.activePath}
+          onActivate={workspace.activateRepository}
+          onClose={workspace.closeRepository}
+          onOpenInNewWindow={(path) => void openRepoWindow(path)}
+        />
         <CliInstallBanner />
         <UpdateBanner />
         {repoView.error ? (

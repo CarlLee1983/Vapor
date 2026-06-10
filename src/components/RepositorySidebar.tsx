@@ -1,9 +1,14 @@
-import type { RepositoryState } from "../types/git";
+import type { RepoEntry, RepositoryState } from "../types/git";
 
 interface Props {
   repository: RepositoryState | null;
+  openRepos: RepoEntry[];
+  activePath: string | null;
   viewMode: "history" | "status";
   onViewModeChange: (mode: "history" | "status") => void;
+  onActivate: (path: string) => void;
+  onClose: (path: string) => void;
+  onOpen: () => void;
 }
 
 const FolderIcon = () => (
@@ -100,9 +105,16 @@ const VaporLogo = () => (
   </svg>
 );
 
-export function RepositorySidebar({ repository, viewMode, onViewModeChange }: Props) {
-  const repoName = repository ? (repository.root.split(/[/\\]/).pop() || repository.root) : null;
-
+export function RepositorySidebar({
+  repository,
+  openRepos,
+  activePath,
+  viewMode,
+  onViewModeChange,
+  onActivate,
+  onClose,
+  onOpen,
+}: Props) {
   return (
     <aside className="sidebar" aria-label="Repositories">
       <div
@@ -118,6 +130,46 @@ export function RepositorySidebar({ repository, viewMode, onViewModeChange }: Pr
         <VaporLogo />
         Vapor
       </div>
+
+      <section className="sidebar-section">
+        <h2>Repositories</h2>
+        {openRepos.map((entry) => (
+          <div
+            key={entry.path}
+            role="button"
+            tabIndex={0}
+            className={`sidebar-row ${entry.path === activePath ? "active" : ""}`}
+            onClick={() => onActivate(entry.path)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onActivate(entry.path);
+              }
+            }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+          >
+            <span style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+              <FolderIcon />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{entry.name}</span>
+            </span>
+            <button
+              type="button"
+              className="sidebar-row__close"
+              aria-label={`Close ${entry.name}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose(entry.path);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button type="button" className="sidebar-add" onClick={onOpen}>
+          + Open Repository
+        </button>
+      </section>
+
       {repository ? (
         <>
           <section className="sidebar-section">
@@ -159,16 +211,6 @@ export function RepositorySidebar({ repository, viewMode, onViewModeChange }: Pr
               <span style={{ display: "flex", alignItems: "center" }}>
                 <HistoryIcon />
                 History
-              </span>
-            </div>
-          </section>
-
-          <section className="sidebar-section">
-            <h2>Repositories</h2>
-            <div className="sidebar-row sidebar-row--active" style={{ cursor: "default" }}>
-              <span style={{ display: "flex", alignItems: "center" }}>
-                <FolderIcon />
-                {repoName}
               </span>
             </div>
           </section>

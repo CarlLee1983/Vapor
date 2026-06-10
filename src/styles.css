@@ -1292,3 +1292,77 @@ button:not(.commit-row):disabled {
   align-self: flex-end;
   margin-top: 4px;
 }
+
+/* ── RepoTabs ─────────────────────────────────────────────── */
+.repo-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-color-light);
+}
+.repo-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.repo-tab--active {
+  background: var(--bg-elevated, rgba(127, 127, 127, 0.12));
+  font-weight: 600;
+}
+.repo-tab__branch {
+  opacity: 0.6;
+  font-size: 11px;
+}
+.repo-tab__close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.6;
+}
+.repo-tab__close:hover {
+  opacity: 1;
+}
+.sidebar-row__close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.sidebar-row:hover .sidebar-row__close {
+  opacity: 0.6;
+}
+.sidebar-row__close:hover {
+  opacity: 1;
+}
+.sidebar-add {
+  margin-top: 6px;
+  width: 100%;
+  border: 1px dashed var(--border-color-light);
+  background: transparent;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.repo-tab__detach {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.6;
+}
+.repo-tab__detach:hover {
+  opacity: 1;
+}

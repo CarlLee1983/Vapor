@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RepositorySidebar } from "./RepositorySidebar";
 import type { RepositoryState } from "../types/git";
+import type { RepoEntry } from "../types/git";
 
 const mockRepo: RepositoryState = {
   root: "/repo",
@@ -17,15 +18,25 @@ const mockRepo: RepositoryState = {
   ],
 };
 
+const openRepos: RepoEntry[] = [
+  { path: "/repo", name: "repo", currentBranch: "main" },
+  { path: "/other", name: "other", currentBranch: "dev" },
+];
+
 describe("RepositorySidebar", () => {
   it("renders workspace navigation items with badges", () => {
     const onViewModeChange = vi.fn();
     render(
       <RepositorySidebar
         repository={mockRepo}
+        openRepos={[{ path: mockRepo.root, name: "repo" }]}
+        activePath={mockRepo.root}
         viewMode="history"
         onViewModeChange={onViewModeChange}
-      />
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+        onOpen={vi.fn()}
+      />,
     );
 
     expect(screen.getByText("File Status")).toBeInTheDocument();
@@ -40,9 +51,14 @@ describe("RepositorySidebar", () => {
     render(
       <RepositorySidebar
         repository={mockRepo}
+        openRepos={[{ path: mockRepo.root, name: "repo" }]}
+        activePath={mockRepo.root}
         viewMode="history"
         onViewModeChange={onViewModeChange}
-      />
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+        onOpen={vi.fn()}
+      />,
     );
 
     await user.click(screen.getByText("File Status"));
@@ -58,9 +74,14 @@ describe("RepositorySidebar", () => {
     render(
       <RepositorySidebar
         repository={mockRepo}
+        openRepos={[{ path: mockRepo.root, name: "repo" }]}
+        activePath={mockRepo.root}
         viewMode="history"
         onViewModeChange={onViewModeChange}
-      />
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+        onOpen={vi.fn()}
+      />,
     );
 
     const statusItem = screen.getByText("File Status").closest("[role='button']");
@@ -73,5 +94,44 @@ describe("RepositorySidebar", () => {
 
     await user.type(statusItem!, " ");
     expect(onViewModeChange).toHaveBeenCalledWith("status");
+  });
+
+  it("renders one row per open repository and switches on click", async () => {
+    const onActivate = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <RepositorySidebar
+        repository={mockRepo}
+        openRepos={openRepos}
+        activePath="/repo"
+        viewMode="history"
+        onViewModeChange={vi.fn()}
+        onActivate={onActivate}
+        onClose={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("other")).toBeInTheDocument();
+    await user.click(screen.getByText("other"));
+    expect(onActivate).toHaveBeenCalledWith("/other");
+  });
+
+  it("calls onOpen when the add-repository control is clicked", async () => {
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <RepositorySidebar
+        repository={mockRepo}
+        openRepos={openRepos}
+        activePath="/repo"
+        viewMode="history"
+        onViewModeChange={vi.fn()}
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+        onOpen={onOpen}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /open repository/i }));
+    expect(onOpen).toHaveBeenCalled();
   });
 });
