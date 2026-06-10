@@ -1330,3 +1330,27 @@ button:not(.commit-row):disabled {
 .repo-tab__close:hover {
   opacity: 1;
 }
+.sidebar-row__close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.sidebar-row:hover .sidebar-row__close {
+  opacity: 0.6;
+}
+.sidebar-row__close:hover {
+  opacity: 1;
+}
+.sidebar-add {
+  margin-top: 6px;
+  width: 100%;
+  border: 1px dashed var(--border-color-light);
+  background: transparent;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
