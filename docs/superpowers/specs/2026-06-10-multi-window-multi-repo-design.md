@@ -27,6 +27,8 @@
 - 每個 repo 各持一份完整重狀態(改採單一 active 重狀態 + 輕量摘要)。
 - 次要視窗的 session 還原(僅主視窗還原 session)。
 - 拖曳分頁重排、分頁群組、分割檢視多 repo 同畫面。
+- 還原時自動驗證/剔除失效 path(見 1.5;v1 由使用者手動關閉)。
+- 子目錄路徑正規化:`openRepository(path)` 以原 path 入清單,但 `currentBranch` 摘要靠 `repository.root` 回填;若使用者開的是 git root 的子目錄(`/project/src`),root 為 `/project`、與清單 path 不符,該 tab 的分支摘要會保持空白。屬既有單 repo 模型的限制,非本功能回歸。
 
 ## 核心架構決策:方案 A
 
@@ -116,7 +118,7 @@ useWorkspace(): {
 
 - `useWorkspace` 將 `{ openRepos: path[], activePath }` 存 `localStorage`(key `vapor-workspace`)。
 - 冷啟動:**僅主視窗**還原(判斷依據見 Phase 2 的 `?repo=` 旗標 — 有 `?repo=` 者為次要視窗,不還原)。
-- 還原時逐一驗證 path 仍是有效 repo;載入失敗者從清單剔除(沿用既有 `GitError` 處理)。
+- 還原時**不**對每個 path 做有效性預檢;active path 載入失敗時沿用既有 `GitError` → error banner。失效(已刪除/搬移)的 repo 由使用者以 tab/側欄列的 `×` 手動關閉。**v1 不做**還原時自動逐一驗證與自動剔除(需對每個 path 額外跑 git 檢查,且「載入失敗即自動移除」有把暫時性 git 錯誤誤刪 tab 的風險),列為後續增強。
 
 ## Phase 2 — 多視窗
 
@@ -154,7 +156,8 @@ pub fn open_repo_window(app: AppHandle, path: String) -> Result<(), String>;
 
 - 開啟無效 repo:沿用既有 `useRepository` 的 `GitError` → error banner;該 path 不留在清單(或標記錯誤後可移除)。
 - `open_repo_window` 失敗:回傳 `Err(String)`,前端以既有 error banner 呈現。
-- session 還原中失效的 path:靜默剔除並繼續還原其餘。
+- session 還原中失效的 path(active):沿用既有 `GitError` → error banner;使用者以 `×` 手動關閉(v1 不自動剔除,見 1.5)。
+- 切換 active repo 時自動關閉開啟中的 Push/Pull/Remotes 對話框,避免對話框對到已切走的 repo。
 
 ## 測試策略
 
