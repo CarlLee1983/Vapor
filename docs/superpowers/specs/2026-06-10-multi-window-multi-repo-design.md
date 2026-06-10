@@ -53,13 +53,9 @@ export interface RepoEntry {
   currentBranch?: string;  // 輕量摘要,active 載入後回填
 }
 
-// 每個 repo 的 UI 選取記憶(切回時還原)
-interface RepoUiMemory {
-  viewMode: "history" | "status";
-  selectedCommitHash?: string;
-  selectedFilePath?: string;
-}
 ```
+
+> per-repo UI 選取記憶(切回時還原 selectedCommit / selectedFile / viewMode)在 v1 **不實作**;切換 repo 回到 `useRepository` 載入後的預設選取,viewMode 維持全域。日後若需要再以 `Map<path, RepoUiMemory>` 補強。
 
 ## 元件與資料流
 
@@ -72,7 +68,7 @@ App.tsx
  └─ (其餘 CommitList/DiffViewer… 不變,吃 active repo 狀態)
 ```
 
-切換流程:`activate(path)` → 寫回目前 repo 的 `RepoUiMemory` → 設新 activePath → `loadRepository(path)` → 套用該 path 的 `RepoUiMemory`(若有)。
+切換流程:`activate(path)` → 設新 activePath → effect 觸發 `loadRepository(path)`。
 
 ## Phase 1 — 單視窗多 repo
 
@@ -96,7 +92,6 @@ useWorkspace(): {
 
 - 內部組合既有 `useRepository`;`App` 從 `useWorkspace` 同時取得清單操作與 active repo 狀態(可回傳 `repoView`)。
 - active repo 載入完成後,用回傳的 `repository.currentBranch` 回填對應 `RepoEntry.currentBranch`。
-- per-repo `RepoUiMemory` 以 `Map<path, RepoUiMemory>`(ref)保存;切換時讀寫。
 
 ### 1.2 `RepoTabs`(`src/components/RepoTabs.tsx`,新增)
 
