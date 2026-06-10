@@ -3,6 +3,7 @@ pub mod commands;
 pub mod doctor;
 pub mod git;
 pub mod update;
+pub mod window;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
