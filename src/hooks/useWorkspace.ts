@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import { useRepository } from "./useRepository";
 import type { RepoEntry } from "../types/git";
 
@@ -10,68 +10,80 @@ export interface UseWorkspaceOptions {
   persist?: boolean;
 }
 
+interface WorkspaceState {
+  openRepos: RepoEntry[];
+  activePath: string | null;
+}
+
+type WorkspaceAction =
+  | { type: "open"; path: string }
+  | { type: "activate"; path: string }
+  | { type: "close"; path: string }
+  | { type: "backfillBranch"; path: string; branch: string | undefined };
+
+function neighbourPath(repos: RepoEntry[], removedIndex: number): string | null {
+  if (repos.length === 0) return null;
+  return (repos[removedIndex - 1] ?? repos[removedIndex] ?? repos[repos.length - 1]).path;
+}
+
+function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState {
+  switch (action.type) {
+    case "open": {
+      const exists = state.openRepos.some((e) => e.path === action.path);
+      const openRepos = exists
+        ? state.openRepos
+        : [...state.openRepos, { path: action.path, name: repoNameFromPath(action.path) }];
+      return { openRepos, activePath: action.path };
+    }
+    case "activate": {
+      if (!state.openRepos.some((e) => e.path === action.path)) return state;
+      return { ...state, activePath: action.path };
+    }
+    case "close": {
+      const index = state.openRepos.findIndex((e) => e.path === action.path);
+      if (index === -1) return state;
+      const openRepos = state.openRepos.filter((e) => e.path !== action.path);
+      const activePath =
+        state.activePath === action.path ? neighbourPath(openRepos, index) : state.activePath;
+      return { openRepos, activePath };
+    }
+    case "backfillBranch": {
+      let changed = false;
+      const openRepos = state.openRepos.map((entry) => {
+        if (entry.path === action.path && entry.currentBranch !== action.branch) {
+          changed = true;
+          return { ...entry, currentBranch: action.branch };
+        }
+        return entry;
+      });
+      return changed ? { ...state, openRepos } : state;
+    }
+    default:
+      return state;
+  }
+}
+
 export function useWorkspace(options: UseWorkspaceOptions = {}) {
   void options; // persistence wired in Task 3
   const repo = useRepository();
-  const [openRepos, setOpenRepos] = useState<RepoEntry[]>([]);
-  const [activePath, setActivePath] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(workspaceReducer, { openRepos: [], activePath: null });
+  const { openRepos, activePath } = state;
 
-  const openRepository = useCallback((path: string) => {
-    setOpenRepos((current) =>
-      current.some((entry) => entry.path === path)
-        ? current
-        : [...current, { path, name: repoNameFromPath(path) }],
-    );
-    setActivePath(path);
-  }, []);
+  const openRepository = useCallback((path: string) => dispatch({ type: "open", path }), []);
+  const activateRepository = useCallback((path: string) => dispatch({ type: "activate", path }), []);
+  const closeRepository = useCallback((path: string) => dispatch({ type: "close", path }), []);
 
-  const activateRepository = useCallback((path: string) => {
-    setActivePath(path);
-  }, []);
-
-  const closeRepository = useCallback((path: string) => {
-    setOpenRepos((current) => {
-      const index = current.findIndex((entry) => entry.path === path);
-      if (index === -1) return current;
-      const next = current.filter((entry) => entry.path !== path);
-      setActivePath((active) => {
-        if (active !== path) return active;
-        if (next.length === 0) return null;
-        const neighbour = next[index - 1] ?? next[index] ?? next[next.length - 1];
-        return neighbour.path;
-      });
-      return next;
-    });
-  }, []);
-
-  // active changed -> load that repo's heavy state
   const { loadRepository } = repo;
   useEffect(() => {
-    if (activePath) {
-      void loadRepository(activePath);
-    }
+    if (activePath) void loadRepository(activePath);
   }, [activePath, loadRepository]);
 
-  // loaded -> backfill currentBranch summary
   const branch = repo.repository?.currentBranch ?? undefined;
   const loadedPath = repo.repository?.root;
   useEffect(() => {
     if (!loadedPath) return;
-    setOpenRepos((current) =>
-      current.map((entry) =>
-        entry.path === loadedPath && entry.currentBranch !== (branch ?? undefined)
-          ? { ...entry, currentBranch: branch ?? undefined }
-          : entry,
-      ),
-    );
+    dispatch({ type: "backfillBranch", path: loadedPath, branch });
   }, [loadedPath, branch]);
 
-  return {
-    repo,
-    openRepos,
-    activePath,
-    openRepository,
-    activateRepository,
-    closeRepository,
-  };
+  return { repo, openRepos, activePath, openRepository, activateRepository, closeRepository };
 }

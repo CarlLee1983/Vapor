@@ -51,7 +51,7 @@ describe("useWorkspace state", () => {
     vi.mocked(tauriApi.getCommitLog).mockResolvedValue([]);
   });
 
-  it("appends opened repos and sets the newest active", async () => {
+  it("appends opened repos and sets the newest active", () => {
     const { result } = renderHook(() => useWorkspace({ persist: false }));
     act(() => result.current.openRepository("/repo/a"));
     act(() => result.current.openRepository("/repo/b"));
@@ -59,7 +59,7 @@ describe("useWorkspace state", () => {
     expect(result.current.activePath).toBe("/repo/b");
   });
 
-  it("does not duplicate an already-open repo but activates it", async () => {
+  it("does not duplicate an already-open repo but activates it", () => {
     const { result } = renderHook(() => useWorkspace({ persist: false }));
     act(() => result.current.openRepository("/repo/a"));
     act(() => result.current.openRepository("/repo/b"));
@@ -91,5 +91,15 @@ describe("useWorkspace state", () => {
     act(() => result.current.closeRepository("/repo/a"));
     expect(result.current.openRepos).toHaveLength(0);
     expect(result.current.activePath).toBeNull();
+  });
+
+  it("activates an already-open repo and ignores unknown paths", () => {
+    const { result } = renderHook(() => useWorkspace({ persist: false }));
+    act(() => result.current.openRepository("/repo/a"));
+    act(() => result.current.openRepository("/repo/b"));
+    act(() => result.current.activateRepository("/repo/a"));
+    expect(result.current.activePath).toBe("/repo/a");
+    act(() => result.current.activateRepository("/repo/unknown"));
+    expect(result.current.activePath).toBe("/repo/a"); // unchanged
   });
 });
