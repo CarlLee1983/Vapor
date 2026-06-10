@@ -107,13 +107,13 @@ const VaporLogo = () => (
 
 export function RepositorySidebar({
   repository,
-  openRepos = [],
+  openRepos,
   activePath,
   viewMode,
   onViewModeChange,
-  onActivate = () => {},
-  onClose = () => {},
-  onOpen = () => {},
+  onActivate,
+  onClose,
+  onOpen,
 }: Props) {
   return (
     <aside className="sidebar" aria-label="Repositories">

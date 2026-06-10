@@ -2,10 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App, { AUTO_REFRESH_INTERVAL_MS } from "./App";
-import { useRepository } from "./hooks/useRepository";
+import { useWorkspace } from "./hooks/useWorkspace";
 
-vi.mock("./hooks/useRepository", () => ({ useRepository: vi.fn() }));
-const useRepositoryMock = vi.mocked(useRepository);
+vi.mock("./hooks/useWorkspace", () => ({ useWorkspace: vi.fn() }));
+const useWorkspaceMock = vi.mocked(useWorkspace);
+
+const openRepository = vi.fn();
+const activateRepository = vi.fn();
+const closeRepository = vi.fn();
 
 const pickRepositoryFolder = vi.fn();
 const getLaunchPath = vi.fn();
@@ -28,7 +32,7 @@ vi.mock("./lib/update", async (importOriginal) => {
 const loadRepository = vi.fn();
 const refreshRepository = vi.fn();
 
-const loadedState = {
+const repoState = {
   repositoryPath: "/repo",
   repository: {
     root: "/repo",
@@ -49,12 +53,29 @@ const loadedState = {
   refreshRepository,
   selectCommit: vi.fn(),
   selectFile: vi.fn(),
-} as unknown as ReturnType<typeof useRepository>;
+} as unknown as ReturnType<typeof useWorkspace>["repo"];
+
+function workspaceValue(
+  overrides: Partial<ReturnType<typeof useWorkspace>> = {},
+): ReturnType<typeof useWorkspace> {
+  return {
+    repo: repoState,
+    openRepos: [{ path: "/repo", name: "repo", currentBranch: "main" }],
+    activePath: "/repo",
+    openRepository,
+    activateRepository,
+    closeRepository,
+    ...overrides,
+  } as unknown as ReturnType<typeof useWorkspace>;
+}
 
 beforeEach(() => {
-  useRepositoryMock.mockReturnValue(loadedState);
+  useWorkspaceMock.mockReturnValue(workspaceValue());
   loadRepository.mockReset();
   refreshRepository.mockReset();
+  openRepository.mockReset();
+  activateRepository.mockReset();
+  closeRepository.mockReset();
   pickRepositoryFolder.mockReset();
   getLaunchPath.mockReset().mockResolvedValue(null);
   onOpenRepo.mockReset().mockResolvedValue(() => {});
@@ -79,7 +100,13 @@ describe("App", () => {
   });
 
   it("renders empty state when no repository is loaded", () => {
-    useRepositoryMock.mockReturnValue({ ...loadedState, repositoryPath: null, repository: null, commits: [], selectedCommit: null } as unknown as ReturnType<typeof useRepository>);
+    useWorkspaceMock.mockReturnValue(
+      workspaceValue({
+        repo: { ...repoState, repositoryPath: null, repository: null, commits: [], selectedCommit: null } as typeof repoState,
+        openRepos: [],
+        activePath: null,
+      }),
+    );
     render(<App />);
     expect(screen.getAllByText("No repository selected").length).toBeGreaterThan(0);
   });
@@ -89,7 +116,7 @@ describe("App", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByRole("button", { name: "Open Repository" }));
-    await waitFor(() => expect(loadRepository).toHaveBeenCalledWith("/picked"));
+    await waitFor(() => expect(openRepository).toHaveBeenCalledWith("/picked"));
   });
 
   it("does not load when the dialog is cancelled", async () => {
@@ -97,7 +124,7 @@ describe("App", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByRole("button", { name: "Open Repository" }));
-    expect(loadRepository).not.toHaveBeenCalled();
+    expect(openRepository).not.toHaveBeenCalled();
   });
 
   it("exposes layout controls in the toolbar", async () => {
@@ -119,9 +146,10 @@ describe("App", () => {
   });
 
   it("auto-loads the launch path on mount", async () => {
+    useWorkspaceMock.mockReturnValue(workspaceValue({ openRepos: [], activePath: null }));
     getLaunchPath.mockResolvedValue("/launched");
     render(<App />);
-    await waitFor(() => expect(loadRepository).toHaveBeenCalledWith("/launched"));
+    await waitFor(() => expect(openRepository).toHaveBeenCalledWith("/launched"));
   });
 
   it("refreshes the open repository when the window regains focus", () => {
@@ -176,5 +204,19 @@ describe("App", () => {
     expect(screen.getByText("Initial commit")).toBeInTheDocument();
     expect(screen.queryByText("Working Tree")).not.toBeInTheDocument();
   });
-});
 
+  it("renders a tab per open repository", () => {
+    useWorkspaceMock.mockReturnValue(
+      workspaceValue({
+        openRepos: [
+          { path: "/repo/a", name: "a", currentBranch: "main" },
+          { path: "/repo/b", name: "b", currentBranch: "dev" },
+        ],
+        activePath: "/repo/b",
+      }),
+    );
+    render(<App />);
+    expect(screen.getByRole("tab", { name: /a/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /b/ })).toBeInTheDocument();
+  });
+});
