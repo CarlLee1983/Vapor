@@ -137,3 +137,9 @@ export interface CommitResponse {
   stdout: string;
   stderr: string;
 }
+
+export interface RepoEntry {
+  path: string;
+  name: string;
+  currentBranch?: string;
+}
