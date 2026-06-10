@@ -1292,3 +1292,41 @@ button:not(.commit-row):disabled {
   align-self: flex-end;
   margin-top: 4px;
 }
+
+/* ── RepoTabs ─────────────────────────────────────────────── */
+.repo-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-color-light);
+}
+.repo-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.repo-tab--active {
+  background: var(--bg-elevated, rgba(127, 127, 127, 0.12));
+  font-weight: 600;
+}
+.repo-tab__branch {
+  opacity: 0.6;
+  font-size: 11px;
+}
+.repo-tab__close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.6;
+}
+.repo-tab__close:hover {
+  opacity: 1;
+}
