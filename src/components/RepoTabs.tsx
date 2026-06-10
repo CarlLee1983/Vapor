@@ -5,9 +5,10 @@ interface Props {
   activePath: string | null;
   onActivate: (path: string) => void;
   onClose: (path: string) => void;
+  onOpenInNewWindow?: (path: string) => void;
 }
 
-export function RepoTabs({ repos, activePath, onActivate, onClose }: Props) {
+export function RepoTabs({ repos, activePath, onActivate, onClose, onOpenInNewWindow }: Props) {
   if (repos.length === 0) {
     return null;
   }
@@ -30,6 +31,19 @@ export function RepoTabs({ repos, activePath, onActivate, onClose }: Props) {
         >
           <span className="repo-tab__name">{repo.name}</span>
           {repo.currentBranch ? <span className="repo-tab__branch">{repo.currentBranch}</span> : null}
+          {onOpenInNewWindow ? (
+            <button
+              type="button"
+              className="repo-tab__detach"
+              aria-label={`Open ${repo.name} in new window`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenInNewWindow(repo.path);
+              }}
+            >
+              ⧉
+            </button>
+          ) : null}
           <button
             type="button"
             className="repo-tab__close"

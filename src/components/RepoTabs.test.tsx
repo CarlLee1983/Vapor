@@ -39,4 +39,20 @@ describe("RepoTabs", () => {
     await user.click(screen.getByRole("button", { name: "Close a" }));
     expect(onClose).toHaveBeenCalledWith("/repo/a");
   });
+
+  it("calls onOpenInNewWindow from a tab action", async () => {
+    const onOpenInNewWindow = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <RepoTabs
+        repos={repos}
+        activePath="/repo/a"
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+        onOpenInNewWindow={onOpenInNewWindow}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Open a in new window" }));
+    expect(onOpenInNewWindow).toHaveBeenCalledWith("/repo/a");
+  });
 });

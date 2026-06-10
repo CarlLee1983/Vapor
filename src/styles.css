@@ -1354,3 +1354,15 @@ button:not(.commit-row):disabled {
   cursor: pointer;
   font-size: 12px;
 }
+
+.repo-tab__detach {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.6;
+}
+.repo-tab__detach:hover {
+  opacity: 1;
+}

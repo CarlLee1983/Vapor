@@ -3,9 +3,13 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App, { AUTO_REFRESH_INTERVAL_MS } from "./App";
 import { useWorkspace } from "./hooks/useWorkspace";
+import { getRepoParam } from "./lib/window";
 
 vi.mock("./hooks/useWorkspace", () => ({ useWorkspace: vi.fn() }));
 const useWorkspaceMock = vi.mocked(useWorkspace);
+
+vi.mock("./lib/window", () => ({ getRepoParam: vi.fn(), openRepoWindow: vi.fn() }));
+const getRepoParamMock = vi.mocked(getRepoParam);
 
 const openRepository = vi.fn();
 const activateRepository = vi.fn();
@@ -80,6 +84,7 @@ beforeEach(() => {
   getLaunchPath.mockReset().mockResolvedValue(null);
   onOpenRepo.mockReset().mockResolvedValue(() => {});
   checkForUpdate.mockReset().mockResolvedValue(null);
+  getRepoParamMock.mockReset().mockReturnValue(null);
 });
 
 afterEach(() => {
@@ -218,5 +223,21 @@ describe("App", () => {
     render(<App />);
     expect(screen.getByRole("tab", { name: /a/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /b/ })).toBeInTheDocument();
+  });
+
+  it("main window falls back to the launch path when no session", async () => {
+    getRepoParamMock.mockReturnValue(null);
+    useWorkspaceMock.mockReturnValue(workspaceValue({ openRepos: [], activePath: null }));
+    getLaunchPath.mockResolvedValue("/launched");
+    render(<App />);
+    await waitFor(() => expect(openRepository).toHaveBeenCalledWith("/launched"));
+  });
+
+  it("secondary window opens only the ?repo= repository and skips launch path", async () => {
+    getRepoParamMock.mockReturnValue("/repo/c");
+    useWorkspaceMock.mockReturnValue(workspaceValue({ openRepos: [], activePath: null }));
+    render(<App />);
+    await waitFor(() => expect(openRepository).toHaveBeenCalledWith("/repo/c"));
+    expect(getLaunchPath).not.toHaveBeenCalled();
   });
 });

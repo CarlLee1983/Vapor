@@ -18,13 +18,16 @@ import { useWorkspace } from "./hooks/useWorkspace";
 import { RepoTabs } from "./components/RepoTabs";
 import { useLayoutPreferences } from "./hooks/useLayoutPreferences";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
+import { getRepoParam, openRepoWindow } from "./lib/window";
 import { previewCommit } from "./lib/tauriApi";
 import "./styles.css";
 
 export const AUTO_REFRESH_INTERVAL_MS = 5000;
 
 export default function App() {
-  const workspace = useWorkspace({ persist: true });
+  const repoParam = getRepoParam();
+  const isSecondary = repoParam !== null;
+  const workspace = useWorkspace({ persist: !isSecondary });
   const repoView = workspace.repo;
   const layout = useLayoutPreferences();
   const [isPushOpen, setIsPushOpen] = useState(false);
@@ -65,6 +68,10 @@ export default function App() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     void (async () => {
+      if (isSecondary) {
+        if (repoParam) workspace.openRepository(repoParam);
+        return; // secondary window: no session restore, no launch path, no open-repo listener
+      }
       if (workspace.openRepos.length === 0) {
         const launchPath = await getLaunchPath();
         if (launchPath) workspace.openRepository(launchPath);
@@ -163,6 +170,7 @@ export default function App() {
           activePath={workspace.activePath}
           onActivate={workspace.activateRepository}
           onClose={workspace.closeRepository}
+          onOpenInNewWindow={(path) => void openRepoWindow(path)}
         />
         <CliInstallBanner />
         <UpdateBanner />
