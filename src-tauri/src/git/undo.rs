@@ -45,7 +45,7 @@ fn build_plan(entry: &JournalEntry) -> UndoPlan {
     let is_branch_restore = recreate_branch.is_some();
     UndoPlan {
         entry_id: entry.id.clone(),
-        description: format!("復原:{}", entry.description),
+        description: format!("Undo: {}", entry.description),
         head_target: if is_branch_restore { None } else { entry.before_head.clone() },
         restore_worktree: !is_branch_restore && !entry.snapshot_ref.is_empty(),
         recreate_branch,

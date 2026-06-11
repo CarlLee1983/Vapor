@@ -14,7 +14,7 @@ const entry = {
   id: "e1",
   timestamp: "1760000000",
   opType: "discard" as const,
-  description: "捨棄 1 個檔案的變更",
+  description: "Discard changes to 1 file(s)",
   beforeHead: "abc",
   beforeBranch: "main",
   snapshotRef: "refs/vapor/snapshots/e1",
@@ -40,7 +40,7 @@ describe("useTimeline", () => {
   it("undoEntry 執行後重新整理列表", async () => {
     vi.mocked(api.executeUndo).mockResolvedValue({
       entryId: "e1",
-      description: "復原:捨棄 1 個檔案的變更",
+      description: "Undo: Discard changes to 1 file(s)",
       headTarget: null,
       restoreWorktree: true,
       recreateBranch: null,
@@ -72,7 +72,7 @@ describe("useTimeline", () => {
   it("planUndoEntry 不帶參數時以 undefined 呼叫 planUndo", async () => {
     const plan = {
       entryId: "e1",
-      description: "復原:捨棄 1 個檔案的變更",
+      description: "Undo: Discard changes to 1 file(s)",
       headTarget: null,
       restoreWorktree: true,
       recreateBranch: null,

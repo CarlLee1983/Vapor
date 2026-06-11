@@ -103,7 +103,7 @@ export function SettingsMenu({
                 disabled={timeMachineDisabled}
                 onClick={() => runAndClose(onOpenTimeMachine)}
               >
-                時光機…
+                Time Machine…
               </button>
             ) : null}
           </div>

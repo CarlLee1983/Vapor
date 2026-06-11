@@ -240,9 +240,9 @@ describe("PullDialog", () => {
 
     await user.click(screen.getByRole("button", { name: "Pull" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("exceed 500MB");
-    expect(screen.getByRole("button", { name: "仍要快照(較慢)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Snapshot anyway (slower)" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "不建快照繼續" }));
+    await user.click(screen.getByRole("button", { name: "Continue without snapshot" }));
     await waitFor(() =>
       expect(tauriApi.pullBranch).toHaveBeenLastCalledWith({
         repositoryPath: "/repo",

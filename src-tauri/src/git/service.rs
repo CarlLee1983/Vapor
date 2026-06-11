@@ -91,7 +91,7 @@ impl<R: GitRunner> GitService<R> {
             &request.repository_path,
             &request.safety_net,
             super::journal::SafetyOpType::Pull,
-            format!("拉取 {}/{}", request.remote, request.remote_branch),
+            format!("Pull {}/{}", request.remote, request.remote_branch),
             None,
             |service| {
                 let output = service.runner.run(&request.repository_path, &preview.args)?;
@@ -381,7 +381,7 @@ impl<R: GitRunner> GitService<R> {
             &request.repository_path,
             &request.safety_net,
             super::journal::SafetyOpType::DeleteBranch,
-            format!("刪除分支 {}", request.branch_name),
+            format!("Delete branch {}", request.branch_name),
             deleted_branch,
             |service| {
                 let output = service.runner.run(&request.repository_path, &preview.args)?;
@@ -433,7 +433,7 @@ impl<R: GitRunner> GitService<R> {
             &request.repository_path,
             &request.safety_net,
             super::journal::SafetyOpType::StashApply,
-            format!("套用收藏 {}", request.stash_ref),
+            format!("Apply stash {}", request.stash_ref),
             None,
             |service| {
                 let output = service.runner.run(&request.repository_path, &preview.args)?;
@@ -455,7 +455,7 @@ impl<R: GitRunner> GitService<R> {
             &request.repository_path,
             &request.safety_net,
             super::journal::SafetyOpType::StashPop,
-            format!("彈出收藏 {}", request.stash_ref),
+            format!("Pop stash {}", request.stash_ref),
             None,
             |service| {
                 let output = service.runner.run(&request.repository_path, &preview.args)?;
@@ -486,7 +486,7 @@ impl<R: GitRunner> GitService<R> {
             &request.repository_path,
             &request.safety_net,
             super::journal::SafetyOpType::CherryPick,
-            format!("揀選 {short_hash}"),
+            format!("Cherry-pick {short_hash}"),
             None,
             |service| {
                 let output = service.runner.run(&request.repository_path, &preview.args)?;
@@ -555,7 +555,7 @@ impl<R: GitRunner> GitService<R> {
             &request.repository_path,
             &request.safety_net,
             super::journal::SafetyOpType::Merge,
-            format!("合併 {}", request.branch_name),
+            format!("Merge {}", request.branch_name),
             None,
             |service| {
                 let output = service.runner.run(&request.repository_path, &preview.args)?;
@@ -610,7 +610,7 @@ impl<R: GitRunner> GitService<R> {
             &request.repository_path,
             &request.safety_net,
             super::journal::SafetyOpType::Discard,
-            format!("捨棄 {file_count} 個檔案的變更"),
+            format!("Discard changes to {file_count} file(s)"),
             None,
             |service| {
                 let previews = Self::discard_previews(request)?;

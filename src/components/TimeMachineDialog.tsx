@@ -63,7 +63,7 @@ export function TimeMachineDialog({
       if (openEntryRef.current !== entryId) return;
       setMessage({
         kind: "error",
-        text: `無法載入快照:${(cause as { message?: string }).message ?? String(cause)}`,
+        text: `Cannot load snapshot: ${(cause as { message?: string }).message ?? String(cause)}`,
       });
     }
   };
@@ -73,13 +73,13 @@ export function TimeMachineDialog({
     try {
       await restoreSnapshotFile(repositoryPath, entryId, filePath);
       if (openEntryRef.current !== entryId) return;
-      setMessage({ kind: "status", text: `已救回 ${filePath}` });
+      setMessage({ kind: "status", text: `Restored ${filePath}` });
       onChanged();
     } catch (cause) {
       if (openEntryRef.current !== entryId) return;
       setMessage({
         kind: "error",
-        text: `救回失敗:${(cause as { message?: string }).message ?? String(cause)}`,
+        text: `Restore failed: ${(cause as { message?: string }).message ?? String(cause)}`,
       });
     } finally {
       if (openEntryRef.current === entryId) {
@@ -88,7 +88,7 @@ export function TimeMachineDialog({
     }
   };
 
-  // 列表由新到舊呈現
+  // Newest entries first
   const ordered = [...entries].reverse();
 
   return (
@@ -96,7 +96,7 @@ export function TimeMachineDialog({
       <section
         className="dialog"
         role="dialog"
-        aria-label="時光機"
+        aria-label="Time Machine"
         aria-modal="true"
         tabIndex={-1}
         ref={dialogRef}
@@ -106,11 +106,11 @@ export function TimeMachineDialog({
       >
         <header className="dialog-header">
           <div>
-            <h2>時光機</h2>
-            <p className="dialog-subtitle">檢視 Vapor 操作日誌並還原到任意時刻。</p>
+            <h2>Time Machine</h2>
+            <p className="dialog-subtitle">Review the Vapor operation log and restore to any point in time.</p>
           </div>
           <button type="button" disabled={busy} onClick={onClose}>
-            關閉
+            Close
           </button>
         </header>
         {message ? (
@@ -123,23 +123,23 @@ export function TimeMachineDialog({
           )
         ) : null}
         <div className="dialog-body">
-          <section aria-label="操作日誌">
-            <h3>操作日誌</h3>
-            {ordered.length === 0 ? <p className="muted">尚無 Vapor 操作紀錄。</p> : null}
+          <section aria-label="Operation log">
+            <h3>Operation log</h3>
+            {ordered.length === 0 ? <p className="muted">No Vapor operations recorded yet.</p> : null}
             <ul>
               {ordered.map((entry) => (
                 <li key={entry.id}>
                   <span>{formatTimestamp(entry.timestamp)}</span>
                   <span>{entry.description}</span>
                   <button type="button" disabled={busy} onClick={() => void onUndoEntry(entry.id)}>
-                    回到此刻
+                    Restore to here
                   </button>
                   {entry.snapshotRef ? (
                     <button type="button" disabled={busy} onClick={() => void inspect(entry.id)}>
-                      檢視變更
+                      View changes
                     </button>
                   ) : (
-                    <span>(未建快照)</span>
+                    <span>(no snapshot)</span>
                   )}
                   {openEntryId === entry.id ? (
                     <div>
@@ -152,7 +152,7 @@ export function TimeMachineDialog({
                               disabled={busy}
                               onClick={() => void rescueFile(entry.id, file.path)}
                             >
-                              救回 {file.path}
+                              Restore {file.path}
                             </button>
                           </li>
                         ))}
@@ -164,8 +164,8 @@ export function TimeMachineDialog({
               ))}
             </ul>
           </section>
-          <section aria-label="Git reflog(唯讀)">
-            <h3>Git reflog(含終端機操作,僅供查看)</h3>
+          <section aria-label="Git reflog (read-only)">
+            <h3>Git reflog (includes terminal operations, read-only)</h3>
             <ul>
               {reflog.map((item) => (
                 <li key={`${item.hash}-${item.selector}`}>

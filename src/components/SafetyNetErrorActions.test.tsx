@@ -17,9 +17,9 @@ describe("SafetyNetErrorActions", () => {
         onRetryWithMode={onRetryWithMode}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "仍要快照(較慢)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Snapshot anyway (slower)" }));
     expect(onRetryWithMode).toHaveBeenCalledWith("force");
-    fireEvent.click(screen.getByRole("button", { name: "不建快照繼續" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue without snapshot" }));
     expect(onRetryWithMode).toHaveBeenCalledWith("skip");
   });
 
@@ -32,8 +32,8 @@ describe("SafetyNetErrorActions", () => {
         onRetryWithMode={onRetryWithMode}
       />,
     );
-    expect(screen.queryByRole("button", { name: "仍要快照(較慢)" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "不建快照繼續" }));
+    expect(screen.queryByRole("button", { name: "Snapshot anyway (slower)" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Continue without snapshot" }));
     expect(onRetryWithMode).toHaveBeenCalledWith("skip");
   });
 
@@ -50,7 +50,7 @@ describe("SafetyNetErrorActions", () => {
     render(
       <SafetyNetErrorActions error={gitError("snapshotTooLarge")} busy onRetryWithMode={vi.fn()} />,
     );
-    expect(screen.getByRole("button", { name: "仍要快照(較慢)" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "不建快照繼續" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Snapshot anyway (slower)" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Continue without snapshot" })).toBeDisabled();
   });
 });

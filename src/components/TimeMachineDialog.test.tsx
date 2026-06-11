@@ -13,7 +13,7 @@ const entry = {
   id: "e1",
   timestamp: "1760000000",
   opType: "discard" as const,
-  description: "捨棄 1 個檔案的變更",
+  description: "Discard changes to 1 file(s)",
   beforeHead: "abc",
   beforeBranch: "main",
   snapshotRef: "refs/vapor/snapshots/e1",
@@ -41,22 +41,22 @@ function setup() {
 describe("TimeMachineDialog", () => {
   it("列出操作日誌與唯讀 reflog", () => {
     setup();
-    expect(screen.getByText("捨棄 1 個檔案的變更")).toBeInTheDocument();
+    expect(screen.getByText("Discard changes to 1 file(s)")).toBeInTheDocument();
     expect(screen.getByText(/HEAD@\{0\}/)).toBeInTheDocument();
   });
 
   it("檢視變更載入快照檔案清單與 diff", async () => {
     setup();
-    fireEvent.click(screen.getByRole("button", { name: "檢視變更" }));
+    fireEvent.click(screen.getByRole("button", { name: "View changes" }));
     await waitFor(() => expect(screen.getByText(/diff --git/)).toBeInTheDocument());
     expect(api.listSnapshotFiles).toHaveBeenCalledWith("/repo", "e1");
   });
 
   it("單檔救回呼叫 restoreSnapshotFile 並通知 onChanged", async () => {
     const { onChanged } = setup();
-    fireEvent.click(screen.getByRole("button", { name: "檢視變更" }));
+    fireEvent.click(screen.getByRole("button", { name: "View changes" }));
     await waitFor(() => expect(screen.getByText("a.txt")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "救回 a.txt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore a.txt" }));
     await waitFor(() =>
       expect(api.restoreSnapshotFile).toHaveBeenCalledWith("/repo", "e1", "a.txt"),
     );
@@ -65,7 +65,7 @@ describe("TimeMachineDialog", () => {
 
   it("回到此刻委派給 onUndoEntry", async () => {
     const { onUndoEntry } = setup();
-    fireEvent.click(screen.getByRole("button", { name: "回到此刻" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore to here" }));
     await waitFor(() => expect(onUndoEntry).toHaveBeenCalledWith("e1"));
   });
 });

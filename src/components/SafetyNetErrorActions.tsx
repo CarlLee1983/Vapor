@@ -16,14 +16,14 @@ export function SafetyNetErrorActions({ error, busy, onRetryWithMode }: SafetyNe
   }
 
   return (
-    <div className="safety-net-actions" role="group" aria-label="安全網選項">
+    <div className="safety-net-actions" role="group" aria-label="Safety net options">
       {error.code === "snapshotTooLarge" ? (
         <button type="button" disabled={busy} onClick={() => onRetryWithMode("force")}>
-          仍要快照(較慢)
+          Snapshot anyway (slower)
         </button>
       ) : null}
       <button type="button" disabled={busy} onClick={() => onRetryWithMode("skip")}>
-        不建快照繼續
+        Continue without snapshot
       </button>
     </div>
   );

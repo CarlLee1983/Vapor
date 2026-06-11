@@ -127,7 +127,7 @@ mod tests {
             id: id.to_string(),
             timestamp: "2026-06-11T00:00:00Z".to_string(),
             op_type: SafetyOpType::Discard,
-            description: format!("捨棄變更 {id}"),
+            description: format!("Discard changes {id}"),
             before_head: Some("abc".to_string()),
             before_branch: Some("main".to_string()),
             snapshot_ref: format!("refs/vapor/snapshots/{id}"),

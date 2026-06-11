@@ -9,6 +9,25 @@ interface UndoButtonProps {
   onCompleted?: () => void;
 }
 
+const UndoIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    style={{ marginRight: "6px", flexShrink: 0 }}
+  >
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  </svg>
+);
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return (
@@ -32,8 +51,8 @@ export function UndoButton({ lastDescription, disabled, onPlan, onUndo, onComple
       const code = (cause as { code?: GitErrorCode }).code;
       setStaleMessage(
         code === "undoStale"
-          ? "偵測到外部變更:請開啟時光機面板手動挑選要復原的時刻。"
-          : `無法準備復原:${(cause as { message?: string }).message ?? String(cause)}`,
+          ? "Changes were made outside Vapor. Open the Time Machine panel to pick a point to restore."
+          : `Cannot prepare undo: ${(cause as { message?: string }).message ?? String(cause)}`,
       );
     }
   }, [disabled, busy, onPlan]);
@@ -57,7 +76,7 @@ export function UndoButton({ lastDescription, disabled, onPlan, onUndo, onComple
       setPlan(null);
       onCompleted?.();
     } catch (cause) {
-      setStaleMessage(`復原失敗:${(cause as { message?: string }).message ?? String(cause)}`);
+      setStaleMessage(`Undo failed: ${(cause as { message?: string }).message ?? String(cause)}`);
     } finally {
       setBusy(false);
     }
@@ -68,23 +87,29 @@ export function UndoButton({ lastDescription, disabled, onPlan, onUndo, onComple
       <button
         type="button"
         disabled={disabled || busy}
-        title={lastDescription ? `復原:${lastDescription}` : "沒有可復原的操作"}
+        title={lastDescription ? `Undo: ${lastDescription}` : "Nothing to undo"}
         onClick={() => void requestPlan()}
       >
-        ⏪ 復原
+        <UndoIcon />
+        Undo
       </button>
       {staleMessage ? <div role="alert">{staleMessage}</div> : null}
       {plan ? (
-        <div role="dialog" aria-label="確認復原">
+        <div role="dialog" aria-label="Confirm undo">
           <p>{plan.description}</p>
-          {plan.headTarget ? <p>HEAD 將移回 {plan.headTarget.slice(0, 7)}</p> : null}
-          {plan.restoreWorktree ? <p>將從快照還原工作目錄的檔案;目前未提交的變更會先自動快照。</p> : null}
-          {plan.recreateBranch ? <p>將重新建立分支 {plan.recreateBranch[0]}</p> : null}
+          {plan.headTarget ? <p>HEAD will move back to {plan.headTarget.slice(0, 7)}</p> : null}
+          {plan.restoreWorktree ? (
+            <p>
+              Working-tree files will be restored from a snapshot; current uncommitted changes are
+              snapshotted first.
+            </p>
+          ) : null}
+          {plan.recreateBranch ? <p>Branch {plan.recreateBranch[0]} will be recreated</p> : null}
           <button type="button" onClick={() => void confirm()} disabled={busy}>
-            確認復原
+            Confirm undo
           </button>
           <button type="button" onClick={() => setPlan(null)} disabled={busy}>
-            取消
+            Cancel
           </button>
         </div>
       ) : null}
