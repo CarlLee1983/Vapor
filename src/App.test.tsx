@@ -8,6 +8,17 @@ import { getRepoParam } from "./lib/window";
 vi.mock("./hooks/useWorkspace", () => ({ useWorkspace: vi.fn() }));
 const useWorkspaceMock = vi.mocked(useWorkspace);
 
+vi.mock("./lib/tauriApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/tauriApi")>();
+  return {
+    ...actual,
+    getTimeline: vi.fn().mockResolvedValue({ entries: [], reflog: [] }),
+    cleanupSnapshots: vi.fn().mockResolvedValue(undefined),
+    planUndo: vi.fn().mockResolvedValue(null),
+    executeUndo: vi.fn().mockResolvedValue(null),
+  };
+});
+
 vi.mock("./lib/window", () => ({ getRepoParam: vi.fn(), openRepoWindow: vi.fn() }));
 const getRepoParamMock = vi.mocked(getRepoParam);
 

@@ -7,6 +7,8 @@ interface SettingsMenuProps {
   onOpenRemotes: () => void;
   onOpenAbout: () => void;
   onOpenDoctor: () => void;
+  onOpenTimeMachine?: () => void;
+  timeMachineDisabled?: boolean;
   remotesDisabled?: boolean;
 }
 
@@ -16,6 +18,8 @@ export function SettingsMenu({
   onOpenRemotes,
   onOpenAbout,
   onOpenDoctor,
+  onOpenTimeMachine,
+  timeMachineDisabled = false,
   remotesDisabled = false,
 }: SettingsMenuProps) {
   const [open, setOpen] = useState(false);
@@ -91,6 +95,17 @@ export function SettingsMenu({
             >
               Doctor
             </button>
+            {onOpenTimeMachine ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="settings-menu__item"
+                disabled={timeMachineDisabled}
+                onClick={() => runAndClose(onOpenTimeMachine)}
+              >
+                時光機…
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

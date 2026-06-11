@@ -12,6 +12,8 @@ import { FetchDialog } from "./components/FetchDialog";
 import { RemotesDialog } from "./components/RemotesDialog";
 import { AboutDialog } from "./components/AboutDialog";
 import { DoctorDialog } from "./components/DoctorDialog";
+import { TimeMachineDialog } from "./components/TimeMachineDialog";
+import { UndoButton } from "./components/UndoButton";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { type ThemeMode } from "./components/ThemeToggle";
 import { GitActionsMenu } from "./components/GitActionsMenu";
@@ -22,6 +24,7 @@ import { CliInstallBanner } from "./components/CliInstallBanner";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { WorkingTreePanel } from "./components/WorkingTreePanel";
 import { useWorkspace } from "./hooks/useWorkspace";
+import { useTimeline } from "./hooks/useTimeline";
 import { RepoTabs } from "./components/RepoTabs";
 import { useLayoutPreferences } from "./hooks/useLayoutPreferences";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
@@ -48,7 +51,10 @@ export default function App() {
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDoctorOpen, setIsDoctorOpen] = useState(false);
+  const [isTimeMachineOpen, setIsTimeMachineOpen] = useState(false);
   const { refreshRepository } = repoView;
+
+  const timeline = useTimeline(repoView.repositoryPath);
 
   const [theme, setTheme] = useState<ThemeMode>(() => {
     return (localStorage.getItem("vapor-theme") as ThemeMode) || "system";
@@ -205,6 +211,13 @@ export default function App() {
             <button type="button" disabled={!repoView.repository} onClick={() => setIsFetchOpen(true)}>
               Fetch
             </button>
+            <UndoButton
+              lastDescription={timeline.lastEntry?.description ?? null}
+              disabled={!repoView.repositoryPath || timeline.entries.length === 0}
+              onPlan={() => timeline.planUndoEntry()}
+              onUndo={timeline.undoEntry}
+              onCompleted={refreshActiveRepository}
+            />
             <GitActionsMenu
               repository={repoView.repository}
               viewMode={viewMode}
@@ -228,6 +241,8 @@ export default function App() {
               onOpenRemotes={() => setIsRemotesOpen(true)}
               onOpenAbout={() => setIsAboutOpen(true)}
               onOpenDoctor={() => setIsDoctorOpen(true)}
+              onOpenTimeMachine={() => setIsTimeMachineOpen(true)}
+              timeMachineDisabled={!repoView.repositoryPath}
               remotesDisabled={!repoView.repository}
             />
           </div>
@@ -368,6 +383,22 @@ export default function App() {
       ) : null}
       {isAboutOpen ? <AboutDialog onClose={() => setIsAboutOpen(false)} /> : null}
       {isDoctorOpen ? <DoctorDialog onClose={() => setIsDoctorOpen(false)} /> : null}
+      {isTimeMachineOpen && repoView.repositoryPath ? (
+        <TimeMachineDialog
+          repositoryPath={repoView.repositoryPath}
+          entries={timeline.entries}
+          reflog={timeline.reflog}
+          onUndoEntry={async (id) => {
+            await timeline.undoEntry(id);
+            refreshActiveRepository();
+          }}
+          onChanged={() => {
+            refreshActiveRepository();
+            void timeline.refresh();
+          }}
+          onClose={() => setIsTimeMachineOpen(false)}
+        />
+      ) : null}
     </main>
   );
 }
