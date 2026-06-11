@@ -19,4 +19,45 @@ describe("buildBranchTree", () => {
       { type: "branch", name: "main", branch: b("main") },
     ]);
   });
+
+  it("nests branches by slash segments with mixed depth", () => {
+    const tree = buildBranchTree([
+      b("main"),
+      b("feat/login"),
+      b("feat/auth/sso"),
+      b("docs/readme"),
+    ]);
+
+    expect(tree).toEqual([
+      {
+        type: "folder",
+        name: "docs",
+        path: "docs",
+        children: [{ type: "branch", name: "readme", branch: b("docs/readme") }],
+      },
+      {
+        type: "folder",
+        name: "feat",
+        path: "feat",
+        children: [
+          {
+            type: "folder",
+            name: "auth",
+            path: "feat/auth",
+            children: [
+              { type: "branch", name: "sso", branch: b("feat/auth/sso") },
+            ],
+          },
+          { type: "branch", name: "login", branch: b("feat/login") },
+        ],
+      },
+      { type: "branch", name: "main", branch: b("main") },
+    ]);
+  });
+
+  it("orders folders before branches and alphabetically within each level", () => {
+    const tree = buildBranchTree([b("zeta"), b("alpha/x"), b("beta")]);
+    expect(tree.map((n) => n.name)).toEqual(["alpha", "beta", "zeta"]);
+    expect(tree[0].type).toBe("folder");
+  });
 });
