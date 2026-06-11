@@ -14,9 +14,9 @@ vi.mock("../lib/launch", () => ({
 
 const report: DoctorReport = {
   checks: [
-    { id: "gitAvailable", title: "Git 可用", status: "ok", detail: "git version 2.39.0", fix: { kind: "none" } },
-    { id: "loginPath", title: "Login PATH 解析正常", status: "warn", detail: "退回最小 PATH", fix: { kind: "manual", instructions: "檢查 ~/.zshrc" } },
-    { id: "vaporCli", title: "vapor CLI 已安裝", status: "fail", detail: "未安裝", fix: { kind: "auto", label: "安裝 vapor 指令" } },
+    { id: "gitAvailable", title: "Git available", status: "ok", detail: "git version 2.39.0", fix: { kind: "none" } },
+    { id: "loginPath", title: "Login PATH resolves", status: "warn", detail: "Fell back to minimal PATH", fix: { kind: "manual", instructions: "Check ~/.zshrc" } },
+    { id: "vaporCli", title: "vapor CLI installed", status: "fail", detail: "Not installed", fix: { kind: "auto", label: "Install vapor command" } },
   ],
 };
 
@@ -29,27 +29,27 @@ describe("DoctorDialog", () => {
   it("renders each check with its detail and manual instructions", async () => {
     doctorRun.mockResolvedValue(report);
     render(<DoctorDialog onClose={() => {}} />);
-    await waitFor(() => expect(screen.getByText("Git 可用")).toBeInTheDocument());
-    expect(screen.getByText("vapor CLI 已安裝")).toBeInTheDocument();
-    expect(screen.getByText("檢查 ~/.zshrc")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Git available")).toBeInTheDocument());
+    expect(screen.getByText("vapor CLI installed")).toBeInTheDocument();
+    expect(screen.getByText("Check ~/.zshrc")).toBeInTheDocument();
   });
 
   it("auto-fixes and re-runs doctor afterwards", async () => {
     doctorRun.mockResolvedValue(report);
-    doctorFix.mockResolvedValue("已建立 vapor 指令。");
+    doctorFix.mockResolvedValue("Created vapor command.");
     render(<DoctorDialog onClose={() => {}} />);
-    await waitFor(() => expect(screen.getByText("vapor CLI 已安裝")).toBeInTheDocument());
-    await userEvent.click(screen.getByRole("button", { name: "安裝 vapor 指令" }));
+    await waitFor(() => expect(screen.getByText("vapor CLI installed")).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: "Install vapor command" }));
     await waitFor(() => expect(doctorFix).toHaveBeenCalledWith("vaporCli"));
     expect(doctorRun).toHaveBeenCalledTimes(2);
-    expect(screen.getByText("已建立 vapor 指令。")).toBeInTheDocument();
+    expect(screen.getByText("Created vapor command.")).toBeInTheDocument();
   });
 
   it("shows an error when doctorRun fails", async () => {
-    doctorRun.mockRejectedValue({ message: "無法定位 Vapor 執行檔。" });
+    doctorRun.mockRejectedValue({ message: "Could not locate the Vapor executable." });
     render(<DoctorDialog onClose={() => {}} />);
     await waitFor(() =>
-      expect(screen.getByText("無法定位 Vapor 執行檔。")).toBeInTheDocument(),
+      expect(screen.getByText("Could not locate the Vapor executable.")).toBeInTheDocument(),
     );
   });
 });

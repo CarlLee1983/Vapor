@@ -8,7 +8,7 @@ fn join_or(items: &[String], empty: &str) -> String {
     if items.is_empty() {
         empty.to_string()
     } else {
-        items.join("、")
+        items.join(", ")
     }
 }
 
@@ -16,18 +16,18 @@ pub fn evaluate_git(facts: &Facts) -> Check {
     match &facts.git_version {
         Some(version) => Check {
             id: CheckId::GitAvailable,
-            title: "Git 可用".to_string(),
+            title: "Git available".to_string(),
             status: CheckStatus::Ok,
             detail: version.clone(),
             fix: Fix::None,
         },
         None => Check {
             id: CheckId::GitAvailable,
-            title: "Git 可用".to_string(),
+            title: "Git available".to_string(),
             status: CheckStatus::Fail,
-            detail: "找不到 git 執行檔。".to_string(),
+            detail: "git executable not found.".to_string(),
             fix: Fix::Manual {
-                instructions: "安裝 Xcode Command Line Tools:xcode-select --install,或 brew install git"
+                instructions: "Install Xcode Command Line Tools: xcode-select --install, or brew install git"
                     .to_string(),
             },
         },
@@ -36,14 +36,14 @@ pub fn evaluate_git(facts: &Facts) -> Check {
 
 pub fn evaluate_login_path(facts: &Facts) -> Check {
     let detail = format!(
-        "偵測到:{}。缺少:{}。",
-        join_or(&facts.found_tool_dirs, "(無)"),
-        join_or(&facts.missing_tool_dirs, "(無)"),
+        "Detected: {}. Missing: {}.",
+        join_or(&facts.found_tool_dirs, "(none)"),
+        join_or(&facts.missing_tool_dirs, "(none)"),
     );
     if facts.login_resolved {
         Check {
             id: CheckId::LoginPath,
-            title: "Login PATH 解析正常".to_string(),
+            title: "Login PATH resolves".to_string(),
             status: CheckStatus::Ok,
             detail,
             fix: Fix::None,
@@ -51,11 +51,11 @@ pub fn evaluate_login_path(facts: &Facts) -> Check {
     } else {
         Check {
             id: CheckId::LoginPath,
-            title: "Login PATH 解析正常".to_string(),
+            title: "Login PATH resolves".to_string(),
             status: CheckStatus::Warn,
-            detail: format!("{detail} 無法解析 login shell PATH,已退回最小 PATH。"),
+            detail: format!("{detail} Could not resolve the login shell PATH; fell back to a minimal PATH."),
             fix: Fix::Manual {
-                instructions: "確認 shell 設定檔(~/.zprofile / ~/.zshrc)有正確匯出 PATH,再重啟 Vapor。"
+                instructions: "Make sure your shell profile (~/.zprofile / ~/.zshrc) exports PATH correctly, then restart Vapor."
                     .to_string(),
             },
         }
@@ -66,19 +66,19 @@ pub fn evaluate_vapor_cli(facts: &Facts) -> Check {
     if facts.cli_installed {
         Check {
             id: CheckId::VaporCli,
-            title: "vapor CLI 已安裝".to_string(),
+            title: "vapor CLI installed".to_string(),
             status: CheckStatus::Ok,
-            detail: "可從終端以 vapor . 開啟儲存庫。".to_string(),
+            detail: "You can open a repository from the terminal with vapor .".to_string(),
             fix: Fix::None,
         }
     } else {
         Check {
             id: CheckId::VaporCli,
-            title: "vapor CLI 已安裝".to_string(),
+            title: "vapor CLI installed".to_string(),
             status: CheckStatus::Fail,
-            detail: "找不到指向目前 Vapor 的 vapor 指令。".to_string(),
+            detail: "No vapor command pointing to the current Vapor was found.".to_string(),
             fix: Fix::Auto {
-                label: "安裝 vapor 指令".to_string(),
+                label: "Install vapor command".to_string(),
             },
         }
     }
@@ -88,20 +88,20 @@ pub fn evaluate_husky_init(facts: &Facts) -> Check {
     if facts.husky_init_present && facts.husky_init_has_path {
         Check {
             id: CheckId::HuskyInit,
-            title: "husky 跨環境支援".to_string(),
+            title: "husky cross-environment support".to_string(),
             status: CheckStatus::Ok,
-            detail: "~/.config/husky/init.sh 已設定 PATH。".to_string(),
+            detail: "~/.config/husky/init.sh has PATH configured.".to_string(),
             fix: Fix::None,
         }
     } else {
         Check {
             id: CheckId::HuskyInit,
-            title: "husky 跨環境支援".to_string(),
+            title: "husky cross-environment support".to_string(),
             status: CheckStatus::Warn,
-            detail: "~/.config/husky/init.sh 不存在或未設定 PATH;從終端外啟動的 git 客戶端執行 husky hook 時可能找不到 bun/node。"
+            detail: "~/.config/husky/init.sh is missing or has no PATH; git clients launched outside a terminal may fail to find bun/node when running husky hooks."
                 .to_string(),
             fix: Fix::Auto {
-                label: "建立 husky init.sh".to_string(),
+                label: "Create husky init.sh".to_string(),
             },
         }
     }
