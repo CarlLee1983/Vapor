@@ -8,7 +8,15 @@ import {
   stageFiles as stageFilesApi,
   unstageFiles as unstageFilesApi,
 } from "../lib/tauriApi";
-import type { CommitResponse, CommitSummary, FileStatus, GitError, RepositoryState } from "../types/git";
+import type {
+  CommitResponse,
+  CommitSummary,
+  DiffScope,
+  FileStatus,
+  GitError,
+  RepositoryState,
+  SelectedFileTarget,
+} from "../types/git";
 
 /** Commits fetched per `git log` page. A page that returns fewer rows than this marks the end of history. */
 export const COMMIT_PAGE_SIZE = 200;
@@ -18,7 +26,7 @@ export interface RepositoryViewState {
   repository: RepositoryState | null;
   commits: CommitSummary[];
   selectedCommit: CommitSummary | null;
-  selectedFile: FileStatus | null;
+  selectedFile: SelectedFileTarget | null;
   diff: string;
   isLoading: boolean;
   isLoadingMore: boolean;
@@ -101,9 +109,13 @@ export function useRepository() {
       }
       setState((current) => {
         const selectedFile = current.selectedFile
-          ? repository.workingTree.find((file) => file.path === current.selectedFile?.path) ?? null
+          ? repository.workingTree.find((file) => file.path === current.selectedFile?.file.path)
           : null;
-        const selectedCommit = selectedFile
+        const selectedFileTarget =
+          current.selectedFile && selectedFile
+            ? { file: selectedFile, scope: current.selectedFile.scope }
+            : null;
+        const selectedCommit = selectedFileTarget
           ? null
           : current.selectedCommit
           ? commits.find((commit) => commit.hash === current.selectedCommit?.hash) ?? commits[0] ?? null
@@ -115,8 +127,8 @@ export function useRepository() {
           repository,
           commits,
           selectedCommit,
-          selectedFile,
-          diff: current.selectedFile && !selectedFile ? "" : current.diff,
+          selectedFile: selectedFileTarget,
+          diff: current.selectedFile && !selectedFileTarget ? "" : current.diff,
           isLoading: false,
           isLoadingMore: false,
           hasMore: commits.length === COMMIT_PAGE_SIZE,
@@ -172,7 +184,14 @@ export function useRepository() {
     setState((current) => ({ ...current, selectedCommit: commit, selectedFile: null, isLoading: true, error: null }));
     try {
       const repositoryPath = repositoryPathRef.current;
-      const diff = repositoryPath ? await getDiff(repositoryPath, commit.hash) : "";
+      const diff = repositoryPath
+        ? await getDiff({
+            repositoryPath,
+            scope: "commit",
+            commitHash: commit.hash,
+            filePath: null,
+          })
+        : "";
       if (requestId !== requestIdRef.current) {
         return;
       }
@@ -186,17 +205,25 @@ export function useRepository() {
     }
   }, []);
 
-  const selectFile = useCallback(async (file: FileStatus) => {
+  const selectFile = useCallback(async (file: FileStatus, scope: Extract<DiffScope, "unstaged" | "staged">) => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    setState((current) => ({ ...current, selectedFile: file, selectedCommit: null, isLoading: true, error: null }));
+    const selectedFile = { file, scope };
+    setState((current) => ({ ...current, selectedFile, selectedCommit: null, isLoading: true, error: null }));
     try {
       const repositoryPath = repositoryPathRef.current;
-      const diff = repositoryPath ? await getDiff(repositoryPath, undefined, file.path) : "";
+      const diff = repositoryPath
+        ? await getDiff({
+            repositoryPath,
+            scope,
+            commitHash: null,
+            filePath: file.path,
+          })
+        : "";
       if (requestId !== requestIdRef.current) {
         return;
       }
-      setState((current) => ({ ...current, selectedFile: file, selectedCommit: null, diff, isLoading: false }));
+      setState((current) => ({ ...current, selectedFile, selectedCommit: null, diff, isLoading: false }));
     } catch (error) {
       if (requestId !== requestIdRef.current) {
         return;

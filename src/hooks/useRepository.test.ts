@@ -52,8 +52,8 @@ describe("useRepository", () => {
     };
   }
 
-  it("should select file and fetch file-specific diff", async () => {
-    const mockFile = { path: "src/App.tsx", indexStatus: ".", worktreeStatus: "M" };
+  it("selects a staged file target and fetches staged diff", async () => {
+    const mockFile = { path: "src/App.tsx", indexStatus: "M", worktreeStatus: "." };
     const mockRepoPath = "/path/to/repo";
 
     vi.mocked(tauriApi.getRepositoryState).mockResolvedValue({
@@ -66,24 +66,27 @@ describe("useRepository", () => {
       workingTree: [mockFile],
     });
     vi.mocked(tauriApi.getCommitLog).mockResolvedValue([]);
-    vi.mocked(tauriApi.getDiff).mockResolvedValue("mock file diff");
+    vi.mocked(tauriApi.getDiff).mockResolvedValue("mock staged diff");
 
     const { result } = renderHook(() => useRepository());
 
-    // Load repository first so that repositoryPath is set
     await act(async () => {
       await result.current.loadRepository(mockRepoPath);
     });
 
-    // Select file to fetch diff
     await act(async () => {
-      await result.current.selectFile(mockFile);
+      await result.current.selectFile(mockFile, "staged");
     });
 
-    expect(result.current.selectedFile).toEqual(mockFile);
+    expect(result.current.selectedFile).toEqual({ file: mockFile, scope: "staged" });
     expect(result.current.selectedCommit).toBeNull();
-    expect(result.current.diff).toBe("mock file diff");
-    expect(tauriApi.getDiff).toHaveBeenCalledWith(mockRepoPath, undefined, "src/App.tsx");
+    expect(result.current.diff).toBe("mock staged diff");
+    expect(tauriApi.getDiff).toHaveBeenCalledWith({
+      repositoryPath: mockRepoPath,
+      scope: "staged",
+      commitHash: null,
+      filePath: "src/App.tsx",
+    });
   });
 
   it("ignores stale repository loads that finish after a newer load", async () => {

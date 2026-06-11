@@ -52,11 +52,21 @@ describe("tauriApi", () => {
     });
   });
 
-  it("getDiff normalizes optional args to null and returns text", async () => {
+  it("getDiff forwards the scoped diff request and returns text", async () => {
     invokeMock.mockResolvedValue({ text: "diff-text" } as never);
-    const result = await getDiff("/repo", "abc123");
+    const result = await getDiff({
+      repositoryPath: "/repo",
+      scope: "staged",
+      filePath: "src/App.tsx",
+      commitHash: null,
+    });
     expect(invokeMock).toHaveBeenCalledWith("get_diff", {
-      request: { repositoryPath: "/repo", commitHash: "abc123", filePath: null },
+      request: {
+        repositoryPath: "/repo",
+        scope: "staged",
+        commitHash: null,
+        filePath: "src/App.tsx",
+      },
     });
     expect(result).toBe("diff-text");
   });
