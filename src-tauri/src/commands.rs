@@ -492,6 +492,7 @@ fn snapshot_ref_for_entry(request_path: &std::path::Path, entry_id: &str) -> Res
     let entries = crate::git::journal::read_journal(&git_dir)?;
     entries
         .iter()
+        // snapshot_ref 為空字串代表該操作以 Skip 模式執行、無快照可用。
         .find(|entry| entry.id == entry_id && !entry.snapshot_ref.is_empty())
         .map(|entry| entry.snapshot_ref.clone())
         .ok_or_else(|| GitError {
@@ -517,26 +518,44 @@ pub fn list_snapshot_files(request: SnapshotRefRequest) -> Result<SnapshotFilesR
 }
 
 #[tauri::command]
-pub fn restore_snapshot_file(request: RestoreSnapshotFileRequest) -> Result<(), GitError> {
-    let reference = snapshot_ref_for_entry(&request.repository_path, &request.entry_id)?;
-    crate::git::snapshot::restore_file(
-        &SystemGitRunner,
-        &request.repository_path,
-        &reference,
-        &request.file_path,
-    )
+pub async fn restore_snapshot_file(request: RestoreSnapshotFileRequest) -> Result<(), GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let reference = snapshot_ref_for_entry(&request.repository_path, &request.entry_id)?;
+        crate::git::snapshot::restore_file(
+            &SystemGitRunner,
+            &request.repository_path,
+            &reference,
+            &request.file_path,
+        )
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Restore task failed before Git completed.".to_string(),
+        hint: "Refresh the repository and try again.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
-pub fn cleanup_snapshots(request: TimelineRequest) -> Result<(), GitError> {
+pub async fn cleanup_snapshots(request: TimelineRequest) -> Result<(), GitError> {
     const KEEP_LATEST: usize = 30;
     const MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;
-    crate::git::snapshot::cleanup_snapshots(
-        &SystemGitRunner,
-        &request.repository_path,
-        KEEP_LATEST,
-        MAX_AGE_SECS,
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::git::snapshot::cleanup_snapshots(
+            &SystemGitRunner,
+            &request.repository_path,
+            KEEP_LATEST,
+            MAX_AGE_SECS,
+        )
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Snapshot cleanup task failed.".to_string(),
+        hint: "It will retry next time the repository is opened.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 /// Open the given repository in a new, independent OS window.
