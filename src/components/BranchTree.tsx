@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BranchInfo } from "../types/git";
 import { buildBranchTree, type BranchTreeNode } from "../lib/branchTree";
 import { FolderIcon, BranchIcon } from "./sidebarIcons";
+
+const INDENT_PX = 14;
 
 interface Props {
   branches: BranchInfo[];
@@ -26,6 +28,10 @@ export function BranchTree({ branches, currentBranchName }: Props) {
     expandedPathsFor(currentBranchName),
   );
 
+  useEffect(() => {
+    setExpanded((prev) => new Set([...prev, ...expandedPathsFor(currentBranchName)]));
+  }, [currentBranchName]);
+
   const toggle = (path: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -44,7 +50,7 @@ function renderNode(
   expanded: Set<string>,
   toggle: (path: string) => void,
 ): React.JSX.Element {
-  const indent = { paddingLeft: `${depth * 14}px` };
+  const indent = { paddingLeft: `${depth * INDENT_PX}px` };
 
   if (node.type === "folder") {
     const isOpen = expanded.has(node.path);
@@ -53,6 +59,7 @@ function renderNode(
         <div
           role="button"
           tabIndex={0}
+          aria-expanded={isOpen}
           className="sidebar-row sidebar-folder"
           style={indent}
           onClick={() => toggle(node.path)}

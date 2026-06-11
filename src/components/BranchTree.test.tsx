@@ -47,4 +47,24 @@ describe("BranchTree", () => {
     expect(leaf.closest(".sidebar-row")).toHaveClass("active");
     expect(screen.queryByText("readme")).not.toBeInTheDocument();
   });
+
+  it("collapses an expanded folder when clicked again", async () => {
+    const user = userEvent.setup();
+    render(<BranchTree branches={[b("feat/login")]} currentBranchName={null} />);
+    await user.click(screen.getByText("feat"));
+    expect(screen.getByText("login")).toBeInTheDocument();
+    await user.click(screen.getByText("feat"));
+    expect(screen.queryByText("login")).not.toBeInTheDocument();
+  });
+
+  it("auto-expands the new current-branch path when it changes after mount", () => {
+    const { rerender } = render(
+      <BranchTree branches={[b("feat/login", true)]} currentBranchName={null} />,
+    );
+    expect(screen.queryByText("login")).not.toBeInTheDocument();
+    rerender(
+      <BranchTree branches={[b("feat/login", true)]} currentBranchName="feat/login" />,
+    );
+    expect(screen.getByText("login")).toBeInTheDocument();
+  });
 });
