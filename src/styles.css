@@ -166,7 +166,7 @@ button:not(.commit-row):disabled {
 .sidebar {
   border-right: 1px solid var(--border-color);
   background: var(--bg-sidebar);
-  padding: 16px;
+  padding: 16px 0 16px 16px;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -183,6 +183,11 @@ button:not(.commit-row):disabled {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding-right: 16px;
+}
+
+.sidebar-folder {
+  font-weight: 500;
 }
 
 .sidebar-folder__chevron {

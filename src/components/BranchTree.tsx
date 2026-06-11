@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BranchInfo } from "../types/git";
 import { buildBranchTree, type BranchTreeNode } from "../lib/branchTree";
 import { FolderIcon, BranchIcon } from "./sidebarIcons";
@@ -28,18 +28,20 @@ export function BranchTree({ branches, currentBranchName }: Props) {
     expandedPathsFor(currentBranchName),
   );
 
+  // Merge (not replace) so auto-expanding the current branch never collapses
+  // folders the user expanded manually.
   useEffect(() => {
     setExpanded((prev) => new Set([...prev, ...expandedPathsFor(currentBranchName)]));
   }, [currentBranchName]);
 
-  const toggle = (path: string) => {
+  const toggle = useCallback((path: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(path)) next.delete(path);
       else next.add(path);
       return next;
     });
-  };
+  }, []);
 
   return <>{tree.map((node) => renderNode(node, 0, expanded, toggle))}</>;
 }
