@@ -112,9 +112,12 @@ mod tests {
     use super::*;
 
     fn temp_git_dir() -> std::path::PathBuf {
-        let dir = std::env::temp_dir()
-            .join(format!("vapor-journal-test-{}", std::process::id()))
-            .join(format!("{:?}", std::time::Instant::now()));
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "vapor-journal-test-{}-{count}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -155,6 +158,15 @@ mod tests {
         append_entry(&dir, entry("a")).unwrap();
         set_after_head(&dir, "a", Some("def".to_string())).unwrap();
         assert_eq!(read_journal(&dir).unwrap()[0].after_head, Some("def".to_string()));
+    }
+
+    #[test]
+    fn set_after_head_noop_on_unknown_id() {
+        let dir = temp_git_dir();
+        append_entry(&dir, entry("a")).unwrap();
+        set_after_head(&dir, "missing", Some("def".to_string())).unwrap();
+        let entries = read_journal(&dir).unwrap();
+        assert_eq!(entries, vec![entry("a")]);
     }
 
     #[test]
