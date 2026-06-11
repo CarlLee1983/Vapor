@@ -14,6 +14,7 @@ import { AboutDialog } from "./components/AboutDialog";
 import { DoctorDialog } from "./components/DoctorDialog";
 import { TimeMachineDialog } from "./components/TimeMachineDialog";
 import { UndoButton } from "./components/UndoButton";
+import { SafetyNetErrorActions } from "./components/SafetyNetErrorActions";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { type ThemeMode } from "./components/ThemeToggle";
 import { GitActionsMenu } from "./components/GitActionsMenu";
@@ -52,6 +53,11 @@ export default function App() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDoctorOpen, setIsDoctorOpen] = useState(false);
   const [isTimeMachineOpen, setIsTimeMachineOpen] = useState(false);
+  // 記住最後一次 discard 的目標,供安全網逃生口(force/skip)重送。
+  const [lastDiscard, setLastDiscard] = useState<{
+    trackedPaths: string[];
+    untrackedPaths: string[];
+  } | null>(null);
   const { refreshRepository } = repoView;
 
   const timeline = useTimeline(repoView.repositoryPath);
@@ -115,6 +121,7 @@ export default function App() {
     setIsStashOpen(false);
     setIsCherryPickOpen(false);
     setIsRemotesOpen(false);
+    setLastDiscard(null);
   }, [workspace.activePath]);
 
   const refreshActiveRepository = () => {
@@ -257,7 +264,18 @@ export default function App() {
         <CliInstallBanner />
         <UpdateBanner />
         {repoView.error ? (
-          <div className="error-banner" role="alert">{repoView.error.message} {repoView.error.hint}</div>
+          <div className="error-banner" role="alert">
+            {repoView.error.message} {repoView.error.hint}
+            {lastDiscard ? (
+              <SafetyNetErrorActions
+                error={repoView.error}
+                busy={repoView.isLoading}
+                onRetryWithMode={(mode) =>
+                  void repoView.discardFiles(lastDiscard.trackedPaths, lastDiscard.untrackedPaths, mode)
+                }
+              />
+            ) : null}
+          </div>
         ) : null}
         {repoView.repository?.operation ? (
           <OperationBanner
@@ -288,9 +306,10 @@ export default function App() {
               onSelectFile={repoView.selectFile}
               onStage={repoView.stageFiles}
               onUnstage={repoView.unstageFiles}
-              onDiscard={(trackedPaths, untrackedPaths) =>
-                void repoView.discardFiles(trackedPaths, untrackedPaths)
-              }
+              onDiscard={(trackedPaths, untrackedPaths) => {
+                setLastDiscard({ trackedPaths, untrackedPaths });
+                void repoView.discardFiles(trackedPaths, untrackedPaths);
+              }}
               onCommit={repoView.commit}
               onPreviewCommit={(input) =>
                 previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })

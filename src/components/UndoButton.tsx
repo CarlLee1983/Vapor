@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { UndoPlan } from "../types/git";
+import type { GitErrorCode, UndoPlan } from "../types/git";
 
 interface UndoButtonProps {
   lastDescription: string | null;
@@ -29,7 +29,7 @@ export function UndoButton({ lastDescription, disabled, onPlan, onUndo, onComple
     try {
       setPlan(await onPlan());
     } catch (cause) {
-      const code = (cause as { code?: string }).code;
+      const code = (cause as { code?: GitErrorCode }).code;
       setStaleMessage(
         code === "undoStale"
           ? "偵測到外部變更:請開啟時光機面板手動挑選要復原的時刻。"

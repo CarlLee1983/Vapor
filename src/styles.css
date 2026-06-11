@@ -869,6 +869,12 @@ button:not(.commit-row):disabled {
   white-space: pre-wrap;
 }
 
+.safety-net-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .cli-banner {
   margin: 12px 12px 0;
   border: 1px solid var(--accent-blue);

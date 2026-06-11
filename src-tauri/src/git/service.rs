@@ -653,7 +653,9 @@ impl<R: GitRunner> GitService<R> {
                 ],
             )
             .ok()
-            .map(|output| output.stdout.trim().to_string());
+            .map(|output| output.stdout.trim().to_string())
+            // detached HEAD 時 symbolic-ref -q 輸出為空;記錄 None 而非 Some("")。
+            .filter(|branch| !branch.is_empty());
 
         // 顯式 match:新增 SafetyOpType variant 時編譯器會在這裡提醒補 label。
         let op_label = match op_type {

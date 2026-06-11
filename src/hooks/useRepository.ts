@@ -16,6 +16,7 @@ import type {
   FileStatus,
   GitError,
   RepositoryState,
+  SafetyNetMode,
   SelectedFileTarget,
 } from "../types/git";
 
@@ -266,13 +267,18 @@ export function useRepository() {
   );
 
   const discardFiles = useCallback(
-    async (trackedPaths: string[], untrackedPaths: string[]) => {
+    async (trackedPaths: string[], untrackedPaths: string[], safetyNet?: SafetyNetMode) => {
       const path = repositoryPathRef.current;
       if (!path || (trackedPaths.length === 0 && untrackedPaths.length === 0)) {
         return;
       }
       try {
-        await discardChangesApi({ repositoryPath: path, trackedPaths, untrackedPaths });
+        await discardChangesApi({
+          repositoryPath: path,
+          trackedPaths,
+          untrackedPaths,
+          ...(safetyNet ? { safetyNet } : {}),
+        });
         await refreshRepository();
       } catch (error) {
         setState((current) => ({ ...current, isLoading: false, error: error as GitError }));

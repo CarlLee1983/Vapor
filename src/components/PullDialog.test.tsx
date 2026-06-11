@@ -225,4 +225,32 @@ describe("PullDialog", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Pull" })).toBeEnabled();
   });
+
+  it("快照過大時顯示逃生口,點「不建快照繼續」以 skip 重送", async () => {
+    const user = userEvent.setup();
+    vi.mocked(tauriApi.pullBranch).mockRejectedValueOnce({
+      code: "snapshotTooLarge",
+      message: "Uncommitted changes exceed 500MB; snapshotting may take a while.",
+      hint: "Choose to snapshot anyway, or proceed without a snapshot.",
+      stderr: "",
+    });
+
+    render(<PullDialog repository={repository} onClose={vi.fn()} onPulled={vi.fn()} />);
+    expect(await screen.findByText("git pull origin main")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Pull" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("exceed 500MB");
+    expect(screen.getByRole("button", { name: "仍要快照(較慢)" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "不建快照繼續" }));
+    await waitFor(() =>
+      expect(tauriApi.pullBranch).toHaveBeenLastCalledWith({
+        repositoryPath: "/repo",
+        remote: "origin",
+        remoteBranch: "main",
+        rebase: false,
+        safetyNet: "skip",
+      }),
+    );
+  });
 });

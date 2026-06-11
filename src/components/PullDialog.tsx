@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { previewPull, pullBranch } from "../lib/tauriApi";
-import type { GitCommandPreview, GitError, PullRequest, RepositoryState } from "../types/git";
+import { SafetyNetErrorActions } from "./SafetyNetErrorActions";
+import type { GitCommandPreview, GitError, PullRequest, RepositoryState, SafetyNetMode } from "../types/git";
 
 interface Props {
   repository: RepositoryState;
@@ -112,7 +113,7 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
     dialogRef.current?.focus();
   }, []);
 
-  async function onSubmit() {
+  async function onSubmit(safetyNet?: SafetyNetMode) {
     if (!activePreview || !hasRemotes) {
       return;
     }
@@ -122,7 +123,7 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
       setError(null);
     });
     try {
-      const response = await pullBranch(request);
+      const response = await pullBranch(safetyNet ? { ...request, safetyNet } : request);
       setOutput([response.stdout, response.stderr].filter(Boolean).join("\n"));
       onPulled();
       onClose();
@@ -197,6 +198,11 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
               <div className="error-banner" role="alert">
                 {error.message} {error.hint}
                 <pre>{error.stderr}</pre>
+                <SafetyNetErrorActions
+                  error={error}
+                  busy={isPulling}
+                  onRetryWithMode={(mode) => void onSubmit(mode)}
+                />
               </div>
             ) : null}
             {output ? <pre className="push-output">{output}</pre> : null}
@@ -204,7 +210,7 @@ export function PullDialog({ repository, onClose, onPulled }: Props) {
               <button type="button" disabled={isPulling} onClick={onClose}>
                 Cancel
               </button>
-              <button type="button" disabled={!activePreview || !hasRemotes || isPulling} onClick={onSubmit}>
+              <button type="button" disabled={!activePreview || !hasRemotes || isPulling} onClick={() => void onSubmit()}>
                 {isPulling ? "Pulling..." : "Pull"}
               </button>
             </footer>

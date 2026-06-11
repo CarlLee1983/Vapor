@@ -12,7 +12,10 @@ export type GitErrorCode =
   | "invalidRef"
   | "tagConflict"
   | "timeout"
-  | "commandFailed";
+  | "commandFailed"
+  | "snapshotFailed"
+  | "snapshotTooLarge"
+  | "undoStale";
 
 export interface GitError {
   code: GitErrorCode;
