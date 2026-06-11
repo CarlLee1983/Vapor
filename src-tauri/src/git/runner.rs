@@ -14,6 +14,8 @@ pub trait GitRunner: Send + Sync {
         self.run_with_env(repository_path, args, &[])
     }
 
+    /// caller 提供的 envs 在內建 PATH 注入之後套用,
+    /// 因此傳入 ("PATH", …) 會覆蓋 login-shell PATH。
     fn run_with_env(
         &self,
         repository_path: &Path,
