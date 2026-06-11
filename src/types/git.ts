@@ -105,6 +105,7 @@ export interface PullRequest {
   remote: string;
   remoteBranch: string;
   rebase: boolean;
+  safetyNet?: SafetyNetMode;
 }
 
 export interface PullResponse {
@@ -158,6 +159,7 @@ export interface DeleteBranchRequest {
   repositoryPath: string;
   branchName: string;
   force: boolean;
+  safetyNet?: SafetyNetMode;
 }
 
 export interface BranchMutationResponse {
@@ -188,6 +190,7 @@ export interface CreateStashRequest {
 export interface StashRefRequest {
   repositoryPath: string;
   stashRef: string;
+  safetyNet?: SafetyNetMode;
 }
 
 export interface StashMutationResponse {
@@ -199,6 +202,7 @@ export interface StashMutationResponse {
 export interface CherryPickRequest {
   repositoryPath: string;
   commitHash: string;
+  safetyNet?: SafetyNetMode;
 }
 
 export interface CherryPickResponse {
@@ -253,6 +257,7 @@ export interface MergeBranchRequest {
   repositoryPath: string;
   branchName: string;
   noFf: boolean;
+  safetyNet?: SafetyNetMode;
 }
 
 export interface MergeBranchResponse {
@@ -261,10 +266,60 @@ export interface MergeBranchResponse {
   stderr: string;
 }
 
+export type SafetyOpType =
+  | "merge"
+  | "pull"
+  | "discard"
+  | "stashApply"
+  | "stashPop"
+  | "cherryPick"
+  | "deleteBranch"
+  | "undo";
+
+export type SafetyNetMode = "auto" | "force" | "skip";
+
+export interface JournalEntry {
+  id: string;
+  timestamp: string;
+  opType: SafetyOpType;
+  description: string;
+  beforeHead: string | null;
+  beforeBranch: string | null;
+  snapshotRef: string;
+  afterHead: string | null;
+  deletedBranch: string | null;
+  deletedBranchTip: string | null;
+}
+
+export interface ReflogEntry {
+  hash: string;
+  selector: string;
+  subject: string;
+}
+
+export interface TimelineResponse {
+  entries: JournalEntry[];
+  reflog: ReflogEntry[];
+}
+
+export interface UndoPlan {
+  entryId: string;
+  description: string;
+  headTarget: string | null;
+  restoreWorktree: boolean;
+  recreateBranch: [string, string] | null;
+}
+
+export interface SnapshotFileEntry {
+  status: string;
+  path: string;
+}
+
 export interface DiscardChangesRequest {
   repositoryPath: string;
   trackedPaths: string[];
   untrackedPaths: string[];
+  safetyNet?: SafetyNetMode;
 }
 
 export interface DiscardPreviewResponse {

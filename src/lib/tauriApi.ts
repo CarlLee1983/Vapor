@@ -34,6 +34,9 @@ import type {
   MergeBranchResponse,
   StashMutationResponse,
   StashRefRequest,
+  TimelineResponse,
+  UndoPlan,
+  SnapshotFileEntry,
 } from "../types/git";
 import type {
   CreateTagRequest,
@@ -241,4 +244,49 @@ export async function previewDiscardChanges(
 
 export async function discardChanges(request: DiscardChangesRequest): Promise<DiscardChangesResponse> {
   return invoke<DiscardChangesResponse>("discard_changes", { request });
+}
+
+export async function getTimeline(repositoryPath: string): Promise<TimelineResponse> {
+  return invoke<TimelineResponse>("get_timeline", { request: { repositoryPath } });
+}
+
+export async function planUndo(repositoryPath: string, entryId?: string): Promise<UndoPlan> {
+  return invoke<UndoPlan>("plan_undo", {
+    request: { repositoryPath, entryId: entryId ?? null },
+  });
+}
+
+export async function executeUndo(repositoryPath: string, entryId: string): Promise<UndoPlan> {
+  return invoke<UndoPlan>("execute_undo", { request: { repositoryPath, entryId } });
+}
+
+export async function getSnapshotDiff(repositoryPath: string, entryId: string): Promise<string> {
+  const response = await invoke<{ text: string }>("get_snapshot_diff", {
+    request: { repositoryPath, entryId },
+  });
+  return response.text;
+}
+
+export async function listSnapshotFiles(
+  repositoryPath: string,
+  entryId: string,
+): Promise<SnapshotFileEntry[]> {
+  const response = await invoke<{ files: SnapshotFileEntry[] }>("list_snapshot_files", {
+    request: { repositoryPath, entryId },
+  });
+  return response.files;
+}
+
+export async function restoreSnapshotFile(
+  repositoryPath: string,
+  entryId: string,
+  filePath: string,
+): Promise<void> {
+  return invoke<void>("restore_snapshot_file", {
+    request: { repositoryPath, entryId, filePath },
+  });
+}
+
+export async function cleanupSnapshots(repositoryPath: string): Promise<void> {
+  return invoke<void>("cleanup_snapshots", { request: { repositoryPath } });
 }

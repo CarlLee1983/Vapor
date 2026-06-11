@@ -21,6 +21,9 @@ import {
   setRemoteUrl,
   stageFiles,
   unstageFiles,
+  getTimeline,
+  planUndo,
+  executeUndo,
 } from "./tauriApi";
 import type { AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest } from "../types/git";
 
@@ -243,6 +246,30 @@ describe("tauriApi", () => {
     await applyStash({ repositoryPath: "/repo", stashRef: "stash@{0}" });
     expect(invokeMock).toHaveBeenCalledWith("apply_stash", {
       request: { repositoryPath: "/repo", stashRef: "stash@{0}" },
+    });
+  });
+
+  it("getTimeline 以 repositoryPath 呼叫 get_timeline", async () => {
+    invokeMock.mockResolvedValue({ entries: [], reflog: [] });
+    await getTimeline("/repo");
+    expect(invokeMock).toHaveBeenCalledWith("get_timeline", {
+      request: { repositoryPath: "/repo" },
+    });
+  });
+
+  it("planUndo 預設帶 entryId null", async () => {
+    invokeMock.mockResolvedValue({ entryId: "x", description: "d", headTarget: null, restoreWorktree: true, recreateBranch: null });
+    await planUndo("/repo");
+    expect(invokeMock).toHaveBeenCalledWith("plan_undo", {
+      request: { repositoryPath: "/repo", entryId: null },
+    });
+  });
+
+  it("executeUndo 帶 entryId", async () => {
+    invokeMock.mockResolvedValue({});
+    await executeUndo("/repo", "abc");
+    expect(invokeMock).toHaveBeenCalledWith("execute_undo", {
+      request: { repositoryPath: "/repo", entryId: "abc" },
     });
   });
 });
