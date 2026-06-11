@@ -134,4 +134,29 @@ describe("RepositorySidebar", () => {
     await user.click(screen.getByRole("button", { name: /open repository/i }));
     expect(onOpen).toHaveBeenCalled();
   });
+
+  it("renders branches as a collapsible tree grouped by scope", () => {
+    const repo: RepositoryState = {
+      ...mockRepo,
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, upstream: null },
+        { name: "feat/login", isCurrent: false, upstream: null },
+      ],
+    };
+    render(
+      <RepositorySidebar
+        repository={repo}
+        openRepos={[{ path: repo.root, name: "repo" }]}
+        activePath={repo.root}
+        viewMode="history"
+        onViewModeChange={vi.fn()}
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("feat")).toBeInTheDocument();
+    expect(screen.queryByText("login")).not.toBeInTheDocument();
+  });
 });

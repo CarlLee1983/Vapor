@@ -1,5 +1,6 @@
 import type { RepoEntry, RepositoryState } from "../types/git";
-import { FolderIcon, BranchIcon, GlobeIcon, HistoryIcon } from "./sidebarIcons";
+import { FolderIcon, GlobeIcon, HistoryIcon } from "./sidebarIcons";
+import { BranchTree } from "./BranchTree";
 
 interface Props {
   repository: RepositoryState | null;
@@ -144,17 +145,10 @@ export function RepositorySidebar({
 
           <section className="sidebar-section">
             <h2>Branches</h2>
-            {repository.branches.map((branch) => (
-              <div
-                className={`sidebar-row ${branch.isCurrent ? "active" : ""}`}
-                key={branch.name}
-              >
-                <span style={{ display: "flex", alignItems: "center" }}>
-                  <BranchIcon />
-                  {branch.name}
-                </span>
-              </div>
-            ))}
+            <BranchTree
+              branches={repository.branches}
+              currentBranchName={repository.currentBranch}
+            />
           </section>
 
           <section className="sidebar-section">
