@@ -203,4 +203,128 @@ impl<R: GitRunner> GitService<R> {
         let output = self.runner.run(path, &args)?;
         Ok(output.stdout.trim_end().to_string())
     }
+
+    pub fn list_tags(&self, path: &Path) -> Result<Vec<String>, GitError> {
+        let args = super::command_builder::list_tags_args();
+        let output = self.runner.run(path, &args)?;
+        Ok(output
+            .stdout
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(str::to_string)
+            .collect())
+    }
+
+    pub fn read_tagsmith_config(
+        &self,
+        path: &Path,
+    ) -> Result<super::models::TagsmithConfigResponse, GitError> {
+        let config_path = path.join(".tagsmith.json");
+        match std::fs::read_to_string(&config_path) {
+            Ok(content) => Ok(super::models::TagsmithConfigResponse {
+                exists: true,
+                content: Some(content),
+            }),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                Ok(super::models::TagsmithConfigResponse {
+                    exists: false,
+                    content: None,
+                })
+            }
+            Err(error) => Err(GitError {
+                code: super::models::GitErrorCode::CommandFailed,
+                message: "Could not read .tagsmith.json.".to_string(),
+                hint: "Check file permissions and try again.".to_string(),
+                stderr: error.to_string(),
+            }),
+        }
+    }
+
+    pub fn create_tag_preview(
+        &self,
+        request: &super::models::CreateTagRequest,
+    ) -> Result<super::models::GitCommandPreview, GitError> {
+        super::command_builder::create_tag_preview(request)
+    }
+
+    pub fn create_tag(
+        &self,
+        request: &super::models::CreateTagRequest,
+    ) -> Result<super::models::CreateTagResponse, GitError> {
+        let preview = super::command_builder::create_tag_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+
+        let mut push_preview = None;
+        let mut combined_stdout = output.stdout.clone();
+        let mut combined_stderr = output.stderr.clone();
+
+        if request.push {
+            let remote = request.remote.as_deref().unwrap_or("origin");
+            let push = super::command_builder::push_tag_preview(&request.tag_name, remote)?;
+            let push_output = self.runner.run(&request.repository_path, &push.args)?;
+            push_preview = Some(push);
+            if !push_output.stdout.is_empty() {
+                combined_stdout.push('\n');
+                combined_stdout.push_str(&push_output.stdout);
+            }
+            if !push_output.stderr.is_empty() {
+                combined_stderr.push('\n');
+                combined_stderr.push_str(&push_output.stderr);
+            }
+        }
+
+        Ok(super::models::CreateTagResponse {
+            preview,
+            push_preview,
+            stdout: combined_stdout,
+            stderr: combined_stderr,
+        })
+    }
+
+    pub fn delete_tag_preview(
+        &self,
+        request: &super::models::DeleteTagRequest,
+    ) -> Result<super::models::GitCommandPreview, GitError> {
+        super::command_builder::delete_tag_preview(&request.tag_name)
+    }
+
+    pub fn delete_tag(
+        &self,
+        request: &super::models::DeleteTagRequest,
+    ) -> Result<super::models::DeleteTagResponse, GitError> {
+        let preview = super::command_builder::delete_tag_preview(&request.tag_name)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+
+        let mut remote_preview = None;
+        let mut combined_stdout = output.stdout.clone();
+        let mut combined_stderr = output.stderr.clone();
+
+        if let Some(remote) = request
+            .remote
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            let remote_delete =
+                super::command_builder::delete_remote_tag_preview(&request.tag_name, remote)?;
+            let remote_output = self.runner.run(&request.repository_path, &remote_delete.args)?;
+            remote_preview = Some(remote_delete);
+            if !remote_output.stdout.is_empty() {
+                combined_stdout.push('\n');
+                combined_stdout.push_str(&remote_output.stdout);
+            }
+            if !remote_output.stderr.is_empty() {
+                combined_stderr.push('\n');
+                combined_stderr.push_str(&remote_output.stderr);
+            }
+        }
+
+        Ok(super::models::DeleteTagResponse {
+            preview,
+            remote_preview,
+            stdout: combined_stdout,
+            stderr: combined_stderr,
+        })
+    }
 }

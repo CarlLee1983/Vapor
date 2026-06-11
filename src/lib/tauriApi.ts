@@ -16,6 +16,13 @@ import type {
   StageRequest,
   StageResponse,
 } from "../types/git";
+import type {
+  CreateTagRequest,
+  CreateTagResponse,
+  DeleteTagRequest,
+  DeleteTagResponse,
+  TagsmithConfigResponse,
+} from "../types/tagsmith";
 
 export async function getRepositoryState(path: string): Promise<RepositoryState> {
   return invoke<RepositoryState>("get_repository_state", { request: { path } });
@@ -78,4 +85,31 @@ export async function createCommit(request: CommitRequest): Promise<CommitRespon
 
 export async function getLastCommitMessage(repositoryPath: string): Promise<string> {
   return invoke<string>("get_last_commit_message", { request: { path: repositoryPath } });
+}
+
+export async function listGitTags(repositoryPath: string): Promise<string[]> {
+  const response = await invoke<{ tags: string[] }>("list_git_tags", {
+    request: { repositoryPath },
+  });
+  return response.tags;
+}
+
+export async function readTagsmithConfig(repositoryPath: string): Promise<TagsmithConfigResponse> {
+  return invoke<TagsmithConfigResponse>("read_tagsmith_config", { request: { repositoryPath } });
+}
+
+export async function previewCreateTag(request: CreateTagRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_create_tag", { request });
+}
+
+export async function createGitTag(request: CreateTagRequest): Promise<CreateTagResponse> {
+  return invoke<CreateTagResponse>("create_git_tag", { request });
+}
+
+export async function previewDeleteTag(request: DeleteTagRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_delete_tag", { request });
+}
+
+export async function deleteGitTag(request: DeleteTagRequest): Promise<DeleteTagResponse> {
+  return invoke<DeleteTagResponse>("delete_git_tag", { request });
 }

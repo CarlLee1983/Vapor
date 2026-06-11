@@ -214,3 +214,64 @@ pub struct CommitResponse {
     pub stdout: String,
     pub stderr: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ListTagsRequest {
+    pub repository_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ListTagsResponse {
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TagsmithConfigRequest {
+    pub repository_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TagsmithConfigResponse {
+    pub exists: bool,
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateTagRequest {
+    pub repository_path: PathBuf,
+    pub tag_name: String,
+    pub message: Option<String>,
+    pub push: bool,
+    pub remote: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateTagResponse {
+    pub preview: GitCommandPreview,
+    pub push_preview: Option<GitCommandPreview>,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteTagRequest {
+    pub repository_path: PathBuf,
+    pub tag_name: String,
+    pub remote: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteTagResponse {
+    pub preview: GitCommandPreview,
+    pub remote_preview: Option<GitCommandPreview>,
+    pub stdout: String,
+    pub stderr: String,
+}

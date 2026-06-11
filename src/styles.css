@@ -1293,6 +1293,42 @@ button:not(.commit-row):disabled {
   margin-top: 4px;
 }
 
+/* ── Delete Tag ───────────────────────────────────────────── */
+.tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin: 0;
+}
+
+.tag-list legend {
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+button.danger {
+  border-color: var(--accent-danger, #c0392b);
+  color: var(--accent-danger, #c0392b);
+}
+
+button.danger:not(:disabled):hover {
+  background: var(--accent-danger, #c0392b);
+  color: #fff;
+}
+
 /* ── RepoTabs ─────────────────────────────────────────────── */
 .repo-tabs {
   display: flex;

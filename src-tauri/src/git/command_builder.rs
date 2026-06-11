@@ -209,6 +209,86 @@ pub fn last_commit_message_args() -> Vec<String> {
     vec!["log".to_string(), "-1".to_string(), "--pretty=%B".to_string()]
 }
 
+fn validate_tag_name(value: &str) -> Result<(), GitError> {
+    let is_valid = !value.is_empty()
+        && !value.starts_with('-')
+        && !value.contains(' ')
+        && !value.contains('\t')
+        && !value.contains('\n')
+        && !value.contains("..")
+        && !value.contains('~')
+        && !value.contains('^')
+        && !value.contains(':')
+        && !value.contains('\\');
+
+    if is_valid {
+        Ok(())
+    } else {
+        Err(GitError {
+            code: GitErrorCode::InvalidRef,
+            message: "Invalid tag name.".to_string(),
+            hint: "Use a plain Git tag name without whitespace or ref operators.".to_string(),
+            stderr: String::new(),
+        })
+    }
+}
+
+pub fn list_tags_args() -> Vec<String> {
+    vec!["tag".to_string(), "--list".to_string()]
+}
+
+pub fn create_tag_preview(request: &super::models::CreateTagRequest) -> Result<GitCommandPreview, GitError> {
+    validate_tag_name(&request.tag_name)?;
+
+    let mut args = vec!["tag".to_string()];
+    if let Some(message) = request.message.as_ref().map(|value| value.trim()).filter(|value| !value.is_empty()) {
+        args.push("-a".to_string());
+        args.push(request.tag_name.clone());
+        args.push("-m".to_string());
+        args.push(message.to_string());
+    } else {
+        args.push(request.tag_name.clone());
+    }
+
+    Ok(preview(args))
+}
+
+pub fn push_tag_preview(
+    tag_name: &str,
+    remote: &str,
+) -> Result<GitCommandPreview, GitError> {
+    validate_tag_name(tag_name)?;
+    validate_ref_part(remote, "remote")?;
+    Ok(preview(vec![
+        "push".to_string(),
+        remote.to_string(),
+        tag_name.to_string(),
+    ]))
+}
+
+pub fn delete_tag_preview(tag_name: &str) -> Result<GitCommandPreview, GitError> {
+    validate_tag_name(tag_name)?;
+    Ok(preview(vec![
+        "tag".to_string(),
+        "-d".to_string(),
+        tag_name.to_string(),
+    ]))
+}
+
+pub fn delete_remote_tag_preview(
+    tag_name: &str,
+    remote: &str,
+) -> Result<GitCommandPreview, GitError> {
+    validate_tag_name(tag_name)?;
+    validate_ref_part(remote, "remote")?;
+    Ok(preview(vec![
+        "push".to_string(),
+        remote.to_string(),
+        "--delete".to_string(),
+        tag_name.to_string(),
+    ]))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,5 +522,78 @@ mod tests {
     #[test]
     fn builds_last_commit_message_args() {
         assert_eq!(last_commit_message_args(), vec!["log", "-1", "--pretty=%B"]);
+    }
+
+    fn create_tag_request() -> super::super::models::CreateTagRequest {
+        super::super::models::CreateTagRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            tag_name: "v1.2.0".to_string(),
+            message: Some("Release 1.2.0".to_string()),
+            push: false,
+            remote: None,
+        }
+    }
+
+    #[test]
+    fn builds_annotated_tag_args() {
+        let preview = create_tag_preview(&create_tag_request()).expect("preview");
+        assert_eq!(
+            preview.args,
+            vec!["tag", "-a", "v1.2.0", "-m", "Release 1.2.0"]
+        );
+    }
+
+    #[test]
+    fn builds_lightweight_tag_when_message_empty() {
+        let mut request = create_tag_request();
+        request.message = None;
+        let preview = create_tag_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["tag", "v1.2.0"]);
+    }
+
+    #[test]
+    fn allows_slash_in_tag_name() {
+        let mut request = create_tag_request();
+        request.tag_name = "release/2026.06.0".to_string();
+        let preview = create_tag_preview(&request).expect("preview");
+        assert!(preview.args.contains(&"release/2026.06.0".to_string()));
+    }
+
+    #[test]
+    fn rejects_invalid_tag_name() {
+        let mut request = create_tag_request();
+        request.tag_name = "bad tag".to_string();
+        let error = create_tag_preview(&request).expect_err("invalid tag");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_push_tag_args() {
+        let preview = push_tag_preview("v1.2.0", "origin").expect("preview");
+        assert_eq!(preview.args, vec!["push", "origin", "v1.2.0"]);
+    }
+
+    #[test]
+    fn builds_delete_tag_args() {
+        let preview = delete_tag_preview("v1.2.0").expect("preview");
+        assert_eq!(preview.args, vec!["tag", "-d", "v1.2.0"]);
+    }
+
+    #[test]
+    fn rejects_invalid_delete_tag_name() {
+        let error = delete_tag_preview("bad tag").expect_err("invalid tag");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_delete_remote_tag_args() {
+        let preview = delete_remote_tag_preview("v1.2.0", "origin").expect("preview");
+        assert_eq!(preview.args, vec!["push", "origin", "--delete", "v1.2.0"]);
+    }
+
+    #[test]
+    fn rejects_invalid_remote_on_delete() {
+        let error = delete_remote_tag_preview("v1.2.0", "bad remote").expect_err("invalid remote");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
     }
 }

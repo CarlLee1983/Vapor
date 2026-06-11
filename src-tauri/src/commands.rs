@@ -1,9 +1,10 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
-    AddRemoteRequest, CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, DiffRequest,
-    DiffResponse, GitCommandPreview, GitError, PullRequest, PullResponse, PushRequest,
-    PushResponse, RemoteMutationResponse, RemoveRemoteRequest, RepositoryRequest, RepositoryState,
-    SetRemoteUrlRequest, StageRequest, StageResponse,
+    AddRemoteRequest, CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, CreateTagRequest,
+    CreateTagResponse, DeleteTagRequest, DeleteTagResponse, DiffRequest, DiffResponse, GitCommandPreview,
+    GitError, ListTagsRequest, ListTagsResponse, PullRequest, PullResponse, PushRequest, PushResponse,
+    RemoteMutationResponse, RemoveRemoteRequest, RepositoryRequest, RepositoryState, SetRemoteUrlRequest,
+    StageRequest, StageResponse, TagsmithConfigRequest, TagsmithConfigResponse,
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
@@ -119,6 +120,51 @@ pub async fn create_commit(request: CommitRequest) -> Result<CommitResponse, Git
 #[tauri::command]
 pub fn get_last_commit_message(request: RepositoryRequest) -> Result<String, GitError> {
     GitService::new(SystemGitRunner).last_commit_message(&request.path)
+}
+
+#[tauri::command]
+pub fn list_git_tags(request: ListTagsRequest) -> Result<ListTagsResponse, GitError> {
+    let tags = GitService::new(SystemGitRunner).list_tags(&request.repository_path)?;
+    Ok(ListTagsResponse { tags })
+}
+
+#[tauri::command]
+pub fn read_tagsmith_config(request: TagsmithConfigRequest) -> Result<TagsmithConfigResponse, GitError> {
+    GitService::new(SystemGitRunner).read_tagsmith_config(&request.repository_path)
+}
+
+#[tauri::command]
+pub fn preview_create_tag(request: CreateTagRequest) -> Result<GitCommandPreview, GitError> {
+    GitService::new(SystemGitRunner).create_tag_preview(&request)
+}
+
+#[tauri::command]
+pub async fn create_git_tag(request: CreateTagRequest) -> Result<CreateTagResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).create_tag(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Create tag task failed before Git completed.".to_string(),
+            hint: "Try creating the tag again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub fn preview_delete_tag(request: DeleteTagRequest) -> Result<GitCommandPreview, GitError> {
+    GitService::new(SystemGitRunner).delete_tag_preview(&request)
+}
+
+#[tauri::command]
+pub async fn delete_git_tag(request: DeleteTagRequest) -> Result<DeleteTagResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).delete_tag(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Delete tag task failed before Git completed.".to_string(),
+            hint: "Try deleting the tag again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
 }
 
 #[tauri::command]

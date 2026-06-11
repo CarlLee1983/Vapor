@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
+import { CreateTagDialog } from "./components/CreateTagDialog";
+import { DeleteTagDialog } from "./components/DeleteTagDialog";
 import { PushDialog } from "./components/PushDialog";
 import { PullDialog } from "./components/PullDialog";
 import { RemotesDialog } from "./components/RemotesDialog";
@@ -32,6 +34,8 @@ export default function App() {
   const layout = useLayoutPreferences();
   const [isPushOpen, setIsPushOpen] = useState(false);
   const [isPullOpen, setIsPullOpen] = useState(false);
+  const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
+  const [isDeleteTagOpen, setIsDeleteTagOpen] = useState(false);
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDoctorOpen, setIsDoctorOpen] = useState(false);
@@ -90,6 +94,8 @@ export default function App() {
   useEffect(() => {
     setIsPushOpen(false);
     setIsPullOpen(false);
+    setIsCreateTagOpen(false);
+    setIsDeleteTagOpen(false);
     setIsRemotesOpen(false);
   }, [workspace.activePath]);
 
@@ -157,6 +163,12 @@ export default function App() {
             </button>
             <button type="button" disabled={!repoView.repository} onClick={() => setIsPullOpen(true)}>
               Pull
+            </button>
+            <button type="button" disabled={!repoView.repository} onClick={() => setIsCreateTagOpen(true)}>
+              Tag
+            </button>
+            <button type="button" disabled={!repoView.repository} onClick={() => setIsDeleteTagOpen(true)}>
+              Delete Tag
             </button>
             <span className="toolbar-divider" aria-hidden="true" />
             <LayoutControls
@@ -244,6 +256,28 @@ export default function App() {
           repository={repoView.repository}
           onClose={() => setIsPullOpen(false)}
           onPulled={() => {
+            if (repoView.repositoryPath) {
+              void repoView.loadRepository(repoView.repositoryPath);
+            }
+          }}
+        />
+      ) : null}
+      {isCreateTagOpen && repoView.repository ? (
+        <CreateTagDialog
+          repository={repoView.repository}
+          onClose={() => setIsCreateTagOpen(false)}
+          onCreated={() => {
+            if (repoView.repositoryPath) {
+              void repoView.loadRepository(repoView.repositoryPath);
+            }
+          }}
+        />
+      ) : null}
+      {isDeleteTagOpen && repoView.repository ? (
+        <DeleteTagDialog
+          repository={repoView.repository}
+          onClose={() => setIsDeleteTagOpen(false)}
+          onDeleted={() => {
             if (repoView.repositoryPath) {
               void repoView.loadRepository(repoView.repositoryPath);
             }
