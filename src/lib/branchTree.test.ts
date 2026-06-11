@@ -56,8 +56,22 @@ describe("buildBranchTree", () => {
   });
 
   it("orders folders before branches and alphabetically within each level", () => {
-    const tree = buildBranchTree([b("zeta"), b("alpha/x"), b("beta")]);
+    const tree = buildBranchTree([
+      b("zeta"),
+      b("alpha/x"),
+      b("beta"),
+      b("alpha/y"),
+    ]);
     expect(tree.map((n) => n.name)).toEqual(["alpha", "beta", "zeta"]);
     expect(tree[0].type).toBe("folder");
+  });
+
+  it("preserves the full BranchInfo (including isCurrent) on the leaf", () => {
+    const tree = buildBranchTree([b("main", true)]);
+    expect(tree[0]).toEqual({
+      type: "branch",
+      name: "main",
+      branch: { name: "main", isCurrent: true, upstream: null },
+    });
   });
 });

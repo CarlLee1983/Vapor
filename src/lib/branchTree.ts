@@ -51,12 +51,14 @@ function insert(
 }
 
 function sortNodes(nodes: BranchTreeNode[]): BranchTreeNode[] {
-  const sorted = [...nodes].sort((a, b) => {
-    if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
-    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-  });
-  for (const node of sorted) {
-    if (node.type === "folder") node.children = sortNodes(node.children);
-  }
-  return sorted;
+  return [...nodes]
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    })
+    .map((node) =>
+      node.type === "folder"
+        ? { ...node, children: sortNodes(node.children) }
+        : node,
+    );
 }
