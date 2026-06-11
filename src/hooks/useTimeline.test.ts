@@ -57,4 +57,30 @@ describe("useTimeline", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(api.getTimeline).not.toHaveBeenCalled();
   });
+
+  it("undoEntry 失敗時設置 error state 並 reject", async () => {
+    const failure = new Error("undo blew up");
+    vi.mocked(api.executeUndo).mockRejectedValue(failure);
+    const { result } = renderHook(() => useTimeline("/repo"));
+    await waitFor(() => expect(result.current.entries).toHaveLength(1));
+    await act(async () => {
+      await expect(result.current.undoEntry("e1")).rejects.toThrow("undo blew up");
+    });
+    expect(result.current.error).toBe("undo blew up");
+  });
+
+  it("planUndoEntry 不帶參數時以 undefined 呼叫 planUndo", async () => {
+    const plan = {
+      entryId: "e1",
+      description: "復原:捨棄 1 個檔案的變更",
+      headTarget: null,
+      restoreWorktree: true,
+      recreateBranch: null,
+    };
+    vi.mocked(api.planUndo).mockResolvedValue(plan);
+    const { result } = renderHook(() => useTimeline("/repo"));
+    await waitFor(() => expect(result.current.entries).toHaveLength(1));
+    await expect(result.current.planUndoEntry()).resolves.toEqual(plan);
+    expect(api.planUndo).toHaveBeenCalledWith("/repo", undefined);
+  });
 });

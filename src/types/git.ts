@@ -280,6 +280,7 @@ export type SafetyNetMode = "auto" | "force" | "skip";
 
 export interface JournalEntry {
   id: string;
+  /** Unix timestamp(秒)的十進位字串。 */
   timestamp: string;
   opType: SafetyOpType;
   description: string;

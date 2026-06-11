@@ -24,6 +24,9 @@ import {
   getTimeline,
   planUndo,
   executeUndo,
+  cleanupSnapshots,
+  listSnapshotFiles,
+  getSnapshotDiff,
 } from "./tauriApi";
 import type { AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest } from "../types/git";
 
@@ -271,5 +274,31 @@ describe("tauriApi", () => {
     expect(invokeMock).toHaveBeenCalledWith("execute_undo", {
       request: { repositoryPath: "/repo", entryId: "abc" },
     });
+  });
+
+  it("cleanupSnapshots 以 repositoryPath 呼叫 cleanup_snapshots", async () => {
+    invokeMock.mockResolvedValue(undefined as never);
+    await cleanupSnapshots("/repo");
+    expect(invokeMock).toHaveBeenCalledWith("cleanup_snapshots", {
+      request: { repositoryPath: "/repo" },
+    });
+  });
+
+  it("listSnapshotFiles 解包 files", async () => {
+    invokeMock.mockResolvedValue({ files: [{ status: "M", path: "a.txt" }] } as never);
+    const result = await listSnapshotFiles("/repo", "e1");
+    expect(invokeMock).toHaveBeenCalledWith("list_snapshot_files", {
+      request: { repositoryPath: "/repo", entryId: "e1" },
+    });
+    expect(result).toEqual([{ status: "M", path: "a.txt" }]);
+  });
+
+  it("getSnapshotDiff 解包 text", async () => {
+    invokeMock.mockResolvedValue({ text: "diff --git a/a.txt b/a.txt" } as never);
+    const result = await getSnapshotDiff("/repo", "e1");
+    expect(invokeMock).toHaveBeenCalledWith("get_snapshot_diff", {
+      request: { repositoryPath: "/repo", entryId: "e1" },
+    });
+    expect(result).toBe("diff --git a/a.txt b/a.txt");
   });
 });

@@ -38,6 +38,7 @@ export function useTimeline(repositoryPath: string | null): TimelineState {
     if (!repositoryPath) return;
     void refresh();
     // 開 repo 時懶清理過期快照;失敗不影響使用。
+    // React StrictMode 下此 effect 可能觸發兩次;後端清理為冪等操作,重複呼叫無害。
     void cleanupSnapshots(repositoryPath).catch(() => undefined);
   }, [repositoryPath, refresh]);
 
@@ -52,9 +53,14 @@ export function useTimeline(repositoryPath: string | null): TimelineState {
   const undoEntry = useCallback(
     async (entryId: string) => {
       if (!repositoryPath) throw new Error("No repository");
-      const plan = await executeUndo(repositoryPath, entryId);
-      await refresh();
-      return plan;
+      try {
+        const plan = await executeUndo(repositoryPath, entryId);
+        await refresh();
+        return plan;
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+        throw cause;
+      }
     },
     [repositoryPath, refresh],
   );
