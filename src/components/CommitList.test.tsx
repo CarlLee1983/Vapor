@@ -85,6 +85,58 @@ describe("CommitList", () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
+  it("does not request the same next page more than once before loading state catches up", () => {
+    const onLoadMore = vi.fn();
+    const { container } = render(
+      <CommitList
+        commits={manyCommits(100)}
+        selectedCommit={null}
+        onSelectCommit={vi.fn()}
+        hasMore
+        onLoadMore={onLoadMore}
+      />,
+    );
+    const scroller = container.querySelector<HTMLDivElement>(".commit-graph-rows")!;
+    Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 440 });
+    scroller.scrollTop = 100 * ROW_HEIGHT - 440;
+
+    fireEvent.scroll(scroller);
+    fireEvent.scroll(scroller);
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows another load-more request after a new page is appended", () => {
+    const onLoadMore = vi.fn();
+    const { container, rerender } = render(
+      <CommitList
+        commits={manyCommits(100)}
+        selectedCommit={null}
+        onSelectCommit={vi.fn()}
+        hasMore
+        onLoadMore={onLoadMore}
+      />,
+    );
+    const scroller = container.querySelector<HTMLDivElement>(".commit-graph-rows")!;
+    Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 440 });
+    scroller.scrollTop = 100 * ROW_HEIGHT - 440;
+    fireEvent.scroll(scroller);
+
+    rerender(
+      <CommitList
+        commits={manyCommits(120)}
+        selectedCommit={null}
+        onSelectCommit={vi.fn()}
+        hasMore
+        onLoadMore={onLoadMore}
+      />,
+    );
+    scroller.scrollTop = 120 * ROW_HEIGHT - 440;
+    fireEvent.scroll(scroller);
+
+    expect(onLoadMore).toHaveBeenCalledTimes(2);
+  });
+
   it("does not call onLoadMore when no more pages remain", () => {
     const onLoadMore = vi.fn();
     const { container } = render(
@@ -184,4 +236,3 @@ describe("CommitList helpers", () => {
     });
   });
 });
-

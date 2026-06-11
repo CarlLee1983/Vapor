@@ -59,6 +59,8 @@ export function CommitList({
   const gutterWidth = Math.max(1, graph.maxLaneCount) * LANE_WIDTH;
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const loadMoreRequestedAtLengthRef = useRef<number | null>(null);
+  const wasLoadingMoreRef = useRef(false);
   const [metrics, setMetrics] = useState({ scrollTop: 0, viewportHeight: 0 });
 
   // Keep the measured viewport height in sync with the panel size.
@@ -73,9 +75,21 @@ export function CommitList({
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (loadMoreRequestedAtLengthRef.current !== null) {
+      if (!hasMore || loadMoreRequestedAtLengthRef.current !== commits.length) {
+        loadMoreRequestedAtLengthRef.current = null;
+      } else if (wasLoadingMoreRef.current && !isLoadingMore) {
+        loadMoreRequestedAtLengthRef.current = null;
+      }
+    }
+    wasLoadingMoreRef.current = isLoadingMore;
+  }, [commits.length, hasMore, isLoadingMore]);
+
   const maybeLoadMore = useCallback(
     (scrollTop: number, viewportHeight: number) => {
       if (!onLoadMore || !hasMore || isLoadingMore) return;
+      if (loadMoreRequestedAtLengthRef.current === commits.length) return;
       if (
         isNearBottom({
           scrollTop,
@@ -84,6 +98,7 @@ export function CommitList({
           threshold: NEAR_BOTTOM_THRESHOLD,
         })
       ) {
+        loadMoreRequestedAtLengthRef.current = commits.length;
         onLoadMore();
       }
     },
