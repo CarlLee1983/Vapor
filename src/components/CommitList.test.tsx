@@ -1,8 +1,19 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CommitList, getInitials, getAvatarColor } from "./CommitList";
-import { LANE_WIDTH } from "../lib/commitGraph";
+import { ROW_HEIGHT } from "../lib/commitGraph";
 import type { CommitSummary } from "../types/git";
+
+function manyCommits(count: number): CommitSummary[] {
+  return Array.from({ length: count }, (_, i) => ({
+    hash: `hash${i}`,
+    parents: i + 1 < count ? [`hash${i + 1}`] : [],
+    author: "Carl",
+    date: "2026-06-08T10:00:00+08:00",
+    subject: `Commit ${i}`,
+    refs: [],
+  }));
+}
 
 const commits: CommitSummary[] = [
   {
@@ -36,15 +47,60 @@ describe("CommitList", () => {
     expect(screen.queryByText("main")).not.toBeInTheDocument();
   });
 
-  it("renders the branch graph gutter alongside the commit rows", () => {
+  it("renders a per-row branch graph gutter alongside the commit rows", () => {
     const { container } = render(
       <CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} />,
     );
-    expect(container.querySelector("svg.commit-graph")).toBeInTheDocument();
-    expect(container.querySelectorAll("svg.commit-graph circle")).toHaveLength(commits.length);
+    expect(container.querySelectorAll("svg.commit-graph-row")).toHaveLength(commits.length);
+    expect(container.querySelectorAll("svg.commit-graph-row circle")).toHaveLength(commits.length);
     expect(screen.getByText("Older commit")).toBeInTheDocument();
-    const firstRow = container.querySelector<HTMLButtonElement>(".commit-row")!;
-    expect(parseInt(firstRow.style.paddingLeft, 10)).toBeGreaterThanOrEqual(LANE_WIDTH);
+  });
+
+  it("virtualizes long histories by rendering only a window of rows", () => {
+    const { container } = render(
+      <CommitList commits={manyCommits(500)} selectedCommit={null} onSelectCommit={vi.fn()} />,
+    );
+    const rendered = container.querySelectorAll(".commit-row").length;
+    expect(rendered).toBeGreaterThan(0);
+    expect(rendered).toBeLessThan(500);
+  });
+
+  it("calls onLoadMore when scrolled near the bottom and more pages remain", () => {
+    const onLoadMore = vi.fn();
+    const { container } = render(
+      <CommitList
+        commits={manyCommits(100)}
+        selectedCommit={null}
+        onSelectCommit={vi.fn()}
+        hasMore
+        onLoadMore={onLoadMore}
+      />,
+    );
+    const scroller = container.querySelector<HTMLDivElement>(".commit-graph-rows")!;
+    Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 440 });
+    scroller.scrollTop = 100 * ROW_HEIGHT - 440; // bottom of the list
+
+    expect(onLoadMore).not.toHaveBeenCalled(); // not on mount
+    fireEvent.scroll(scroller);
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onLoadMore when no more pages remain", () => {
+    const onLoadMore = vi.fn();
+    const { container } = render(
+      <CommitList
+        commits={manyCommits(100)}
+        selectedCommit={null}
+        onSelectCommit={vi.fn()}
+        hasMore={false}
+        onLoadMore={onLoadMore}
+      />,
+    );
+    const scroller = container.querySelector<HTMLDivElement>(".commit-graph-rows")!;
+    Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 440 });
+    scroller.scrollTop = 100 * ROW_HEIGHT - 440;
+    fireEvent.scroll(scroller);
+    expect(onLoadMore).not.toHaveBeenCalled();
   });
 
   it("renders initials avatars correctly for single and multi-word names", () => {

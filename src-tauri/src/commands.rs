@@ -28,7 +28,7 @@ pub fn get_repository_state(request: RepositoryRequest) -> Result<RepositoryStat
 
 #[tauri::command]
 pub fn get_commit_log(request: CommitLogRequest) -> Result<Vec<CommitSummary>, GitError> {
-    GitService::new(SystemGitRunner).commit_log(&request.repository_path, request.limit)
+    GitService::new(SystemGitRunner).commit_log(&request.repository_path, request.limit, request.skip)
 }
 
 #[tauri::command]

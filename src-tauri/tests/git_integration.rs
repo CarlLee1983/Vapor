@@ -60,8 +60,29 @@ fn reads_repository_state_and_log() {
     let state = service.repository_state(work.path()).expect("state");
     assert_eq!(state.current_branch.as_deref(), Some("main"));
     assert_eq!(state.remotes[0].name, "origin");
-    let commits = service.commit_log(work.path(), 20).expect("commits");
+    let commits = service.commit_log(work.path(), 20, 0).expect("commits");
     assert_eq!(commits[0].subject, "Initial commit");
+}
+
+#[test]
+fn commit_log_paginates_with_skip() {
+    let (work, _remote) = setup_repo();
+    // setup_repo already created "Initial commit"; add four more for five total.
+    for i in 1..=4 {
+        std::fs::write(work.path().join("README.md"), format!("hello {i}\n")).expect("write");
+        git(work.path(), &["add", "README.md"]);
+        git(work.path(), &["commit", "-m", &format!("Commit {i}")]);
+    }
+    let service = GitService::new(SystemGitRunner);
+
+    let full = service.commit_log(work.path(), 5, 0).expect("full");
+    let page2 = service.commit_log(work.path(), 2, 2).expect("page2");
+
+    assert_eq!(full.len(), 5);
+    assert_eq!(page2.len(), 2);
+    // skip=2 must yield the same window as indices [2, 3] of the full log.
+    assert_eq!(page2[0].hash, full[2].hash);
+    assert_eq!(page2[1].hash, full[3].hash);
 }
 
 #[test]
@@ -265,7 +286,7 @@ fn amends_last_commit_without_growing_log() {
     let (work, _remote) = setup_repo();
     let service = GitService::new(SystemGitRunner);
 
-    let before = service.commit_log(work.path(), 20).expect("log before").len();
+    let before = service.commit_log(work.path(), 20, 0).expect("log before").len();
 
     std::fs::write(work.path().join("README.md"), "changed\n").expect("write readme");
     service
@@ -286,7 +307,7 @@ fn amends_last_commit_without_growing_log() {
         })
         .expect("amend must not hang");
 
-    let after = service.commit_log(work.path(), 20).expect("log after").len();
+    let after = service.commit_log(work.path(), 20, 0).expect("log after").len();
     assert_eq!(after, before, "amend must not add a new commit");
 
     // The amended commit keeps the original subject (--no-edit reuses it).
@@ -310,6 +331,6 @@ fn amends_last_commit_message() {
 
     let subject = git_stdout(work.path(), &["log", "-1", "--pretty=%s"]);
     assert_eq!(subject, "Reworded initial commit");
-    let count = service.commit_log(work.path(), 20).expect("log").len();
+    let count = service.commit_log(work.path(), 20, 0).expect("log").len();
     assert_eq!(count, 1, "amend reword must not add a commit");
 }

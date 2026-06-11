@@ -10,6 +10,9 @@ import {
 } from "../lib/tauriApi";
 import type { CommitResponse, CommitSummary, FileStatus, GitError, RepositoryState } from "../types/git";
 
+/** Commits fetched per `git log` page. A page that returns fewer rows than this marks the end of history. */
+export const COMMIT_PAGE_SIZE = 200;
+
 export interface RepositoryViewState {
   repositoryPath: string | null;
   repository: RepositoryState | null;
@@ -18,6 +21,8 @@ export interface RepositoryViewState {
   selectedFile: FileStatus | null;
   diff: string;
   isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
   error: GitError | null;
 }
 
@@ -30,19 +35,27 @@ export function useRepository() {
     selectedFile: null,
     diff: "",
     isLoading: false,
+    isLoadingMore: false,
+    hasMore: false,
     error: null,
   });
 
   const repositoryPathRef = useRef<string | null>(null);
   const requestIdRef = useRef(0);
+  // Guards loadMoreCommits against overlapping fetches and stale appends after a repo switch.
+  const loadingMoreRef = useRef(false);
 
   const loadRepository = useCallback(async (path: string) => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setState((current) => ({ ...current, repositoryPath: path, isLoading: true, error: null }));
     repositoryPathRef.current = path;
+    loadingMoreRef.current = false;
     try {
-      const [repository, commits] = await Promise.all([getRepositoryState(path), getCommitLog(path)]);
+      const [repository, commits] = await Promise.all([
+        getRepositoryState(path),
+        getCommitLog(path, COMMIT_PAGE_SIZE, 0),
+      ]);
       if (requestId !== requestIdRef.current) {
         return;
       }
@@ -54,6 +67,8 @@ export function useRepository() {
         selectedFile: null,
         diff: "",
         isLoading: false,
+        isLoadingMore: false,
+        hasMore: commits.length === COMMIT_PAGE_SIZE,
         error: null,
       });
     } catch (error) {
@@ -73,9 +88,14 @@ export function useRepository() {
 
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    loadingMoreRef.current = false;
 
     try {
-      const [repository, commits] = await Promise.all([getRepositoryState(path), getCommitLog(path)]);
+      // Refresh re-reads the first page only; any pages pulled in by loadMoreCommits collapse back.
+      const [repository, commits] = await Promise.all([
+        getRepositoryState(path),
+        getCommitLog(path, COMMIT_PAGE_SIZE, 0),
+      ]);
       if (requestId !== requestIdRef.current) {
         return;
       }
@@ -98,6 +118,8 @@ export function useRepository() {
           selectedFile,
           diff: current.selectedFile && !selectedFile ? "" : current.diff,
           isLoading: false,
+          isLoadingMore: false,
+          hasMore: commits.length === COMMIT_PAGE_SIZE,
           error: null,
         };
       });
@@ -108,6 +130,41 @@ export function useRepository() {
       setState((current) => ({ ...current, isLoading: false, error: error as GitError }));
     }
   }, []);
+
+  const loadMoreCommits = useCallback(async () => {
+    const path = repositoryPathRef.current;
+    if (!path || loadingMoreRef.current || !state.hasMore) {
+      return;
+    }
+    // Snapshot the request id so a repo switch mid-fetch discards this append.
+    const requestId = requestIdRef.current;
+    loadingMoreRef.current = true;
+    setState((current) => ({ ...current, isLoadingMore: true }));
+    try {
+      const skip = state.commits.length;
+      const next = await getCommitLog(path, COMMIT_PAGE_SIZE, skip);
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+      setState((current) => {
+        const seen = new Set(current.commits.map((item) => item.hash));
+        const fresh = next.filter((item) => !seen.has(item.hash));
+        return {
+          ...current,
+          commits: [...current.commits, ...fresh],
+          isLoadingMore: false,
+          hasMore: next.length === COMMIT_PAGE_SIZE,
+        };
+      });
+    } catch (error) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+      setState((current) => ({ ...current, isLoadingMore: false, error: error as GitError }));
+    } finally {
+      loadingMoreRef.current = false;
+    }
+  }, [state.commits.length, state.hasMore]);
 
   const selectCommit = useCallback(async (commit: CommitSummary) => {
     const requestId = requestIdRef.current + 1;
@@ -210,6 +267,7 @@ export function useRepository() {
     ...state,
     loadRepository,
     refreshRepository,
+    loadMoreCommits,
     selectCommit,
     selectFile,
     stageFiles,

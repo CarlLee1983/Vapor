@@ -36,10 +36,20 @@ describe("tauriApi", () => {
     expect(invokeMock).toHaveBeenCalledWith("get_repository_state", { request: { path: "/repo" } });
   });
 
-  it("getCommitLog passes repositoryPath and default limit", async () => {
+  it("getCommitLog passes repositoryPath and default limit and skip", async () => {
     invokeMock.mockResolvedValue([] as never);
     await getCommitLog("/repo");
-    expect(invokeMock).toHaveBeenCalledWith("get_commit_log", { request: { repositoryPath: "/repo", limit: 200 } });
+    expect(invokeMock).toHaveBeenCalledWith("get_commit_log", {
+      request: { repositoryPath: "/repo", limit: 200, skip: 0 },
+    });
+  });
+
+  it("getCommitLog forwards an explicit skip for pagination", async () => {
+    invokeMock.mockResolvedValue([] as never);
+    await getCommitLog("/repo", 200, 400);
+    expect(invokeMock).toHaveBeenCalledWith("get_commit_log", {
+      request: { repositoryPath: "/repo", limit: 200, skip: 400 },
+    });
   });
 
   it("getDiff normalizes optional args to null and returns text", async () => {

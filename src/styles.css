@@ -534,16 +534,41 @@ button:not(.commit-row):disabled {
   margin-bottom: 12px;
 }
 
+/* History panel owns its own scroll: header stays fixed, rows scroll inside. */
+.commit-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Scroll viewport for the virtualized commit history. */
 .commit-graph-rows {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Reserves the full scroll height of all commits while only a window is mounted. */
+.commit-list-spacer {
   position: relative;
 }
 
-.commit-graph {
+/* Translated to the offset of the first rendered row. */
+.commit-list-window {
   position: absolute;
   top: 0;
   left: 0;
-  pointer-events: none;
-  z-index: 1; /* paint above row backgrounds so the graph stays visible on hover/selection */
+  right: 0;
+}
+
+.commit-list-loading {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
 }
 
 .commit-row {
@@ -551,18 +576,26 @@ button:not(.commit-row):disabled {
   height: var(--commit-row-height, 44px);  /* 對齊 commitGraph.ts 的 ROW_HEIGHT */
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   border: 0;
   border-bottom: 1px solid var(--border-color-light);
   background: transparent;
   color: inherit;
-  padding: 10px 8px 10px 16px;
+  padding: 10px 8px 10px 8px;
   text-align: left;
   cursor: pointer;
   transition: var(--transition-smooth);
   position: relative;
+}
+
+/* Per-row branch graph gutter; lanes line up vertically across stacked rows. */
+.commit-graph-row {
+  display: block;
+  flex-shrink: 0;
+  pointer-events: none;
+  align-self: stretch;
 }
 
 .commit-row:hover:not(.commit-row--selected) {

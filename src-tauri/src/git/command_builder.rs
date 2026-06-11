@@ -209,6 +209,20 @@ pub fn last_commit_message_args() -> Vec<String> {
     vec!["log".to_string(), "-1".to_string(), "--pretty=%B".to_string()]
 }
 
+/// Builds `git log` args for a paginated commit history page.
+/// `limit` is clamped to 500 per call; `skip` offsets into the full history for infinite scroll.
+pub fn commit_log_args(limit: u32, skip: u32) -> Vec<String> {
+    let format = "%H%x1f%P%x1f%an%x1f%aI%x1f%s%x1f%D%x1e";
+    vec![
+        "log".to_string(),
+        "--all".to_string(),
+        format!("--max-count={}", limit.min(500)),
+        format!("--skip={skip}"),
+        format!("--pretty=format:{format}"),
+        "--decorate=short".to_string(),
+    ]
+}
+
 fn validate_tag_name(value: &str) -> Result<(), GitError> {
     let is_valid = !value.is_empty()
         && !value.starts_with('-')
@@ -522,6 +536,23 @@ mod tests {
     #[test]
     fn builds_last_commit_message_args() {
         assert_eq!(last_commit_message_args(), vec!["log", "-1", "--pretty=%B"]);
+    }
+
+    #[test]
+    fn builds_commit_log_args_with_skip_and_limit() {
+        let args = commit_log_args(200, 400);
+        assert_eq!(args[0], "log");
+        assert!(args.contains(&"--all".to_string()));
+        assert!(args.contains(&"--max-count=200".to_string()));
+        assert!(args.contains(&"--skip=400".to_string()));
+        assert!(args.contains(&"--decorate=short".to_string()));
+    }
+
+    #[test]
+    fn commit_log_args_clamps_limit_to_500() {
+        let args = commit_log_args(10_000, 0);
+        assert!(args.contains(&"--max-count=500".to_string()));
+        assert!(!args.contains(&"--max-count=10000".to_string()));
     }
 
     fn create_tag_request() -> super::super::models::CreateTagRequest {

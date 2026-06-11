@@ -28,8 +28,8 @@ export async function getRepositoryState(path: string): Promise<RepositoryState>
   return invoke<RepositoryState>("get_repository_state", { request: { path } });
 }
 
-export async function getCommitLog(repositoryPath: string, limit = 200): Promise<CommitSummary[]> {
-  return invoke<CommitSummary[]>("get_commit_log", { request: { repositoryPath, limit } });
+export async function getCommitLog(repositoryPath: string, limit = 200, skip = 0): Promise<CommitSummary[]> {
+  return invoke<CommitSummary[]>("get_commit_log", { request: { repositoryPath, limit, skip } });
 }
 
 export async function getDiff(repositoryPath: string, commitHash?: string, filePath?: string): Promise<string> {

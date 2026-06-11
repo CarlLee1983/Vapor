@@ -205,6 +205,9 @@ export default function App() {
               commits={repoView.commits}
               selectedCommit={repoView.selectedCommit}
               onSelectCommit={repoView.selectCommit}
+              hasMore={repoView.hasMore}
+              isLoadingMore={repoView.isLoadingMore}
+              onLoadMore={repoView.loadMoreCommits}
             />
           ) : (
             <WorkingTreePanel

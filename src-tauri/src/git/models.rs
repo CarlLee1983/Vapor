@@ -111,6 +111,8 @@ pub struct CommitSummary {
 pub struct CommitLogRequest {
     pub repository_path: PathBuf,
     pub limit: u32,
+    #[serde(default)]
+    pub skip: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

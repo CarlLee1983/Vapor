@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useRepository } from "./useRepository";
+import { useRepository, COMMIT_PAGE_SIZE } from "./useRepository";
 import * as tauriApi from "../lib/tauriApi";
 import type { CommitResponse, CommitSummary, RepositoryState } from "../types/git";
 
@@ -127,6 +127,74 @@ describe("useRepository", () => {
     expect(result.current.repositoryPath).toBe("/second");
     expect(result.current.repository?.root).toBe("/second");
     expect(result.current.selectedCommit?.hash).toBe("second");
+  });
+
+  function page(prefix: string, count: number): CommitSummary[] {
+    return Array.from({ length: count }, (_, i) => commit(`${prefix}-${i}`));
+  }
+
+  it("requests the first page on load and flags hasMore when a full page returns", async () => {
+    vi.mocked(tauriApi.getRepositoryState).mockResolvedValue(repositoryState("/repo"));
+    vi.mocked(tauriApi.getCommitLog).mockResolvedValue(page("a", COMMIT_PAGE_SIZE));
+
+    const { result } = renderHook(() => useRepository());
+    await act(async () => {
+      await result.current.loadRepository("/repo");
+    });
+
+    expect(tauriApi.getCommitLog).toHaveBeenCalledWith("/repo", COMMIT_PAGE_SIZE, 0);
+    expect(result.current.commits).toHaveLength(COMMIT_PAGE_SIZE);
+    expect(result.current.hasMore).toBe(true);
+  });
+
+  it("clears hasMore when the first page is not full", async () => {
+    vi.mocked(tauriApi.getRepositoryState).mockResolvedValue(repositoryState("/repo"));
+    vi.mocked(tauriApi.getCommitLog).mockResolvedValue([commit("only")]);
+
+    const { result } = renderHook(() => useRepository());
+    await act(async () => {
+      await result.current.loadRepository("/repo");
+    });
+
+    expect(result.current.hasMore).toBe(false);
+  });
+
+  it("loadMoreCommits appends the next page, dedupes by hash, and updates hasMore", async () => {
+    const first = page("a", COMMIT_PAGE_SIZE);
+    // Second page repeats the last loaded commit (defensive dedupe) plus two new ones, and is not full.
+    const second = [first[COMMIT_PAGE_SIZE - 1], commit("b-0"), commit("b-1")];
+
+    vi.mocked(tauriApi.getRepositoryState).mockResolvedValue(repositoryState("/repo"));
+    vi.mocked(tauriApi.getCommitLog)
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second);
+
+    const { result } = renderHook(() => useRepository());
+    await act(async () => {
+      await result.current.loadRepository("/repo");
+    });
+    await act(async () => {
+      await result.current.loadMoreCommits();
+    });
+
+    expect(tauriApi.getCommitLog).toHaveBeenNthCalledWith(2, "/repo", COMMIT_PAGE_SIZE, COMMIT_PAGE_SIZE);
+    expect(result.current.commits).toHaveLength(COMMIT_PAGE_SIZE + 2);
+    expect(result.current.hasMore).toBe(false);
+  });
+
+  it("loadMoreCommits is a no-op when there is nothing more to load", async () => {
+    vi.mocked(tauriApi.getRepositoryState).mockResolvedValue(repositoryState("/repo"));
+    vi.mocked(tauriApi.getCommitLog).mockResolvedValue([commit("only")]);
+
+    const { result } = renderHook(() => useRepository());
+    await act(async () => {
+      await result.current.loadRepository("/repo");
+    });
+    await act(async () => {
+      await result.current.loadMoreCommits();
+    });
+
+    expect(tauriApi.getCommitLog).toHaveBeenCalledTimes(1);
   });
 
   it("refreshes repository data without replacing the selected commit", async () => {

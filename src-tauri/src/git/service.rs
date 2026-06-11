@@ -44,18 +44,14 @@ impl<R: GitRunner> GitService<R> {
         })
     }
 
-    pub fn commit_log(&self, path: &Path, limit: u32) -> Result<Vec<super::models::CommitSummary>, GitError> {
-        let format = "%H%x1f%P%x1f%an%x1f%aI%x1f%s%x1f%D%x1e";
-        let output = self.runner.run(
-            path,
-            &[
-                "log".to_string(),
-                "--all".to_string(),
-                format!("--max-count={}", limit.min(500)),
-                format!("--pretty=format:{format}"),
-                "--decorate=short".to_string(),
-            ],
-        )?;
+    pub fn commit_log(
+        &self,
+        path: &Path,
+        limit: u32,
+        skip: u32,
+    ) -> Result<Vec<super::models::CommitSummary>, GitError> {
+        let args = super::command_builder::commit_log_args(limit, skip);
+        let output = self.runner.run(path, &args)?;
         Ok(super::parsers::parse_commit_log(&output.stdout))
     }
 
