@@ -1,6 +1,6 @@
 [package]
 name = "vapor"
-version = "0.6.0"
+version = "0.7.0"
 description = "Lightweight Git workbench"
 authors = ["carl"]
 edition = "2021"
