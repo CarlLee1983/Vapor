@@ -35,6 +35,7 @@ pub fn get_commit_log(request: CommitLogRequest) -> Result<Vec<CommitSummary>, G
 pub fn get_diff(request: DiffRequest) -> Result<DiffResponse, GitError> {
     let text = GitService::new(SystemGitRunner).diff(
         &request.repository_path,
+        request.scope,
         request.commit_hash.as_deref(),
         request.file_path.as_deref(),
     )?;

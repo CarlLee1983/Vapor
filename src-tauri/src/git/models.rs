@@ -117,8 +117,24 @@ pub struct CommitLogRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub enum DiffScope {
+    Unstaged,
+    Staged,
+    Commit,
+}
+
+impl Default for DiffScope {
+    fn default() -> Self {
+        Self::Unstaged
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct DiffRequest {
     pub repository_path: PathBuf,
+    #[serde(default)]
+    pub scope: DiffScope,
     pub commit_hash: Option<String>,
     pub file_path: Option<String>,
 }

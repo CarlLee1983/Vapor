@@ -1,6 +1,6 @@
 use super::models::{
-    AddRemoteRequest, CommitRequest, GitCommandPreview, GitError, GitErrorCode, PullRequest,
-    PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest, TagPushMode,
+    AddRemoteRequest, CommitRequest, DiffScope, GitCommandPreview, GitError, GitErrorCode,
+    PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest, TagPushMode,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -221,6 +221,33 @@ pub fn commit_log_args(limit: u32, skip: u32) -> Vec<String> {
         format!("--pretty=format:{format}"),
         "--decorate=short".to_string(),
     ]
+}
+
+pub fn diff_args(
+    scope: DiffScope,
+    commit_hash: Option<&str>,
+    file_path: Option<&str>,
+) -> Result<Vec<String>, GitError> {
+    let mut args = match scope {
+        DiffScope::Commit => {
+            let hash = commit_hash.filter(|value| !value.trim().is_empty()).ok_or_else(|| GitError {
+                code: GitErrorCode::CommandFailed,
+                message: "No commit selected.".to_string(),
+                hint: "Select a commit before requesting a commit diff.".to_string(),
+                stderr: String::new(),
+            })?;
+            vec!["show".to_string(), "--patch".to_string(), hash.to_string()]
+        }
+        DiffScope::Staged => vec!["diff".to_string(), "--cached".to_string()],
+        DiffScope::Unstaged => vec!["diff".to_string()],
+    };
+
+    if let Some(file_path) = file_path {
+        args.push("--".to_string());
+        args.push(file_path.to_string());
+    }
+
+    Ok(args)
 }
 
 fn validate_tag_name(value: &str) -> Result<(), GitError> {
@@ -553,6 +580,57 @@ mod tests {
         let args = commit_log_args(10_000, 0);
         assert!(args.contains(&"--max-count=500".to_string()));
         assert!(!args.contains(&"--max-count=10000".to_string()));
+    }
+
+    #[test]
+    fn builds_unstaged_diff_args_with_path_after_separator() {
+        let args = diff_args(
+            super::super::models::DiffScope::Unstaged,
+            None,
+            Some("src/app.rs"),
+        )
+        .expect("args");
+        assert_eq!(args, vec!["diff", "--", "src/app.rs"]);
+    }
+
+    #[test]
+    fn builds_staged_diff_args_with_cached_flag() {
+        let args = diff_args(
+            super::super::models::DiffScope::Staged,
+            None,
+            Some("src/app.rs"),
+        )
+        .expect("args");
+        assert_eq!(args, vec!["diff", "--cached", "--", "src/app.rs"]);
+    }
+
+    #[test]
+    fn builds_commit_diff_args_from_hash() {
+        let args = diff_args(
+            super::super::models::DiffScope::Commit,
+            Some("abc123"),
+            None,
+        )
+        .expect("args");
+        assert_eq!(args, vec!["show", "--patch", "abc123"]);
+    }
+
+    #[test]
+    fn rejects_commit_diff_without_hash() {
+        let error = diff_args(super::super::models::DiffScope::Commit, None, None)
+            .expect_err("missing hash");
+        assert_eq!(error.code, GitErrorCode::CommandFailed);
+    }
+
+    #[test]
+    fn keeps_diff_file_path_as_single_argument_after_separator() {
+        let args = diff_args(
+            super::super::models::DiffScope::Staged,
+            None,
+            Some("-- README.md"),
+        )
+        .expect("args");
+        assert_eq!(args, vec!["diff", "--cached", "--", "-- README.md"]);
     }
 
     fn create_tag_request() -> super::super::models::CreateTagRequest {

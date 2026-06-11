@@ -55,20 +55,14 @@ impl<R: GitRunner> GitService<R> {
         Ok(super::parsers::parse_commit_log(&output.stdout))
     }
 
-    pub fn diff(&self, path: &Path, commit_hash: Option<&str>, file_path: Option<&str>) -> Result<String, GitError> {
-        let mut args = if let Some(commit_hash) = commit_hash {
-            // git show --patch emits the commit header followed by the diff; the frontend receives both.
-            vec!["show".to_string(), "--patch".to_string(), commit_hash.to_string()]
-        } else {
-            // git diff (no --cached) shows unstaged working-tree changes only; staged-diff support is a future enhancement.
-            vec!["diff".to_string()]
-        };
-
-        if let Some(file_path) = file_path {
-            args.push("--".to_string());
-            args.push(file_path.to_string());
-        }
-
+    pub fn diff(
+        &self,
+        path: &Path,
+        scope: super::models::DiffScope,
+        commit_hash: Option<&str>,
+        file_path: Option<&str>,
+    ) -> Result<String, GitError> {
+        let args = super::command_builder::diff_args(scope, commit_hash, file_path)?;
         let output = self.runner.run(path, &args)?;
         Ok(output.stdout)
     }
