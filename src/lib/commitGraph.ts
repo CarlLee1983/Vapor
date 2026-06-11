@@ -1,7 +1,8 @@
 import type { CommitSummary } from "../types/git";
+import { describeRef } from "./refs";
 
-export const LANE_WIDTH = 16;
-export const ROW_HEIGHT = 44;
+export const LANE_WIDTH = 14;
+export const ROW_HEIGHT = 32;
 export const NODE_RADIUS = 3.5;
 
 export const LANE_COLORS = [
@@ -50,16 +51,37 @@ export interface CommitGraph {
   maxLaneCount: number;
 }
 
+/**
+ * First-parent chain that should own lane 0 (rule 4): the checked-out HEAD if a
+ * ref identifies it, otherwise the newest visible commit. Following parents[0]
+ * keeps the chain contiguous so it stays anchored left across the window.
+ */
+function primaryChain(commits: CommitSummary[]): Set<string> {
+  const byHash = new Map(commits.map((c) => [c.hash, c]));
+  const head =
+    commits.find((c) => c.refs.some((ref) => describeRef(ref).kind === "head")) ?? commits[0];
+  const chain = new Set<string>();
+  let cur: string | undefined = head?.hash;
+  while (cur && byHash.has(cur) && !chain.has(cur)) {
+    chain.add(cur);
+    cur = byHash.get(cur)!.parents[0];
+  }
+  return chain;
+}
+
 export function buildCommitGraph(commits: CommitSummary[]): CommitGraph {
-  const known = new Set(commits.map((c) => c.hash));
   // Intentionally mutable: in-place lane updates avoid O(n^2) slice allocations.
   const lanes: (string | null)[] = []; // lane index -> hash the lane is waiting for
   const rows: GraphRow[] = [];
   let maxLaneCount = 0;
+  const primary = primaryChain(commits);
 
-  const claimFreeLane = (): number => {
-    const idx = lanes.indexOf(null);
-    if (idx !== -1) return idx;
+  /** Lowest free lane at index >= min; appends (padding up to min) when none is free. */
+  const claimFreeLane = (min: number): number => {
+    for (let i = min; i < lanes.length; i++) {
+      if (lanes[i] === null) return i;
+    }
+    while (lanes.length < min) lanes.push(null);
     lanes.push(null);
     return lanes.length - 1;
   };
@@ -68,11 +90,13 @@ export function buildCommitGraph(commits: CommitSummary[]): CommitGraph {
     const topLanes = lanes.slice();
     const edges: GraphEdge[] = [];
 
-    // 1. Node lane: a lane already waiting for this commit, else a fresh free lane.
+    // 1. Node lane: a lane already waiting for this commit wins; otherwise the
+    //    HEAD chain takes lane 0 (rule 4) and every other tip starts at lane 1+.
     const waiting = topLanes
       .map((h, i) => (h === commit.hash ? i : -1))
       .filter((i) => i !== -1);
-    const nodeLane = waiting.length > 0 ? waiting[0] : claimFreeLane();
+    const nodeLane =
+      waiting.length > 0 ? waiting[0] : primary.has(commit.hash) ? 0 : claimFreeLane(1);
     const nodeColor = laneColor(nodeLane);
 
     // 2. Top edges: every child lane waiting for this commit converges into the node.
@@ -103,28 +127,27 @@ export function buildCommitGraph(commits: CommitSummary[]): CommitGraph {
       }
     }
 
-    // 4. Bottom edges: node fans out to its parents.
+    // 4. Bottom edges: the first parent continues straight in the node lane
+    //    (rule 1) so the mainline never bends early; convergence with an
+    //    already-active ancestor lane is deferred to that ancestor's row. Extra
+    //    parents join their existing lane or open a fresh one to the right.
     commit.parents.forEach((parent, pIdx) => {
-      const dangling = !known.has(parent);
       let lane: number;
       if (pIdx === 0) {
         lane = nodeLane;
-        lanes[nodeLane] = parent;
       } else {
-        lane = claimFreeLane();
-        lanes[lane] = parent;
+        const existing = lanes.findIndex((hash) => hash === parent);
+        lane = existing !== -1 ? existing : claimFreeLane(nodeLane + 1);
       }
+      lanes[lane] = parent;
       edges.push({
         fromLane: nodeLane,
         toLane: lane,
         color: laneColor(lane),
         kind: lane === nodeLane ? "straight" : "branch",
         half: "bottom",
-        dangling,
+        dangling: false,
       });
-      if (dangling) {
-        lanes[lane] = null; // an off-screen parent must not occupy a lane forever
-      }
     });
 
     // 5. Trim trailing empty lanes so the graph stays tight.

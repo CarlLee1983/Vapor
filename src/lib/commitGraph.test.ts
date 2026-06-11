@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { buildCommitGraph, laneColor, LANE_COLORS } from "./commitGraph";
+import { buildCommitGraph, laneColor, LANE_COLORS, LANE_WIDTH, ROW_HEIGHT } from "./commitGraph";
 import type { CommitSummary } from "../types/git";
 
 function commit(hash: string, parents: string[]): CommitSummary {
   return { hash, parents, author: "T", date: "2026-06-09T00:00:00+08:00", subject: hash, refs: [] };
 }
+
+describe("layout constants", () => {
+  it("uses the tightened SourceTree-style density", () => {
+    expect(ROW_HEIGHT).toBe(32);
+    expect(LANE_WIDTH).toBe(14);
+  });
+});
 
 describe("laneColor", () => {
   it("cycles through the palette by lane index", () => {
@@ -52,11 +59,16 @@ describe("buildCommitGraph - branch and merge", () => {
     expect(branchEdges[0].half).toBe("bottom");
   });
 
-  it("emits a merge edge where two lanes converge back onto base", () => {
-    const baseRow = graph.rows[graph.rows.length - 1];
-    const mergeEdges = baseRow.edges.filter((e) => e.kind === "merge");
-    expect(mergeEdges).toHaveLength(1);
-    expect(mergeEdges[0].half).toBe("top");
+  it("keeps the feature branch straight in its own lane until the shared base", () => {
+    // Rule 1: the first parent continues straight; convergence is deferred to `base`.
+    const featureRow = graph.rows.find((r) => r.commit.hash === "b")!;
+    const bottom = featureRow.edges.filter((e) => e.half === "bottom");
+    expect(bottom).toHaveLength(1);
+    expect(bottom[0]).toMatchObject({ fromLane: 1, toLane: 1, kind: "straight" });
+
+    const baseRow = graph.rows.find((r) => r.commit.hash === "base")!;
+    const merge = baseRow.edges.filter((e) => e.half === "top" && e.kind === "merge");
+    expect(merge).toEqual([expect.objectContaining({ fromLane: 1, toLane: 0 })]);
   });
 
   it("places the feature commit on a second lane", () => {
@@ -74,10 +86,11 @@ describe("buildCommitGraph - branch and merge", () => {
 });
 
 describe("buildCommitGraph - edge cases", () => {
-  it("marks parents outside the loaded window as dangling without throwing", () => {
+  it("continues parents outside the loaded window instead of reusing their lane", () => {
     const graph = buildCommitGraph([commit("x", ["y"])]);
-    const dangling = graph.rows[0].edges.filter((e) => e.dangling);
-    expect(dangling).toHaveLength(1);
+    const edge = graph.rows[0].edges[0];
+    expect(edge).toMatchObject({ fromLane: 0, toLane: 0, dangling: false });
+    expect(graph.maxLaneCount).toBe(1);
   });
 
   it("handles octopus merges with three parents", () => {
@@ -94,5 +107,118 @@ describe("buildCommitGraph - edge cases", () => {
 
   it("returns an empty graph for no commits", () => {
     expect(buildCommitGraph([])).toEqual({ rows: [], maxLaneCount: 0 });
+  });
+});
+
+describe("buildCommitGraph - side branch sharing a first parent", () => {
+  const graph = buildCommitGraph([
+    commit("merge", ["base", "side"]),
+    commit("side", ["base"]),
+    commit("base", []),
+  ]);
+
+  it("keeps the side branch straight in its lane until it converges at the shared parent", () => {
+    // Rule 1: `side` does not bend left into base's lane early; it stays put.
+    const side = graph.rows.find((r) => r.commit.hash === "side")!;
+    const bottom = side.edges.filter((e) => e.half === "bottom");
+    expect(bottom).toHaveLength(1);
+    expect(bottom[0]).toMatchObject({
+      fromLane: side.node.lane,
+      toLane: side.node.lane,
+      kind: "straight",
+      dangling: false,
+    });
+  });
+
+  it("keeps the side branch's own lane color while it runs straight", () => {
+    const side = graph.rows.find((r) => r.commit.hash === "side")!;
+    const bottom = side.edges.find((e) => e.half === "bottom")!;
+    expect(bottom.color).toBe(laneColor(side.node.lane));
+  });
+
+  it("converges the side branch into the parent lane at the parent row", () => {
+    const base = graph.rows.find((r) => r.commit.hash === "base")!;
+    const top = base.edges.filter((e) => e.half === "top");
+    expect(top).toHaveLength(2);
+    expect(top).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ fromLane: 0, toLane: 0, kind: "straight" }),
+        expect.objectContaining({ fromLane: 1, toLane: 0, kind: "merge" }),
+      ]),
+    );
+  });
+});
+
+describe("buildCommitGraph - criss-cross merge with a side testing branch", () => {
+  const graph = buildCommitGraph([
+    commit("feature-merge-tagsmith", ["feature-merge-hooks", "tagsmith"]),
+    commit("tagsmith", ["offscreen-policy-base"]),
+    commit("feature-merge-hooks", ["testing-base", "hooks"]),
+    commit("testing-merge-hooks", ["testing-base", "hooks"]),
+    commit("hooks", ["offscreen-policy-base"]),
+    commit("testing-base", ["older"]),
+    commit("older", []),
+  ]);
+
+  it("keeps the feature branch on the primary lane through its merge commits", () => {
+    expect(graph.rows.find((r) => r.commit.hash === "feature-merge-tagsmith")?.node.lane).toBe(0);
+    expect(graph.rows.find((r) => r.commit.hash === "feature-merge-hooks")?.node.lane).toBe(0);
+  });
+
+  it("runs the testing branch straight, merges hooks, and defers its base convergence", () => {
+    const testing = graph.rows.find((r) => r.commit.hash === "testing-merge-hooks")!;
+    const bottom = testing.edges.filter((e) => e.half === "bottom");
+    expect(testing.node.lane).toBe(3);
+    // Rule 1: first parent (testing-base) stays straight in lane 3; only the
+    // second parent (hooks) fans out as a branch edge.
+    expect(bottom).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ fromLane: 3, toLane: 3, kind: "straight" }),
+        expect.objectContaining({ fromLane: 3, toLane: 2, kind: "branch" }),
+      ]),
+    );
+    // The deferred convergence shows up as a merge into lane 0 at testing-base.
+    const tbase = graph.rows.find((r) => r.commit.hash === "testing-base")!;
+    expect(tbase.edges.filter((e) => e.half === "top" && e.kind === "merge")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ fromLane: 3, toLane: 0 })]),
+    );
+  });
+
+  it("does not duplicate waiting lanes for the shared hooks parent", () => {
+    const hooks = graph.rows.find((r) => r.commit.hash === "hooks")!;
+    const top = hooks.edges.filter((e) => e.half === "top");
+    expect(top).toHaveLength(1);
+    expect(top[0]).toMatchObject({ fromLane: 2, toLane: 2, kind: "straight" });
+  });
+
+  it("does not reuse the offscreen tagsmith parent lane for the hooks branch", () => {
+    const tagsmith = graph.rows.find((r) => r.commit.hash === "tagsmith")!;
+    const hooks = graph.rows.find((r) => r.commit.hash === "hooks")!;
+    expect(tagsmith.node.lane).toBe(1);
+    expect(hooks.node.lane).toBe(2);
+  });
+});
+
+describe("buildCommitGraph - anchors the HEAD chain to lane 0", () => {
+  function commitWithRefs(hash: string, parents: string[], refs: string[]): CommitSummary {
+    return { hash, parents, author: "T", date: "2026-06-09T00:00:00+08:00", subject: hash, refs };
+  }
+
+  // Newest row is a feature commit, but HEAD is on `main`. Rule 4: main stays leftmost.
+  const graph = buildCommitGraph([
+    commitWithRefs("feat2", ["feat1"], []),
+    commitWithRefs("main2", ["main1"], ["HEAD -> main"]),
+    commitWithRefs("feat1", ["main1"], []),
+    commitWithRefs("main1", [], []),
+  ]);
+
+  it("keeps the HEAD first-parent chain on lane 0", () => {
+    expect(graph.rows.find((r) => r.commit.hash === "main2")?.node.lane).toBe(0);
+    expect(graph.rows.find((r) => r.commit.hash === "main1")?.node.lane).toBe(0);
+  });
+
+  it("pushes the newer non-HEAD branch off lane 0", () => {
+    expect(graph.rows.find((r) => r.commit.hash === "feat2")?.node.lane).toBe(1);
+    expect(graph.rows.find((r) => r.commit.hash === "feat1")?.node.lane).toBe(1);
   });
 });
