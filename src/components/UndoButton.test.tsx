@@ -44,6 +44,18 @@ describe("UndoButton", () => {
     await waitFor(() => expect(screen.getByText(/偵測到外部變更/)).toBeInTheDocument());
   });
 
+  it("顯示 plan 後點取消:不執行 undo 且確認 UI 消失", async () => {
+    const { onUndo } = setup();
+    fireEvent.click(screen.getByRole("button", { name: /復原/ }));
+    await waitFor(() =>
+      expect(screen.getByRole("dialog", { name: "確認復原" })).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(onUndo).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "確認復原" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "確認復原" })).not.toBeInTheDocument();
+  });
+
   it("Cmd+Z 在輸入框聚焦時不觸發", async () => {
     const { onPlan } = setup();
     const input = document.createElement("input");

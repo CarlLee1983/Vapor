@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JournalEntry, ReflogEntry, SnapshotFileEntry } from "../types/git";
 import { getSnapshotDiff, listSnapshotFiles, restoreSnapshotFile } from "../lib/tauriApi";
 
@@ -9,6 +9,11 @@ interface TimeMachineDialogProps {
   onUndoEntry: (entryId: string) => Promise<unknown>;
   onChanged: () => void;
   onClose: () => void;
+}
+
+interface DialogMessage {
+  kind: "status" | "error";
+  text: string;
 }
 
 function formatTimestamp(value: string): string {
@@ -28,30 +33,58 @@ export function TimeMachineDialog({
   const [openEntryId, setOpenEntryId] = useState<string | null>(null);
   const [diffText, setDiffText] = useState<string>("");
   const [files, setFiles] = useState<SnapshotFileEntry[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<DialogMessage | null>(null);
+  const [busy, setBusy] = useState(false);
+  const dialogRef = useRef<HTMLElement>(null);
+  // 非同步結果落地前的守衛:只接受「目前展開的條目」的結果,
+  // 防止 unmount 或快速切換條目時的 stale setState。
+  const openEntryRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+    return () => {
+      openEntryRef.current = null;
+    };
+  }, []);
 
   const inspect = async (entryId: string) => {
     setOpenEntryId(entryId);
+    openEntryRef.current = entryId;
     setMessage(null);
     try {
       const [diff, fileList] = await Promise.all([
         getSnapshotDiff(repositoryPath, entryId),
         listSnapshotFiles(repositoryPath, entryId),
       ]);
+      if (openEntryRef.current !== entryId) return;
       setDiffText(diff);
       setFiles(fileList);
     } catch (cause) {
-      setMessage(`無法載入快照:${(cause as { message?: string }).message ?? String(cause)}`);
+      if (openEntryRef.current !== entryId) return;
+      setMessage({
+        kind: "error",
+        text: `無法載入快照:${(cause as { message?: string }).message ?? String(cause)}`,
+      });
     }
   };
 
   const rescueFile = async (entryId: string, filePath: string) => {
+    setBusy(true);
     try {
       await restoreSnapshotFile(repositoryPath, entryId, filePath);
-      setMessage(`已救回 ${filePath}`);
+      if (openEntryRef.current !== entryId) return;
+      setMessage({ kind: "status", text: `已救回 ${filePath}` });
       onChanged();
     } catch (cause) {
-      setMessage(`救回失敗:${(cause as { message?: string }).message ?? String(cause)}`);
+      if (openEntryRef.current !== entryId) return;
+      setMessage({
+        kind: "error",
+        text: `救回失敗:${(cause as { message?: string }).message ?? String(cause)}`,
+      });
+    } finally {
+      if (openEntryRef.current === entryId) {
+        setBusy(false);
+      }
     }
   };
 
@@ -66,8 +99,9 @@ export function TimeMachineDialog({
         aria-label="時光機"
         aria-modal="true"
         tabIndex={-1}
+        ref={dialogRef}
         onKeyDown={(event) => {
-          if (event.key === "Escape") onClose();
+          if (event.key === "Escape" && !busy) onClose();
         }}
       >
         <header className="dialog-header">
@@ -75,11 +109,19 @@ export function TimeMachineDialog({
             <h2>時光機</h2>
             <p className="dialog-subtitle">檢視 Vapor 操作日誌並還原到任意時刻。</p>
           </div>
-          <button type="button" onClick={onClose}>
+          <button type="button" disabled={busy} onClick={onClose}>
             關閉
           </button>
         </header>
-        {message ? <div role="status">{message}</div> : null}
+        {message ? (
+          message.kind === "error" ? (
+            <div className="error-banner" role="alert">
+              {message.text}
+            </div>
+          ) : (
+            <div role="status">{message.text}</div>
+          )
+        ) : null}
         <div className="dialog-body">
           <section aria-label="操作日誌">
             <h3>操作日誌</h3>
@@ -89,11 +131,11 @@ export function TimeMachineDialog({
                 <li key={entry.id}>
                   <span>{formatTimestamp(entry.timestamp)}</span>
                   <span>{entry.description}</span>
-                  <button type="button" onClick={() => void onUndoEntry(entry.id)}>
+                  <button type="button" disabled={busy} onClick={() => void onUndoEntry(entry.id)}>
                     回到此刻
                   </button>
                   {entry.snapshotRef ? (
-                    <button type="button" onClick={() => void inspect(entry.id)}>
+                    <button type="button" disabled={busy} onClick={() => void inspect(entry.id)}>
                       檢視變更
                     </button>
                   ) : (
@@ -107,6 +149,7 @@ export function TimeMachineDialog({
                             {file.path}
                             <button
                               type="button"
+                              disabled={busy}
                               onClick={() => void rescueFile(entry.id, file.path)}
                             >
                               救回 {file.path}
