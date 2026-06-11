@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
-import { CreateTagDialog } from "./components/CreateTagDialog";
-import { DeleteTagDialog } from "./components/DeleteTagDialog";
+import { TagsDialog } from "./components/TagsDialog";
 import { PushDialog } from "./components/PushDialog";
 import { PullDialog } from "./components/PullDialog";
 import { RemotesDialog } from "./components/RemotesDialog";
@@ -34,8 +33,7 @@ export default function App() {
   const layout = useLayoutPreferences();
   const [isPushOpen, setIsPushOpen] = useState(false);
   const [isPullOpen, setIsPullOpen] = useState(false);
-  const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
-  const [isDeleteTagOpen, setIsDeleteTagOpen] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDoctorOpen, setIsDoctorOpen] = useState(false);
@@ -94,8 +92,7 @@ export default function App() {
   useEffect(() => {
     setIsPushOpen(false);
     setIsPullOpen(false);
-    setIsCreateTagOpen(false);
-    setIsDeleteTagOpen(false);
+    setIsTagsOpen(false);
     setIsRemotesOpen(false);
   }, [workspace.activePath]);
 
@@ -164,11 +161,8 @@ export default function App() {
             <button type="button" disabled={!repoView.repository} onClick={() => setIsPullOpen(true)}>
               Pull
             </button>
-            <button type="button" disabled={!repoView.repository} onClick={() => setIsCreateTagOpen(true)}>
-              Tag
-            </button>
-            <button type="button" disabled={!repoView.repository} onClick={() => setIsDeleteTagOpen(true)}>
-              Delete Tag
+            <button type="button" disabled={!repoView.repository} onClick={() => setIsTagsOpen(true)}>
+              Tags
             </button>
             <span className="toolbar-divider" aria-hidden="true" />
             <LayoutControls
@@ -262,22 +256,11 @@ export default function App() {
           }}
         />
       ) : null}
-      {isCreateTagOpen && repoView.repository ? (
-        <CreateTagDialog
+      {isTagsOpen && repoView.repository ? (
+        <TagsDialog
           repository={repoView.repository}
-          onClose={() => setIsCreateTagOpen(false)}
-          onCreated={() => {
-            if (repoView.repositoryPath) {
-              void repoView.loadRepository(repoView.repositoryPath);
-            }
-          }}
-        />
-      ) : null}
-      {isDeleteTagOpen && repoView.repository ? (
-        <DeleteTagDialog
-          repository={repoView.repository}
-          onClose={() => setIsDeleteTagOpen(false)}
-          onDeleted={() => {
+          onClose={() => setIsTagsOpen(false)}
+          onChanged={() => {
             if (repoView.repositoryPath) {
               void repoView.loadRepository(repoView.repositoryPath);
             }
