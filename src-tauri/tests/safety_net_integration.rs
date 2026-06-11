@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use vapor_lib::git::journal;
+use vapor_lib::git::models::{DiscardChangesRequest, SafetyNetMode};
 use vapor_lib::git::runner::SystemGitRunner;
+use vapor_lib::git::service::GitService;
 use vapor_lib::git::snapshot;
 
 fn run_git(repo: &Path, args: &[&str]) {
@@ -74,6 +77,57 @@ fn snapshot_works_on_unborn_branch() {
 
     let result = snapshot::create_snapshot(&SystemGitRunner, &dir, "unborn-1", "discard").unwrap();
     assert!(result.commit.len() >= 7);
+}
+
+// ──────────────────────────────────────────────
+// Task 6: with_safety_net / discard_changes wrapping
+// ──────────────────────────────────────────────
+
+#[test]
+fn discard_creates_snapshot_and_journal_entry() {
+    let repo = init_repo();
+    std::fs::write(repo.join("a.txt"), "doomed\n").unwrap();
+
+    let service = GitService::new(SystemGitRunner);
+    service
+        .discard_changes(&DiscardChangesRequest {
+            repository_path: repo.clone(),
+            tracked_paths: vec!["a.txt".to_string()],
+            untracked_paths: vec![],
+            safety_net: SafetyNetMode::Auto,
+        })
+        .unwrap();
+
+    assert_eq!(std::fs::read_to_string(repo.join("a.txt")).unwrap(), "first\n");
+    let git_dir = repo.join(".git");
+    let entries = journal::read_journal(&git_dir).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert!(entries[0].snapshot_ref.starts_with("refs/vapor/snapshots/"));
+    assert!(entries[0].after_head.is_some());
+    // 快照裡留有被 discard 的內容
+    let show = Command::new("git")
+        .args(["show", &format!("{}:a.txt", entries[0].snapshot_ref)])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&show.stdout), "doomed\n");
+}
+
+#[test]
+fn skip_mode_runs_without_snapshot() {
+    let repo = init_repo();
+    std::fs::write(repo.join("a.txt"), "doomed\n").unwrap();
+    GitService::new(SystemGitRunner)
+        .discard_changes(&DiscardChangesRequest {
+            repository_path: repo.clone(),
+            tracked_paths: vec!["a.txt".to_string()],
+            untracked_paths: vec![],
+            safety_net: SafetyNetMode::Skip,
+        })
+        .unwrap();
+    let entries = journal::read_journal(&repo.join(".git")).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].snapshot_ref, "");
 }
 
 // ──────────────────────────────────────────────

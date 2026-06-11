@@ -87,12 +87,21 @@ impl<R: GitRunner> GitService<R> {
         request: &super::models::PullRequest,
     ) -> Result<super::models::PullResponse, GitError> {
         let preview = super::command_builder::pull_preview(request)?;
-        let output = self.runner.run(&request.repository_path, &preview.args)?;
-        Ok(super::models::PullResponse {
-            preview,
-            stdout: output.stdout,
-            stderr: output.stderr,
-        })
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::Pull,
+            format!("拉取 {}/{}", request.remote, request.remote_branch),
+            None,
+            |service| {
+                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                Ok(super::models::PullResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        )
     }
 
     pub fn add_remote(
@@ -365,7 +374,35 @@ impl<R: GitRunner> GitService<R> {
         request: &super::models::DeleteBranchRequest,
     ) -> Result<super::models::BranchMutationResponse, GitError> {
         let preview = super::command_builder::delete_branch_preview(request)?;
-        self.run_branch_mutation(&request.repository_path, preview)
+        // 先取得 tip hash,以便 Undo 能重建分支
+        let tip = self
+            .runner
+            .run(
+                &request.repository_path,
+                &[
+                    "rev-parse".to_string(),
+                    "--verify".to_string(),
+                    request.branch_name.clone(),
+                ],
+            )
+            .ok()
+            .map(|output| output.stdout.trim().to_string());
+        let deleted_branch = tip.map(|t| (request.branch_name.clone(), t));
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::DeleteBranch,
+            format!("刪除分支 {}", request.branch_name),
+            deleted_branch,
+            |service| {
+                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                Ok(super::models::BranchMutationResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        )
     }
 
     fn run_stash_mutation(
@@ -401,7 +438,21 @@ impl<R: GitRunner> GitService<R> {
         request: &super::models::StashRefRequest,
     ) -> Result<super::models::StashMutationResponse, GitError> {
         let preview = super::command_builder::apply_stash_preview(request)?;
-        self.run_stash_mutation(&request.repository_path, preview)
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::StashApply,
+            format!("套用收藏 {}", request.stash_ref),
+            None,
+            |service| {
+                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                Ok(super::models::StashMutationResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        )
     }
 
     pub fn pop_stash(
@@ -409,7 +460,21 @@ impl<R: GitRunner> GitService<R> {
         request: &super::models::StashRefRequest,
     ) -> Result<super::models::StashMutationResponse, GitError> {
         let preview = super::command_builder::pop_stash_preview(request)?;
-        self.run_stash_mutation(&request.repository_path, preview)
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::StashPop,
+            format!("彈出收藏 {}", request.stash_ref),
+            None,
+            |service| {
+                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                Ok(super::models::StashMutationResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        )
     }
 
     pub fn drop_stash(
@@ -425,12 +490,22 @@ impl<R: GitRunner> GitService<R> {
         request: &super::models::CherryPickRequest,
     ) -> Result<super::models::CherryPickResponse, GitError> {
         let preview = super::command_builder::cherry_pick_preview(request)?;
-        let output = self.runner.run(&request.repository_path, &preview.args)?;
-        Ok(super::models::CherryPickResponse {
-            preview,
-            stdout: output.stdout,
-            stderr: output.stderr,
-        })
+        let short_hash: String = request.commit_hash.chars().take(7).collect();
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::CherryPick,
+            format!("揀選 {short_hash}"),
+            None,
+            |service| {
+                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                Ok(super::models::CherryPickResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        )
     }
 
     pub fn abort_operation(&self, path: &Path) -> Result<super::models::CherryPickResponse, GitError> {
@@ -485,12 +560,21 @@ impl<R: GitRunner> GitService<R> {
         request: &super::models::MergeBranchRequest,
     ) -> Result<super::models::MergeBranchResponse, GitError> {
         let preview = super::command_builder::merge_branch_preview(request)?;
-        let output = self.runner.run(&request.repository_path, &preview.args)?;
-        Ok(super::models::MergeBranchResponse {
-            preview,
-            stdout: output.stdout,
-            stderr: output.stderr,
-        })
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::Merge,
+            format!("合併 {}", request.branch_name),
+            None,
+            |service| {
+                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                Ok(super::models::MergeBranchResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        )
     }
 
     fn discard_previews(
@@ -530,18 +614,137 @@ impl<R: GitRunner> GitService<R> {
         &self,
         request: &super::models::DiscardChangesRequest,
     ) -> Result<super::models::DiscardChangesResponse, GitError> {
-        let previews = Self::discard_previews(request)?;
-        let mut stdout = String::new();
-        let mut stderr = String::new();
-        for preview in &previews {
-            let output = self.runner.run(&request.repository_path, &preview.args)?;
-            stdout.push_str(&output.stdout);
-            stderr.push_str(&output.stderr);
+        let file_count = request.tracked_paths.len() + request.untracked_paths.len();
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::Discard,
+            format!("捨棄 {file_count} 個檔案的變更"),
+            None,
+            |service| {
+                let previews = Self::discard_previews(request)?;
+                let mut stdout = String::new();
+                let mut stderr = String::new();
+                for preview in &previews {
+                    let output = service.runner.run(&request.repository_path, &preview.args)?;
+                    stdout.push_str(&output.stdout);
+                    stderr.push_str(&output.stderr);
+                }
+                Ok(super::models::DiscardChangesResponse { previews, stdout, stderr })
+            },
+        )
+    }
+
+    /// 危險操作統一包裝:快照 → 寫日誌 → 執行 → 回填 after_head。
+    /// 快照失敗時中止操作(SnapshotFailed),除非 mode 為 Skip。
+    fn with_safety_net<T>(
+        &self,
+        repository_path: &Path,
+        mode: &super::models::SafetyNetMode,
+        op_type: super::journal::SafetyOpType,
+        description: String,
+        deleted_branch: Option<(String, String)>,
+        run_op: impl FnOnce(&Self) -> Result<T, GitError>,
+    ) -> Result<T, GitError> {
+        use super::models::SafetyNetMode;
+
+        let git_dir = super::snapshot::resolve_git_dir(&self.runner, repository_path)?;
+        let before_head = self
+            .runner
+            .run(
+                repository_path,
+                &["rev-parse".to_string(), "--verify".to_string(), "HEAD".to_string()],
+            )
+            .ok()
+            .map(|output| output.stdout.trim().to_string());
+        let before_branch = self
+            .runner
+            .run(
+                repository_path,
+                &[
+                    "symbolic-ref".to_string(),
+                    "--short".to_string(),
+                    "-q".to_string(),
+                    "HEAD".to_string(),
+                ],
+            )
+            .ok()
+            .map(|output| output.stdout.trim().to_string());
+
+        let op_label = format!("{op_type:?}").to_lowercase();
+        let id = super::snapshot::new_snapshot_id(&op_label);
+
+        let snapshot_ref = match mode {
+            SafetyNetMode::Skip => String::new(),
+            SafetyNetMode::Auto | SafetyNetMode::Force => {
+                if matches!(mode, SafetyNetMode::Auto) {
+                    self.guard_snapshot_size(repository_path)?;
+                }
+                super::snapshot::create_snapshot(&self.runner, repository_path, &id, &op_label)?
+                    .snapshot_ref
+            }
+        };
+
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs().to_string())
+            .unwrap_or_default();
+        super::journal::append_entry(
+            &git_dir,
+            super::journal::JournalEntry {
+                id: id.clone(),
+                timestamp,
+                op_type,
+                description,
+                before_head,
+                before_branch,
+                snapshot_ref,
+                after_head: None,
+                deleted_branch: deleted_branch.as_ref().map(|(name, _)| name.clone()),
+                deleted_branch_tip: deleted_branch.map(|(_, tip)| tip),
+            },
+        )?;
+
+        let result = run_op(self)?;
+
+        let after_head = self
+            .runner
+            .run(
+                repository_path,
+                &["rev-parse".to_string(), "--verify".to_string(), "HEAD".to_string()],
+            )
+            .ok()
+            .map(|output| output.stdout.trim().to_string());
+        super::journal::set_after_head(&git_dir, &id, after_head)?;
+        Ok(result)
+    }
+
+    /// 變更總量門檻(預設 500MB):超過時要求使用者明確選 Force 或 Skip。
+    fn guard_snapshot_size(&self, repository_path: &Path) -> Result<(), GitError> {
+        const THRESHOLD_BYTES: u64 = 500 * 1024 * 1024;
+        let status = self.runner.run(
+            repository_path,
+            &["status".to_string(), "--porcelain".to_string()],
+        )?;
+        let mut total: u64 = 0;
+        for line in status.stdout.lines() {
+            if line.len() <= 3 {
+                continue;
+            }
+            let path = line[3..].trim().trim_matches('"');
+            if let Ok(metadata) = std::fs::metadata(repository_path.join(path)) {
+                total = total.saturating_add(metadata.len());
+            }
         }
-        Ok(super::models::DiscardChangesResponse {
-            previews,
-            stdout,
-            stderr,
-        })
+        if total > THRESHOLD_BYTES {
+            return Err(GitError {
+                code: super::models::GitErrorCode::SnapshotTooLarge,
+                message: "Uncommitted changes exceed 500MB; snapshotting may take a while."
+                    .to_string(),
+                hint: "Choose to snapshot anyway, or proceed without a snapshot.".to_string(),
+                stderr: String::new(),
+            });
+        }
+        Ok(())
     }
 }
