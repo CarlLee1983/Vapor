@@ -219,6 +219,36 @@ fn plan_undo_detects_external_changes() {
 }
 
 #[test]
+fn execute_undo_rejects_stale_last_entry() {
+    let repo = init_repo();
+    std::fs::write(repo.join("a.txt"), "doomed\n").unwrap();
+    GitService::new(SystemGitRunner)
+        .discard_changes(&DiscardChangesRequest {
+            repository_path: repo.clone(),
+            tracked_paths: vec!["a.txt".to_string()],
+            untracked_paths: vec![],
+            safety_net: SafetyNetMode::Auto,
+        })
+        .unwrap();
+    let entries = journal::read_journal(&repo.join(".git")).unwrap();
+    let last_id = entries.last().unwrap().id.clone();
+
+    // 模擬使用者在終端機額外提交 → 最後一筆 entry 的 after_head 已過期
+    std::fs::write(repo.join("external.txt"), "outside\n").unwrap();
+    run_git(&repo, &["add", "."]);
+    run_git(&repo, &["commit", "-m", "external"]);
+
+    let error = undo::execute_undo(&SystemGitRunner, &repo, &last_id).unwrap_err();
+    assert_eq!(error.code, vapor_lib::git::models::GitErrorCode::UndoStale);
+    // worktree 未被改動
+    assert_eq!(std::fs::read_to_string(repo.join("a.txt")).unwrap(), "first\n");
+    assert_eq!(
+        std::fs::read_to_string(repo.join("external.txt")).unwrap(),
+        "outside\n"
+    );
+}
+
+#[test]
 fn delete_branch_then_undo_recreates_branch() {
     let repo = init_repo();
     run_git(&repo, &["branch", "doomed"]);

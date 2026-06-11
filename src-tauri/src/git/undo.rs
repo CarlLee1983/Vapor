@@ -81,6 +81,15 @@ pub fn execute_undo<R: GitRunner>(
     let entry = find_entry(&entries, Some(entry_id))?;
     let plan = build_plan(&entry);
 
+    // 執行期 stale 再驗證(TOCTOU):只在目標條目是日誌最後一筆時檢查,
+    // 與 plan_undo(None) 同語意。時光機面板對較舊條目的「回到此刻」不檢查
+    // (使用者明確選擇,且 Redo 快照已是安全網)。
+    if entries.last().map(|last| last.id.as_str()) == Some(entry_id)
+        && entry.after_head != current_head(runner, repo)
+    {
+        return Err(stale_error());
+    }
+
     // Undo 自己先拍快照 + 寫日誌,使 Undo 可被 Redo。
     let redo_id = snapshot::new_snapshot_id("undo");
     let redo_snapshot = snapshot::create_snapshot(runner, repo, &redo_id, "undo")?;
@@ -104,20 +113,27 @@ pub fn execute_undo<R: GitRunner>(
         },
     )?;
 
-    if let Some((name, tip)) = &plan.recreate_branch {
-        runner.run(repo, &["branch".to_string(), name.clone(), tip.clone()])?;
-    } else {
-        if let Some(target) = &plan.head_target {
-            runner.run(
-                repo,
-                &["reset".to_string(), "--hard".to_string(), target.clone()],
-            )?;
+    // 還原中途失敗也要回填 redo 條目的 after_head,否則之後的一鍵 Undo 會永遠 stale;
+    // 保留 redo 條目作為救援入口(與 with_safety_net 的失敗回填語意一致)。
+    let result = (|| -> Result<(), GitError> {
+        if let Some((name, tip)) = &plan.recreate_branch {
+            runner.run(repo, &["branch".to_string(), name.clone(), tip.clone()])?;
+        } else {
+            if let Some(target) = &plan.head_target {
+                runner.run(
+                    repo,
+                    &["reset".to_string(), "--hard".to_string(), target.clone()],
+                )?;
+            }
+            if plan.restore_worktree {
+                snapshot::restore_worktree(runner, repo, &entry.snapshot_ref)?;
+            }
         }
-        if plan.restore_worktree {
-            snapshot::restore_worktree(runner, repo, &entry.snapshot_ref)?;
-        }
-    }
+        Ok(())
+    })();
 
-    journal::set_after_head(&git_dir, &redo_id, current_head(runner, repo))?;
+    let backfill = journal::set_after_head(&git_dir, &redo_id, current_head(runner, repo));
+    result?;
+    backfill?;
     Ok(plan)
 }
