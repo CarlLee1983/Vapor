@@ -10,6 +10,8 @@ use crate::git::models::{
     PullRequest, PullResponse, PushRequest, PushResponse, RemoteMutationResponse, RemoveRemoteRequest,
     RenameBranchRequest, RepositoryRequest, RepositoryState, SetRemoteUrlRequest, StageRequest, StageResponse,
     StashMutationResponse, StashRefRequest, TagsmithConfigRequest, TagsmithConfigResponse,
+    RestoreSnapshotFileRequest, SnapshotFilesResponse, SnapshotRefRequest, TimelineRequest,
+    TimelineResponse, UndoPlan, UndoPlanRequest, UndoRequest,
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
@@ -451,6 +453,90 @@ pub fn doctor_run() -> Result<crate::doctor::models::DoctorReport, GitError> {
 pub fn doctor_fix(id: crate::doctor::models::CheckId) -> Result<String, GitError> {
     let binary = resolve_binary()?;
     crate::doctor::fixes::apply(id, &binary)
+}
+
+#[tauri::command]
+pub fn get_timeline(request: TimelineRequest) -> Result<TimelineResponse, GitError> {
+    let runner = SystemGitRunner;
+    let git_dir = crate::git::snapshot::resolve_git_dir(&runner, &request.repository_path)?;
+    let entries = crate::git::journal::read_journal(&git_dir)?;
+    let reflog = crate::git::snapshot::read_reflog(&runner, &request.repository_path, 100)?;
+    Ok(TimelineResponse { entries, reflog })
+}
+
+#[tauri::command]
+pub fn plan_undo(request: UndoPlanRequest) -> Result<UndoPlan, GitError> {
+    crate::git::undo::plan_undo(
+        &SystemGitRunner,
+        &request.repository_path,
+        request.entry_id.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub async fn execute_undo(request: UndoRequest) -> Result<UndoPlan, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::git::undo::execute_undo(&SystemGitRunner, &request.repository_path, &request.entry_id)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Undo task failed before Git completed.".to_string(),
+        hint: "Refresh the repository and try again.".to_string(),
+        stderr: error.to_string(),
+    })?
+}
+
+fn snapshot_ref_for_entry(request_path: &std::path::Path, entry_id: &str) -> Result<String, GitError> {
+    let git_dir = crate::git::snapshot::resolve_git_dir(&SystemGitRunner, request_path)?;
+    let entries = crate::git::journal::read_journal(&git_dir)?;
+    entries
+        .iter()
+        .find(|entry| entry.id == entry_id && !entry.snapshot_ref.is_empty())
+        .map(|entry| entry.snapshot_ref.clone())
+        .ok_or_else(|| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Snapshot not found for this operation.".to_string(),
+            hint: "It may have been cleaned up by the retention policy.".to_string(),
+            stderr: String::new(),
+        })
+}
+
+#[tauri::command]
+pub fn get_snapshot_diff(request: SnapshotRefRequest) -> Result<DiffResponse, GitError> {
+    let reference = snapshot_ref_for_entry(&request.repository_path, &request.entry_id)?;
+    let text = crate::git::snapshot::snapshot_diff(&SystemGitRunner, &request.repository_path, &reference)?;
+    Ok(DiffResponse { text })
+}
+
+#[tauri::command]
+pub fn list_snapshot_files(request: SnapshotRefRequest) -> Result<SnapshotFilesResponse, GitError> {
+    let reference = snapshot_ref_for_entry(&request.repository_path, &request.entry_id)?;
+    let files = crate::git::snapshot::list_snapshot_files(&SystemGitRunner, &request.repository_path, &reference)?;
+    Ok(SnapshotFilesResponse { files })
+}
+
+#[tauri::command]
+pub fn restore_snapshot_file(request: RestoreSnapshotFileRequest) -> Result<(), GitError> {
+    let reference = snapshot_ref_for_entry(&request.repository_path, &request.entry_id)?;
+    crate::git::snapshot::restore_file(
+        &SystemGitRunner,
+        &request.repository_path,
+        &reference,
+        &request.file_path,
+    )
+}
+
+#[tauri::command]
+pub fn cleanup_snapshots(request: TimelineRequest) -> Result<(), GitError> {
+    const KEEP_LATEST: usize = 30;
+    const MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;
+    crate::git::snapshot::cleanup_snapshots(
+        &SystemGitRunner,
+        &request.repository_path,
+        KEEP_LATEST,
+        MAX_AGE_SECS,
+    )
 }
 
 /// Open the given repository in a new, independent OS window.

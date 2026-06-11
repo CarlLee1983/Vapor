@@ -81,7 +81,14 @@ pub fn run() {
             commands::detect_install_source,
             commands::doctor_run,
             commands::doctor_fix,
-            commands::open_repo_window
+            commands::open_repo_window,
+            commands::get_timeline,
+            commands::plan_undo,
+            commands::execute_undo,
+            commands::get_snapshot_diff,
+            commands::list_snapshot_files,
+            commands::restore_snapshot_file,
+            commands::cleanup_snapshots
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
