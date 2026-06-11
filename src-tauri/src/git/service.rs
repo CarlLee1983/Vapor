@@ -375,18 +375,7 @@ impl<R: GitRunner> GitService<R> {
     ) -> Result<super::models::BranchMutationResponse, GitError> {
         let preview = super::command_builder::delete_branch_preview(request)?;
         // 先取得 tip hash,以便 Undo 能重建分支
-        let tip = self
-            .runner
-            .run(
-                &request.repository_path,
-                &[
-                    "rev-parse".to_string(),
-                    "--verify".to_string(),
-                    request.branch_name.clone(),
-                ],
-            )
-            .ok()
-            .map(|output| output.stdout.trim().to_string());
+        let tip = self.rev_parse_optional(&request.repository_path, &request.branch_name);
         let deleted_branch = tip.map(|t| (request.branch_name.clone(), t));
         self.with_safety_net(
             &request.repository_path,
@@ -405,6 +394,8 @@ impl<R: GitRunner> GitService<R> {
         )
     }
 
+    // create/drop stash 不走 safety net:create 本身就是保存點,drop 的內容仍可由 stash reflog 救回,
+    // 兩者都不會破壞 working tree;只有 apply/pop 會改動 working tree 才需要快照。
     fn run_stash_mutation(
         &self,
         repository_path: &Path,
@@ -649,14 +640,7 @@ impl<R: GitRunner> GitService<R> {
         use super::models::SafetyNetMode;
 
         let git_dir = super::snapshot::resolve_git_dir(&self.runner, repository_path)?;
-        let before_head = self
-            .runner
-            .run(
-                repository_path,
-                &["rev-parse".to_string(), "--verify".to_string(), "HEAD".to_string()],
-            )
-            .ok()
-            .map(|output| output.stdout.trim().to_string());
+        let before_head = self.current_head(repository_path);
         let before_branch = self
             .runner
             .run(
@@ -671,8 +655,18 @@ impl<R: GitRunner> GitService<R> {
             .ok()
             .map(|output| output.stdout.trim().to_string());
 
-        let op_label = format!("{op_type:?}").to_lowercase();
-        let id = super::snapshot::new_snapshot_id(&op_label);
+        // 顯式 match:新增 SafetyOpType variant 時編譯器會在這裡提醒補 label。
+        let op_label = match op_type {
+            super::journal::SafetyOpType::Merge => "merge",
+            super::journal::SafetyOpType::Pull => "pull",
+            super::journal::SafetyOpType::Discard => "discard",
+            super::journal::SafetyOpType::StashApply => "stash-apply",
+            super::journal::SafetyOpType::StashPop => "stash-pop",
+            super::journal::SafetyOpType::CherryPick => "cherry-pick",
+            super::journal::SafetyOpType::DeleteBranch => "delete-branch",
+            super::journal::SafetyOpType::Undo => "undo",
+        };
+        let id = super::snapshot::new_snapshot_id(op_label);
 
         let snapshot_ref = match mode {
             SafetyNetMode::Skip => String::new(),
@@ -680,7 +674,7 @@ impl<R: GitRunner> GitService<R> {
                 if matches!(mode, SafetyNetMode::Auto) {
                     self.guard_snapshot_size(repository_path)?;
                 }
-                super::snapshot::create_snapshot(&self.runner, repository_path, &id, &op_label)?
+                super::snapshot::create_snapshot(&self.runner, repository_path, &id, op_label)?
                     .snapshot_ref
             }
         };
@@ -705,18 +699,30 @@ impl<R: GitRunner> GitService<R> {
             },
         )?;
 
-        let result = run_op(self)?;
+        // 不論操作成敗都回填 after_head:merge 衝突等失敗後仍能一鍵復原。
+        let result = run_op(self);
+        let after_head = self.current_head(repository_path);
+        super::journal::set_after_head(&git_dir, &id, after_head)?;
+        result
+    }
 
-        let after_head = self
-            .runner
+    /// `git rev-parse --verify <reference>`;失敗(如 unborn branch)回 None。
+    fn rev_parse_optional(&self, repository_path: &Path, reference: &str) -> Option<String> {
+        self.runner
             .run(
                 repository_path,
-                &["rev-parse".to_string(), "--verify".to_string(), "HEAD".to_string()],
+                &[
+                    "rev-parse".to_string(),
+                    "--verify".to_string(),
+                    reference.to_string(),
+                ],
             )
             .ok()
-            .map(|output| output.stdout.trim().to_string());
-        super::journal::set_after_head(&git_dir, &id, after_head)?;
-        Ok(result)
+            .map(|output| output.stdout.trim().to_string())
+    }
+
+    fn current_head(&self, repository_path: &Path) -> Option<String> {
+        self.rev_parse_optional(repository_path, "HEAD")
     }
 
     /// 變更總量門檻(預設 500MB):超過時要求使用者明確選 Force 或 Skip。
@@ -731,8 +737,14 @@ impl<R: GitRunner> GitService<R> {
             if line.len() <= 3 {
                 continue;
             }
-            let path = line[3..].trim().trim_matches('"');
-            if let Ok(metadata) = std::fs::metadata(repository_path.join(path)) {
+            // porcelain v1 的 rename/copy 行是 `R  old -> new`,只有 new 存在於 working tree。
+            let raw = line[3..].trim();
+            let path_str = if let Some((_old, new)) = raw.split_once(" -> ") {
+                new.trim_matches('"')
+            } else {
+                raw.trim_matches('"')
+            };
+            if let Ok(metadata) = std::fs::metadata(repository_path.join(path_str)) {
                 total = total.saturating_add(metadata.len());
             }
         }
