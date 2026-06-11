@@ -4,6 +4,7 @@ import type {
   CommitRequest,
   CommitResponse,
   CommitSummary,
+  DiffRequest,
   GitCommandPreview,
   PullRequest,
   PullResponse,
@@ -32,9 +33,14 @@ export async function getCommitLog(repositoryPath: string, limit = 200, skip = 0
   return invoke<CommitSummary[]>("get_commit_log", { request: { repositoryPath, limit, skip } });
 }
 
-export async function getDiff(repositoryPath: string, commitHash?: string, filePath?: string): Promise<string> {
+export async function getDiff(request: DiffRequest): Promise<string> {
   const response = await invoke<{ text: string }>("get_diff", {
-    request: { repositoryPath, commitHash: commitHash ?? null, filePath: filePath ?? null },
+    request: {
+      repositoryPath: request.repositoryPath,
+      scope: request.scope,
+      commitHash: request.commitHash ?? null,
+      filePath: request.filePath ?? null,
+    },
   });
   return response.text;
 }

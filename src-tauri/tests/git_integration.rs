@@ -2,7 +2,7 @@ use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 use vapor_lib::git::models::{
-    AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest,
+    AddRemoteRequest, CommitRequest, DiffScope, PullRequest, PushRequest, RemoveRemoteRequest,
     SetRemoteUrlRequest, StageRequest, TagPushMode,
 };
 use vapor_lib::git::runner::SystemGitRunner;
@@ -271,6 +271,33 @@ fn stages_commits_and_unstages_files() {
         .expect("unstage readme");
     let cached = git_stdout(work.path(), &["diff", "--cached", "--name-only"]);
     assert!(!cached.contains("README.md"), "expected clean index, got {cached}");
+}
+
+#[test]
+fn returns_distinct_staged_and_unstaged_diffs_for_partial_file() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("README.md"), "staged change\n").expect("write staged");
+    service
+        .stage(&StageRequest {
+            repository_path: work.path().to_path_buf(),
+            paths: vec!["README.md".to_string()],
+        })
+        .expect("stage");
+    std::fs::write(work.path().join("README.md"), "staged change\nunstaged change\n")
+        .expect("write unstaged");
+
+    let staged = service
+        .diff(work.path(), DiffScope::Staged, None, Some("README.md"))
+        .expect("staged diff");
+    let unstaged = service
+        .diff(work.path(), DiffScope::Unstaged, None, Some("README.md"))
+        .expect("unstaged diff");
+
+    assert!(staged.contains("+staged change"), "expected staged change, got {staged}");
+    assert!(!staged.contains("+unstaged change"), "staged diff should not include unstaged change: {staged}");
+    assert!(unstaged.contains("+unstaged change"), "expected unstaged change, got {unstaged}");
 }
 
 #[test]

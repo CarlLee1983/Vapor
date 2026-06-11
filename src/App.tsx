@@ -231,7 +231,7 @@ export default function App() {
                   ? `Commit: ${repoView.selectedCommit.hash.slice(0, 7)} · ${repoView.selectedCommit.author}`
                   : undefined
                 : repoView.selectedFile
-                ? repoView.selectedFile.path
+                ? `${repoView.selectedFile.scope === "staged" ? "Staged" : "Unstaged"}: ${repoView.selectedFile.file.path}`
                 : undefined
             }
           />

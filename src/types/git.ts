@@ -58,6 +58,20 @@ export interface CommitSummary {
   refs: string[];
 }
 
+export type DiffScope = "unstaged" | "staged" | "commit";
+
+export interface DiffRequest {
+  repositoryPath: string;
+  scope: DiffScope;
+  commitHash?: string | null;
+  filePath?: string | null;
+}
+
+export interface SelectedFileTarget {
+  file: FileStatus;
+  scope: Extract<DiffScope, "unstaged" | "staged">;
+}
+
 export interface PushRequest {
   repositoryPath: string;
   remote: string;

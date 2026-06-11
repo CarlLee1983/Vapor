@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkingTreePanel } from "./WorkingTreePanel";
-import type { RepositoryState } from "../types/git";
+import type { RepositoryState, SelectedFileTarget } from "../types/git";
 
 const baseRepo: RepositoryState = {
   root: "/repo",
@@ -52,17 +52,39 @@ describe("WorkingTreePanel", () => {
     expect(props.onStage).toHaveBeenCalledWith(["dirty.ts"]);
   });
 
-  it("marks both rows active when a partially-staged file is selected", () => {
+  it("selects staged rows with staged scope", async () => {
+    const user = userEvent.setup();
+    const props = setup();
+    await user.click(screen.getByRole("button", { name: /^staged\.ts/i }));
+    expect(props.onSelectFile).toHaveBeenCalledWith(
+      { path: "staged.ts", indexStatus: "M", worktreeStatus: "." },
+      "staged",
+    );
+  });
+
+  it("selects unstaged rows with unstaged scope", async () => {
+    const user = userEvent.setup();
+    const props = setup();
+    await user.click(screen.getByRole("button", { name: /^dirty\.ts/i }));
+    expect(props.onSelectFile).toHaveBeenCalledWith(
+      { path: "dirty.ts", indexStatus: ".", worktreeStatus: "M" },
+      "unstaged",
+    );
+  });
+
+  it("marks only the selected scope active for a partially-staged file", () => {
     const partial = { path: "partial.ts", indexStatus: "M", worktreeStatus: "M" };
+    const selectedFile: SelectedFileTarget = { file: partial, scope: "staged" };
     setup({
       repository: { ...baseRepo, workingTree: [partial] },
-      selectedFile: partial,
+      selectedFile,
     });
     const rows = screen
       .getAllByText("partial.ts")
       .map((el) => el.closest(".file-row"));
     expect(rows).toHaveLength(2);
-    rows.forEach((row) => expect(row).toHaveClass("active"));
+    expect(rows[0]).toHaveClass("active");
+    expect(rows[1]).not.toHaveClass("active");
   });
 
   it("unstages all staged files", async () => {
