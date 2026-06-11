@@ -1,5 +1,6 @@
 import type { GraphEdge, GraphRow } from "../lib/commitGraph";
 import { LANE_WIDTH, NODE_RADIUS, ROW_HEIGHT } from "../lib/commitGraph";
+import { describeRef } from "../lib/refs";
 
 interface Props {
   rows: GraphRow[];
@@ -60,17 +61,20 @@ export function CommitGraph({ rows, width }: Props) {
           />
         ));
       })}
-      {rows.map((row, rowIndex) => (
-        <circle
-          key={`${row.commit.hash}-node`}
-          cx={laneX(row.node.lane)}
-          cy={rowIndex * ROW_HEIGHT + ROW_HEIGHT / 2}
-          r={NODE_RADIUS}
-          fill={row.node.color}
-          stroke="var(--bg-primary)"
-          strokeWidth={1.5}
-        />
-      ))}
+      {rows.map((row, rowIndex) => {
+        const isHead = row.commit.refs.some((ref) => describeRef(ref).kind === "head");
+        return (
+          <circle
+            key={`${row.commit.hash}-node`}
+            cx={laneX(row.node.lane)}
+            cy={rowIndex * ROW_HEIGHT + ROW_HEIGHT / 2}
+            r={NODE_RADIUS}
+            fill={isHead ? "var(--bg-primary)" : row.node.color}
+            stroke={isHead ? row.node.color : "var(--bg-primary)"}
+            strokeWidth={isHead ? 2 : 1.5}
+          />
+        );
+      })}
     </svg>
   );
 }

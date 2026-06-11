@@ -5,8 +5,8 @@ import { buildCommitGraph, LANE_WIDTH, ROW_HEIGHT } from "../lib/commitGraph";
 import type { CommitSummary } from "../types/git";
 import type { GraphEdge } from "../lib/commitGraph";
 
-function commit(hash: string, parents: string[]): CommitSummary {
-  return { hash, parents, author: "T", date: "2026-06-09T00:00:00+08:00", subject: hash, refs: [] };
+function commit(hash: string, parents: string[], refs: string[] = []): CommitSummary {
+  return { hash, parents, author: "T", date: "2026-06-09T00:00:00+08:00", subject: hash, refs };
 }
 
 describe("CommitGraph", () => {
@@ -55,6 +55,24 @@ describe("CommitGraph", () => {
 
     it("keeps through edges vertical", () => {
       expect(edgePath(edge("through", 2, 2), 0)).toBe(`M ${laneX(2)},0 L ${laneX(2)},${ROW_HEIGHT}`);
+    });
+  });
+
+  describe("CommitGraph nodes", () => {
+    it("draws a HEAD commit as a hollow ring (bg fill, lane-color stroke)", () => {
+      const graph = buildCommitGraph([commit("c1", [], ["HEAD -> main"])]);
+      const { container } = render(<CommitGraph rows={graph.rows} width={16} />);
+      const circle = container.querySelector("circle")!;
+      expect(circle.getAttribute("fill")).toBe("var(--bg-primary)");
+      expect(circle.getAttribute("stroke")).toBe(graph.rows[0].node.color);
+    });
+
+    it("draws a non-HEAD commit as a solid dot", () => {
+      const graph = buildCommitGraph([commit("c1", [])]);
+      const { container } = render(<CommitGraph rows={graph.rows} width={16} />);
+      const circle = container.querySelector("circle")!;
+      expect(circle.getAttribute("fill")).toBe(graph.rows[0].node.color);
+      expect(circle.getAttribute("stroke")).toBe("var(--bg-primary)");
     });
   });
 });
