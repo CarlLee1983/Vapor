@@ -1,3 +1,11 @@
+//! 快照模組:
+//! - Task 4: `resolve_git_dir`、`new_snapshot_id`、`create_snapshot`(臨時 index 策略)
+//! - Task 5: `validate_snapshot_ref`、`validate_relative_path`、`snapshot_diff`、
+//!   `list_snapshot_files`、`restore_file`、`restore_worktree`、`cleanup_snapshots`、`read_reflog`
+//!
+//! v1 限制:還原後原本 staged/unstaged 的區分會消失,變更一律回到 unstaged 狀態——
+//! 快照的 tree 是 `add -A` 後的合併結果。
+
 use super::models::{GitError, GitErrorCode};
 use super::runner::GitRunner;
 use std::path::{Path, PathBuf};
