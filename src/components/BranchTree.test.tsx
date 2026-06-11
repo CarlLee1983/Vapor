@@ -1,3 +1,4 @@
+// Task 5: auto-expand current-branch path is covered in the third test case below.
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
