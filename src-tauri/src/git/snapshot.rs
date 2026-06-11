@@ -39,7 +39,7 @@ fn snapshot_error(stage: &str, error: GitError) -> GitError {
         code: GitErrorCode::SnapshotFailed,
         message: format!("Could not create a safety snapshot ({stage})."),
         hint: "The operation was aborted to protect your work. You can retry, or run it without a snapshot.".to_string(),
-        stderr: error.stderr,
+        stderr: format!("{}\n{}", error.message, error.stderr).trim().to_string(),
     }
 }
 
@@ -136,11 +136,10 @@ pub fn create_snapshot<R: GitRunner>(
 
 /// 內部 ref 防呆:只接受我們自己的 namespace,杜絕任意 ref 注入。
 fn validate_snapshot_ref(reference: &str) -> Result<(), GitError> {
+    let suffix = reference.strip_prefix("refs/vapor/snapshots/").unwrap_or("");
     let valid = reference.starts_with("refs/vapor/snapshots/")
-        && reference
-            .trim_start_matches("refs/vapor/snapshots/")
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-');
+        && !suffix.is_empty()
+        && suffix.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
     if valid {
         Ok(())
     } else {
@@ -274,8 +273,8 @@ pub fn cleanup_snapshots<R: GitRunner>(
         &[
             "for-each-ref".to_string(),
             "refs/vapor/snapshots".to_string(),
-            "--sort=-creatordate".to_string(),
-            "--sort=-refname".to_string(),
+            "--sort=-refname".to_string(),     // 同秒建立的快照以 ID 降序決勝
+            "--sort=-creatordate".to_string(), // 主鍵:建立時間降序
             "--format=%(refname)%09%(creatordate:unix)".to_string(),
         ],
     )?;
@@ -358,4 +357,26 @@ pub fn read_reflog<R: GitRunner>(
             })
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_snapshot_ref_accepts_valid_id() {
+        assert!(validate_snapshot_ref("refs/vapor/snapshots/1718000000000-discard").is_ok());
+    }
+
+    #[test]
+    fn validate_snapshot_ref_rejects_empty_suffix() {
+        assert!(validate_snapshot_ref("refs/vapor/snapshots/").is_err());
+    }
+
+    #[test]
+    fn validate_snapshot_ref_rejects_foreign_namespace_and_bad_chars() {
+        assert!(validate_snapshot_ref("refs/heads/main").is_err());
+        assert!(validate_snapshot_ref("refs/vapor/snapshots/../heads/main").is_err());
+        assert!(validate_snapshot_ref("refs/vapor/snapshots/a b").is_err());
+    }
 }
