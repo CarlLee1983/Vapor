@@ -5,7 +5,8 @@ use vapor_lib::git::models::{
     AddRemoteRequest, CheckoutBranchRequest, CherryPickRequest, CommitRequest, CreateBranchRequest,
     CreateStashRequest, DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest,
     MergeBranchRequest, PullRequest, PushRequest, RemoveRemoteRequest, RenameBranchRequest,
-    RepositoryOperationKind, SetRemoteUrlRequest, StageRequest, StashRefRequest, TagPushMode,
+    RepositoryOperationKind, SafetyNetMode, SetRemoteUrlRequest, StageRequest, StashRefRequest,
+    TagPushMode,
 };
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
@@ -157,6 +158,7 @@ fn pulls_fast_forward_changes_from_remote() {
             remote: "origin".to_string(),
             remote_branch: "main".to_string(),
             rebase: false,
+            safety_net: SafetyNetMode::Auto,
         })
         .expect("pull");
     assert_eq!(response.preview.display, "git pull origin main");
@@ -439,6 +441,7 @@ fn checks_out_creates_renames_and_deletes_branches() {
             repository_path: work.path().to_path_buf(),
             branch_name: "feature/renamed".to_string(),
             force: false,
+            safety_net: SafetyNetMode::Auto,
         })
         .expect("safe delete");
 
@@ -482,6 +485,7 @@ fn stashes_applies_pops_and_drops_changes() {
         .apply_stash(&StashRefRequest {
             repository_path: work.path().to_path_buf(),
             stash_ref: "stash@{0}".to_string(),
+            safety_net: SafetyNetMode::Auto,
         })
         .expect("apply stash");
 
@@ -497,6 +501,7 @@ fn stashes_applies_pops_and_drops_changes() {
         .pop_stash(&StashRefRequest {
             repository_path: work.path().to_path_buf(),
             stash_ref: "stash@{0}".to_string(),
+            safety_net: SafetyNetMode::Auto,
         })
         .expect("pop stash");
 
@@ -516,6 +521,7 @@ fn stashes_applies_pops_and_drops_changes() {
         .drop_stash(&StashRefRequest {
             repository_path: work.path().to_path_buf(),
             stash_ref: "stash@{0}".to_string(),
+            safety_net: SafetyNetMode::Auto,
         })
         .expect("drop stash");
 
@@ -538,6 +544,7 @@ fn cherry_picks_commit_and_reports_in_progress_operation() {
         .cherry_pick(&CherryPickRequest {
             repository_path: work.path().to_path_buf(),
             commit_hash: feature_hash.clone(),
+            safety_net: SafetyNetMode::Auto,
         })
         .expect("cherry-pick");
 
@@ -556,6 +563,7 @@ fn cherry_picks_commit_and_reports_in_progress_operation() {
     let conflict = service.cherry_pick(&CherryPickRequest {
         repository_path: work.path().to_path_buf(),
         commit_hash: conflict_hash,
+        safety_net: SafetyNetMode::Auto,
     });
     assert!(conflict.is_err(), "expected cherry-pick conflict");
 
@@ -639,6 +647,7 @@ fn merges_branch_and_reports_conflict_operation() {
             repository_path: work.path().to_path_buf(),
             branch_name: "feature".to_string(),
             no_ff: false,
+            safety_net: SafetyNetMode::Auto,
         })
         .expect("merge");
     assert!(work.path().join("feature.txt").exists());
@@ -655,6 +664,7 @@ fn merges_branch_and_reports_conflict_operation() {
         repository_path: work.path().to_path_buf(),
         branch_name: "conflict".to_string(),
         no_ff: false,
+        safety_net: SafetyNetMode::Auto,
     });
     assert!(conflict.is_err(), "expected merge conflict");
 
@@ -681,6 +691,7 @@ fn discards_tracked_and_untracked_changes() {
             repository_path: work.path().to_path_buf(),
             tracked_paths: vec!["README.md".to_string()],
             untracked_paths: vec!["scratch.txt".to_string()],
+            safety_net: SafetyNetMode::Auto,
         })
         .expect("discard");
     assert_eq!(response.previews.len(), 2);

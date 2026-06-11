@@ -578,6 +578,7 @@ pub fn discard_untracked_preview(paths: &[String]) -> Result<GitCommandPreview, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::models::SafetyNetMode;
     use std::path::PathBuf;
 
     fn request() -> PushRequest {
@@ -631,6 +632,7 @@ mod tests {
             remote: "origin".to_string(),
             remote_branch: "main".to_string(),
             rebase: false,
+            safety_net: SafetyNetMode::Auto,
         }
     }
 
@@ -1039,6 +1041,7 @@ mod tests {
             repository_path: PathBuf::from("/tmp/repo"),
             branch_name: "feature/done".to_string(),
             force: false,
+            safety_net: SafetyNetMode::Auto,
         };
         let preview = delete_branch_preview(&request).expect("preview");
         assert_eq!(preview.args, vec!["branch", "-d", "feature/done"]);
@@ -1050,6 +1053,7 @@ mod tests {
             repository_path: PathBuf::from("/tmp/repo"),
             branch_name: "feature/done".to_string(),
             force: true,
+            safety_net: SafetyNetMode::Auto,
         };
         let preview = delete_branch_preview(&request).expect("preview");
         assert_eq!(preview.args, vec!["branch", "-D", "feature/done"]);
@@ -1061,6 +1065,7 @@ mod tests {
             repository_path: PathBuf::from("/tmp/repo"),
             branch_name: "-D main".to_string(),
             force: false,
+            safety_net: SafetyNetMode::Auto,
         };
         let error = delete_branch_preview(&request).expect_err("invalid branch");
         assert_eq!(error.code, GitErrorCode::InvalidRef);
@@ -1090,6 +1095,7 @@ mod tests {
         let request = StashRefRequest {
             repository_path: PathBuf::from("/tmp/repo"),
             stash_ref: "stash@{0}".to_string(),
+            safety_net: SafetyNetMode::Auto,
         };
         let preview = apply_stash_preview(&request).expect("preview");
         assert_eq!(preview.args, vec!["stash", "apply", "stash@{0}"]);
@@ -1100,6 +1106,7 @@ mod tests {
         let request = StashRefRequest {
             repository_path: PathBuf::from("/tmp/repo"),
             stash_ref: "stash@{0}; rm -rf /".to_string(),
+            safety_net: SafetyNetMode::Auto,
         };
         let error = pop_stash_preview(&request).expect_err("invalid stash ref");
         assert_eq!(error.code, GitErrorCode::InvalidRef);
@@ -1110,6 +1117,7 @@ mod tests {
         let request = CherryPickRequest {
             repository_path: PathBuf::from("/tmp/repo"),
             commit_hash: "abc1234".to_string(),
+            safety_net: SafetyNetMode::Auto,
         };
         let preview = cherry_pick_preview(&request).expect("preview");
         assert_eq!(preview.args, vec!["cherry-pick", "abc1234"]);
@@ -1120,6 +1128,7 @@ mod tests {
         let request = CherryPickRequest {
             repository_path: PathBuf::from("/tmp/repo"),
             commit_hash: "abc1234 --no-commit".to_string(),
+            safety_net: SafetyNetMode::Auto,
         };
         let error = cherry_pick_preview(&request).expect_err("invalid hash");
         assert_eq!(error.code, GitErrorCode::InvalidRef);
@@ -1170,6 +1179,7 @@ mod tests {
             repository_path: PathBuf::from("/tmp/repo"),
             branch_name: "feature/login".to_string(),
             no_ff: false,
+            safety_net: SafetyNetMode::Auto,
         };
         let preview = merge_branch_preview(&request).expect("preview");
         assert_eq!(preview.args, vec!["merge", "feature/login"]);
@@ -1181,6 +1191,7 @@ mod tests {
             repository_path: PathBuf::from("/tmp/repo"),
             branch_name: "feature/login".to_string(),
             no_ff: true,
+            safety_net: SafetyNetMode::Auto,
         };
         let preview = merge_branch_preview(&request).expect("preview");
         assert_eq!(preview.args, vec!["merge", "--no-ff", "feature/login"]);
@@ -1192,6 +1203,7 @@ mod tests {
             repository_path: PathBuf::from("/tmp/repo"),
             branch_name: "-X theirs".to_string(),
             no_ff: false,
+            safety_net: SafetyNetMode::Auto,
         };
         let error = merge_branch_preview(&request).expect_err("invalid branch");
         assert_eq!(error.code, GitErrorCode::InvalidRef);

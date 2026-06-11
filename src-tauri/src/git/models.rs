@@ -25,6 +25,9 @@ pub enum GitErrorCode {
     TagConflict,
     Timeout,
     CommandFailed,
+    SnapshotFailed,
+    SnapshotTooLarge,
+    UndoStale,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -91,6 +94,8 @@ pub struct RepositoryState {
 pub struct CherryPickRequest {
     pub repository_path: PathBuf,
     pub commit_hash: String,
+    #[serde(default)]
+    pub safety_net: SafetyNetMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -190,6 +195,8 @@ pub struct PullRequest {
     pub remote: String,
     pub remote_branch: String,
     pub rebase: bool,
+    #[serde(default)]
+    pub safety_net: SafetyNetMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -354,6 +361,8 @@ pub struct DeleteBranchRequest {
     pub repository_path: PathBuf,
     pub branch_name: String,
     pub force: bool,
+    #[serde(default)]
+    pub safety_net: SafetyNetMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -396,6 +405,8 @@ pub struct CreateStashRequest {
 pub struct StashRefRequest {
     pub repository_path: PathBuf,
     pub stash_ref: String,
+    #[serde(default)]
+    pub safety_net: SafetyNetMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -429,6 +440,8 @@ pub struct MergeBranchRequest {
     pub repository_path: PathBuf,
     pub branch_name: String,
     pub no_ff: bool,
+    #[serde(default)]
+    pub safety_net: SafetyNetMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -447,6 +460,8 @@ pub struct DiscardChangesRequest {
     pub tracked_paths: Vec<String>,
     /// 未追蹤檔案:以 `git clean -fd` 刪除。
     pub untracked_paths: Vec<String>,
+    #[serde(default)]
+    pub safety_net: SafetyNetMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -461,4 +476,105 @@ pub struct DiscardChangesResponse {
     pub previews: Vec<GitCommandPreview>,
     pub stdout: String,
     pub stderr: String,
+}
+
+/// 危險操作的安全網模式:Auto = 預設建快照;Force = 即使超過大小門檻也建;
+/// Skip = 使用者明確選擇不建快照(快照失敗後的逃生口)。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SafetyNetMode {
+    Auto,
+    Force,
+    Skip,
+}
+
+impl Default for SafetyNetMode {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineRequest {
+    pub repository_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ReflogEntry {
+    pub hash: String,
+    pub selector: String,
+    pub subject: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineResponse {
+    pub entries: Vec<crate::git::journal::JournalEntry>,
+    pub reflog: Vec<ReflogEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UndoPlanRequest {
+    pub repository_path: PathBuf,
+    /// None 表示最後一筆可復原操作。
+    pub entry_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UndoPlan {
+    pub entry_id: String,
+    pub description: String,
+    /// HEAD 將被 reset 到的 commit(None 表示不動 HEAD,例如純救回刪除的分支)。
+    pub head_target: Option<String>,
+    /// 是否會從快照還原 working tree 檔案。
+    pub restore_worktree: bool,
+    /// 救回被刪除的分支:(名稱, tip hash)。
+    pub recreate_branch: Option<(String, String)>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UndoRequest {
+    pub repository_path: PathBuf,
+    pub entry_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UndoResponse {
+    pub plan: UndoPlan,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotRefRequest {
+    pub repository_path: PathBuf,
+    pub entry_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotFileEntry {
+    pub status: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotFilesResponse {
+    pub files: Vec<SnapshotFileEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreSnapshotFileRequest {
+    pub repository_path: PathBuf,
+    pub entry_id: String,
+    pub file_path: String,
 }
