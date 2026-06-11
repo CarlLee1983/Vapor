@@ -1,4 +1,5 @@
 pub mod command_builder;
+pub mod journal;
 pub mod login_env;
 pub mod models;
 pub mod operation;
