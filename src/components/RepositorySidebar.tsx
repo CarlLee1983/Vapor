@@ -59,113 +59,115 @@ export function RepositorySidebar({
         Vapor
       </div>
 
-      <section className="sidebar-section">
-        <h2>Repositories</h2>
-        {openRepos.map((entry) => (
-          <div
-            key={entry.path}
-            role="button"
-            tabIndex={0}
-            className={`sidebar-row ${entry.path === activePath ? "active" : ""}`}
-            onClick={() => onActivate(entry.path)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onActivate(entry.path);
-              }
-            }}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
-          >
-            <span style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
-              <FolderIcon />
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{entry.name}</span>
-            </span>
-            <button
-              type="button"
-              className="sidebar-row__close"
-              aria-label={`Close ${entry.name}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose(entry.path);
-              }}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        <button type="button" className="sidebar-add" onClick={onOpen}>
-          + Open Repository
-        </button>
-      </section>
-
-      {repository ? (
-        <>
-          <section className="sidebar-section">
-            <h2>Workspace</h2>
+      <div className="sidebar__scroll">
+        <section className="sidebar-section">
+          <h2>Repositories</h2>
+          {openRepos.map((entry) => (
             <div
+              key={entry.path}
               role="button"
               tabIndex={0}
-              className={`sidebar-row ${viewMode === "status" ? "active" : ""}`}
-              onClick={() => onViewModeChange("status")}
+              className={`sidebar-row ${entry.path === activePath ? "active" : ""}`}
+              onClick={() => onActivate(entry.path)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  onViewModeChange("status");
+                  onActivate(entry.path);
                 }
               }}
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
             >
-              <span style={{ display: "flex", alignItems: "center" }}>
+              <span style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
                 <FolderIcon />
-                File Status
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{entry.name}</span>
               </span>
-              {repository.workingTree.length > 0 && (
-                <span className="sidebar-badge">{repository.workingTree.length}</span>
-              )}
+              <button
+                type="button"
+                className="sidebar-row__close"
+                aria-label={`Close ${entry.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose(entry.path);
+                }}
+              >
+                ×
+              </button>
             </div>
-            <div
-              role="button"
-              tabIndex={0}
-              className={`sidebar-row ${viewMode === "history" ? "active" : ""}`}
-              onClick={() => onViewModeChange("history")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onViewModeChange("history");
-                }
-              }}
-              style={{ display: "flex", alignItems: "center" }}
-            >
-              <span style={{ display: "flex", alignItems: "center" }}>
-                <HistoryIcon />
-                History
-              </span>
-            </div>
-          </section>
+          ))}
+          <button type="button" className="sidebar-add" onClick={onOpen}>
+            + Open Repository
+          </button>
+        </section>
 
-          <section className="sidebar-section">
-            <h2>Branches</h2>
-            <BranchTree
-              branches={repository.branches}
-              currentBranchName={repository.currentBranch}
-            />
-          </section>
-
-          <section className="sidebar-section">
-            <h2>Remotes</h2>
-            {repository.remotes.map((remote) => (
-              <div className="sidebar-row" key={remote.name}>
+        {repository ? (
+          <>
+            <section className="sidebar-section">
+              <h2>Workspace</h2>
+              <div
+                role="button"
+                tabIndex={0}
+                className={`sidebar-row ${viewMode === "status" ? "active" : ""}`}
+                onClick={() => onViewModeChange("status")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onViewModeChange("status");
+                  }
+                }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+              >
                 <span style={{ display: "flex", alignItems: "center" }}>
-                  <GlobeIcon />
-                  {remote.name}
+                  <FolderIcon />
+                  File Status
+                </span>
+                {repository.workingTree.length > 0 && (
+                  <span className="sidebar-badge">{repository.workingTree.length}</span>
+                )}
+              </div>
+              <div
+                role="button"
+                tabIndex={0}
+                className={`sidebar-row ${viewMode === "history" ? "active" : ""}`}
+                onClick={() => onViewModeChange("history")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onViewModeChange("history");
+                  }
+                }}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  <HistoryIcon />
+                  History
                 </span>
               </div>
-            ))}
-          </section>
-        </>
-      ) : (
-        <p className="muted">No repository selected</p>
-      )}
+            </section>
+
+            <section className="sidebar-section">
+              <h2>Branches</h2>
+              <BranchTree
+                branches={repository.branches}
+                currentBranchName={repository.currentBranch}
+              />
+            </section>
+
+            <section className="sidebar-section">
+              <h2>Remotes</h2>
+              {repository.remotes.map((remote) => (
+                <div className="sidebar-row" key={remote.name}>
+                  <span style={{ display: "flex", alignItems: "center" }}>
+                    <GlobeIcon />
+                    {remote.name}
+                  </span>
+                </div>
+              ))}
+            </section>
+          </>
+        ) : (
+          <p className="muted">No repository selected</p>
+        )}
+      </div>
     </aside>
   );
 }

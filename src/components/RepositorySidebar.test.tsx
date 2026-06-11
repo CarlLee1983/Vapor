@@ -159,4 +159,20 @@ describe("RepositorySidebar", () => {
     expect(screen.getByText("feat")).toBeInTheDocument();
     expect(screen.queryByText("login")).not.toBeInTheDocument();
   });
+
+  it("wraps scrollable sections in a scroll container", () => {
+    const { container } = render(
+      <RepositorySidebar
+        repository={mockRepo}
+        openRepos={[{ path: mockRepo.root, name: "repo" }]}
+        activePath={mockRepo.root}
+        viewMode="history"
+        onViewModeChange={vi.fn()}
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(container.querySelector(".sidebar__scroll")).not.toBeNull();
+  });
 });
