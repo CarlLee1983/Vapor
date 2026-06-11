@@ -30,10 +30,12 @@ Vapor 用 [Tauri](https://tauri.app/) 打造，以較低的記憶體佔用提供
 - **標籤管理**——工具列可開啟 Tags 對話框,列出、建立與刪除標籤(刪除前需確認)。
 - **分支操作**——工具列或側欄可開啟 Branches 對話框,支援 checkout、從 HEAD 或遠端起點建立分支、重新命名與刪除(安全刪除預設,強制刪除需確認);側欄分支列可點選 checkout。
 - **Stash**——工具列可開啟 Stash 對話框,列出 stash、建立(可含未追蹤檔)、apply、pop 與 drop(pop/drop 需確認)。
-
 - **Cherry-pick**——在 History 模式選取 commit 後可 cherry-pick 到目前分支;衝突時顯示 operation banner,支援 abort/continue。
+- **Fetch**——工具列 Fetch 對話框,可選單一遠端或全部遠端、預設 prune 已刪除的遠端分支,執行前預覽 `git fetch` 指令;只更新遠端追蹤分支,不動工作樹。
+- **Merge**——Branches 對話框中可將任一本機分支合併進目前分支(執行前需確認);衝突時沿用 operation banner 提供 abort 與解衝突指引。
+- **Discard(捨棄變更)**——工作樹 Unstaged 列提供逐檔捨棄:已追蹤檔以 `git restore` 還原、未追蹤檔刪除;皆需明確確認且不可復原提示清楚。
 
-> 目前**尚未提供**:合併衝突三方編輯器與完整 merge/rebase 操作輔助。詳見
+> 目前**尚未提供**:合併衝突三方編輯器、rebase 操作輔助、互動式逐行(hunk)暫存與 clone UI。詳見
 > [`docs/superpowers/specs`](docs/superpowers/specs) 與
 > [`docs/superpowers/plans/2026-06-11-vapor-feature-completion-roadmap.md`](docs/superpowers/plans/2026-06-11-vapor-feature-completion-roadmap.md)。
 

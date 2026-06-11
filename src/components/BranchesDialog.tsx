@@ -3,6 +3,7 @@ import {
   checkoutBranch,
   createBranch,
   deleteBranch,
+  mergeBranch,
   renameBranch,
 } from "../lib/tauriApi";
 import type { BranchInfo, GitError, RepositoryState } from "../types/git";
@@ -89,6 +90,24 @@ export function BranchesDialog({ repository, onClose, onChanged }: Props) {
         repositoryPath: repository.root,
         oldName: branch.name,
         newName: next.trim(),
+      }),
+    );
+  }
+
+  async function onMerge(branch: BranchInfo) {
+    const current = repository.currentBranch ?? "the current branch";
+    if (
+      !window.confirm(
+        `Merge "${branch.name}" into "${current}"?\n\nRuns: git merge ${branch.name}`,
+      )
+    ) {
+      return;
+    }
+    await run(() =>
+      mergeBranch({
+        repositoryPath: repository.root,
+        branchName: branch.name,
+        noFf: false,
       }),
     );
   }
@@ -189,6 +208,13 @@ export function BranchesDialog({ repository, onClose, onChanged }: Props) {
                     onClick={() => onCheckout(branch)}
                   >
                     Checkout
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || branch.isCurrent || !!repository.operation}
+                    onClick={() => void onMerge(branch)}
+                  >
+                    Merge
                   </button>
                   <button type="button" disabled={busy} onClick={() => onRename(branch)}>
                     Rename

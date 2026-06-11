@@ -1,4 +1,4 @@
-import { isConflict, isStaged, isUnstaged } from "../lib/workingTree";
+import { isConflict, isStaged, isUnstaged, isUntracked } from "../lib/workingTree";
 import type { DiffScope, FileStatus, RepositoryState, SelectedFileTarget } from "../types/git";
 import { CommitBox } from "./CommitBox";
 
@@ -8,6 +8,7 @@ interface Props {
   onSelectFile: (file: FileStatus, scope: Extract<DiffScope, "unstaged" | "staged">) => void;
   onStage: (paths: string[]) => void;
   onUnstage: (paths: string[]) => void;
+  onDiscard: (trackedPaths: string[], untrackedPaths: string[]) => void;
   onCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<unknown>;
   onPreviewCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<{ display: string }>;
   onLoadLastMessage: () => Promise<string>;
@@ -130,9 +131,10 @@ interface FileRowProps {
   scope: Extract<DiffScope, "unstaged" | "staged">;
   onSelect: (file: FileStatus, scope: Extract<DiffScope, "unstaged" | "staged">) => void;
   onAction: (path: string) => void;
+  onDiscard?: (file: FileStatus) => void;
 }
 
-function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, onAction }: FileRowProps) {
+function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, onAction, onDiscard }: FileRowProps) {
   const status = getStatusInfo(file.indexStatus, file.worktreeStatus);
   return (
     <div className={`file-row${isActive ? " active" : ""}`}>
@@ -143,6 +145,17 @@ function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, on
         </span>
         <span className={status.className}>{status.label}</span>
       </button>
+      {onDiscard ? (
+        <button
+          type="button"
+          className="file-row__action file-row__action--danger"
+          aria-label={`Discard ${file.path}`}
+          title="Discard changes"
+          onClick={() => onDiscard(file)}
+        >
+          ↺
+        </button>
+      ) : null}
       <button
         type="button"
         className="file-row__action"
@@ -161,6 +174,7 @@ export function WorkingTreePanel({
   onSelectFile,
   onStage,
   onUnstage,
+  onDiscard,
   onCommit,
   onPreviewCommit,
   onLoadLastMessage,
@@ -170,6 +184,21 @@ export function WorkingTreePanel({
   const staged = files.filter(isStaged);
   const unstaged = files.filter(isUnstaged);
   const operationInProgress = repository?.operation != null;
+
+  const requestDiscard = (file: FileStatus) => {
+    const untracked = isUntracked(file);
+    const detail = untracked
+      ? `"${file.path}" is untracked and will be deleted.`
+      : `Local changes to "${file.path}" will be reverted.`;
+    if (!window.confirm(`Discard changes to "${file.path}"?\n\n${detail}\nThis cannot be undone.`)) {
+      return;
+    }
+    if (untracked) {
+      onDiscard([], [file.path]);
+    } else {
+      onDiscard([file.path], []);
+    }
+  };
 
   return (
     <section className="panel working-tree" aria-label="Working tree">
@@ -259,6 +288,7 @@ export function WorkingTreePanel({
                     actionGlyph="+"
                     onSelect={onSelectFile}
                     onAction={(path) => onStage([path])}
+                    onDiscard={requestDiscard}
                   />
                 ))
               )}

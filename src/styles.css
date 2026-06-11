@@ -1300,6 +1300,10 @@ button:not(.commit-row):disabled {
   opacity: 1;
 }
 
+.file-row__action--danger {
+  color: var(--accent-red, #d9534f);
+}
+
 .commit-box {
   display: flex;
   flex-direction: column;

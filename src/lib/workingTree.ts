@@ -14,3 +14,8 @@ export function isStaged(file: FileStatus): boolean {
 export function isUnstaged(file: FileStatus): boolean {
   return !isConflict(file) && (file.indexStatus === "?" || file.worktreeStatus !== ".");
 }
+
+/** porcelain v2:index 為 `?` 表示未追蹤檔案。 */
+export function isUntracked(file: FileStatus): boolean {
+  return file.indexStatus === "?";
+}

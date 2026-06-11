@@ -25,6 +25,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof WorkingTreePanel>>
     onSelectFile: vi.fn(),
     onStage: vi.fn(),
     onUnstage: vi.fn(),
+    onDiscard: vi.fn(),
     onCommit: vi.fn(async () => ({})),
     onPreviewCommit: vi.fn(async () => ({ display: "" })),
     onLoadLastMessage: vi.fn(async () => ""),
@@ -100,6 +101,39 @@ describe("WorkingTreePanel", () => {
     const props = setup();
     await user.click(screen.getByRole("button", { name: "Stage all" }));
     expect(props.onStage).toHaveBeenCalledWith(["dirty.ts", "new.ts"]);
+  });
+
+  it("discards a tracked file after confirmation", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const props = setup();
+    await user.click(screen.getByRole("button", { name: "Discard dirty.ts" }));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(props.onDiscard).toHaveBeenCalledWith(["dirty.ts"], []);
+    confirmSpy.mockRestore();
+  });
+
+  it("discards an untracked file as a deletion", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const props = setup();
+    await user.click(screen.getByRole("button", { name: "Discard new.ts" }));
+    expect(props.onDiscard).toHaveBeenCalledWith([], ["new.ts"]);
+    confirmSpy.mockRestore();
+  });
+
+  it("does not discard when the confirmation is declined", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const props = setup();
+    await user.click(screen.getByRole("button", { name: "Discard dirty.ts" }));
+    expect(props.onDiscard).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it("does not offer discard on staged rows", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: "Discard staged.ts" })).not.toBeInTheDocument();
   });
 
   it("shows the empty state when there are no changes", () => {

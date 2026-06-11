@@ -466,4 +466,82 @@ impl<R: GitRunner> GitService<R> {
             stderr: output.stderr,
         })
     }
+
+    pub fn fetch(
+        &self,
+        request: &super::models::FetchRequest,
+    ) -> Result<super::models::FetchResponse, GitError> {
+        let preview = super::command_builder::fetch_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::FetchResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn merge_branch(
+        &self,
+        request: &super::models::MergeBranchRequest,
+    ) -> Result<super::models::MergeBranchResponse, GitError> {
+        let preview = super::command_builder::merge_branch_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::MergeBranchResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    fn discard_previews(
+        request: &super::models::DiscardChangesRequest,
+    ) -> Result<Vec<super::models::GitCommandPreview>, GitError> {
+        if request.tracked_paths.is_empty() && request.untracked_paths.is_empty() {
+            return Err(GitError {
+                code: super::models::GitErrorCode::CommandFailed,
+                message: "No files selected.".to_string(),
+                hint: "Select at least one file to discard.".to_string(),
+                stderr: String::new(),
+            });
+        }
+        let mut previews = Vec::new();
+        if !request.tracked_paths.is_empty() {
+            previews.push(super::command_builder::discard_tracked_preview(
+                &request.tracked_paths,
+            )?);
+        }
+        if !request.untracked_paths.is_empty() {
+            previews.push(super::command_builder::discard_untracked_preview(
+                &request.untracked_paths,
+            )?);
+        }
+        Ok(previews)
+    }
+
+    pub fn preview_discard_changes(
+        request: &super::models::DiscardChangesRequest,
+    ) -> Result<super::models::DiscardPreviewResponse, GitError> {
+        Ok(super::models::DiscardPreviewResponse {
+            previews: Self::discard_previews(request)?,
+        })
+    }
+
+    pub fn discard_changes(
+        &self,
+        request: &super::models::DiscardChangesRequest,
+    ) -> Result<super::models::DiscardChangesResponse, GitError> {
+        let previews = Self::discard_previews(request)?;
+        let mut stdout = String::new();
+        let mut stderr = String::new();
+        for preview in &previews {
+            let output = self.runner.run(&request.repository_path, &preview.args)?;
+            stdout.push_str(&output.stdout);
+            stderr.push_str(&output.stderr);
+        }
+        Ok(super::models::DiscardChangesResponse {
+            previews,
+            stdout,
+            stderr,
+        })
+    }
 }

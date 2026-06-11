@@ -8,6 +8,7 @@ import { StashDialog } from "./components/StashDialog";
 import { TagsDialog } from "./components/TagsDialog";
 import { PushDialog } from "./components/PushDialog";
 import { PullDialog } from "./components/PullDialog";
+import { FetchDialog } from "./components/FetchDialog";
 import { RemotesDialog } from "./components/RemotesDialog";
 import { AboutDialog } from "./components/AboutDialog";
 import { DoctorDialog } from "./components/DoctorDialog";
@@ -39,6 +40,7 @@ export default function App() {
   const layout = useLayoutPreferences();
   const [isPushOpen, setIsPushOpen] = useState(false);
   const [isPullOpen, setIsPullOpen] = useState(false);
+  const [isFetchOpen, setIsFetchOpen] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isBranchesOpen, setIsBranchesOpen] = useState(false);
   const [isStashOpen, setIsStashOpen] = useState(false);
@@ -101,6 +103,7 @@ export default function App() {
   useEffect(() => {
     setIsPushOpen(false);
     setIsPullOpen(false);
+    setIsFetchOpen(false);
     setIsTagsOpen(false);
     setIsBranchesOpen(false);
     setIsStashOpen(false);
@@ -199,6 +202,9 @@ export default function App() {
             <button type="button" disabled={!repoView.repository} onClick={() => setIsPullOpen(true)}>
               Pull
             </button>
+            <button type="button" disabled={!repoView.repository} onClick={() => setIsFetchOpen(true)}>
+              Fetch
+            </button>
             <GitActionsMenu
               repository={repoView.repository}
               viewMode={viewMode}
@@ -267,6 +273,9 @@ export default function App() {
               onSelectFile={repoView.selectFile}
               onStage={repoView.stageFiles}
               onUnstage={repoView.unstageFiles}
+              onDiscard={(trackedPaths, untrackedPaths) =>
+                void repoView.discardFiles(trackedPaths, untrackedPaths)
+              }
               onCommit={repoView.commit}
               onPreviewCommit={(input) =>
                 previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })
@@ -308,6 +317,13 @@ export default function App() {
               void repoView.loadRepository(repoView.repositoryPath);
             }
           }}
+        />
+      ) : null}
+      {isFetchOpen && repoView.repository ? (
+        <FetchDialog
+          repository={repoView.repository}
+          onClose={() => setIsFetchOpen(false)}
+          onFetched={refreshActiveRepository}
         />
       ) : null}
       {isTagsOpen && repoView.repository ? (

@@ -235,3 +235,44 @@ export interface RepoEntry {
   name: string;
   currentBranch?: string;
 }
+
+export interface FetchRequest {
+  repositoryPath: string;
+  /** null 表示 `git fetch --all`。 */
+  remote: string | null;
+  prune: boolean;
+}
+
+export interface FetchResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
+export interface MergeBranchRequest {
+  repositoryPath: string;
+  branchName: string;
+  noFf: boolean;
+}
+
+export interface MergeBranchResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
+export interface DiscardChangesRequest {
+  repositoryPath: string;
+  trackedPaths: string[];
+  untrackedPaths: string[];
+}
+
+export interface DiscardPreviewResponse {
+  previews: GitCommandPreview[];
+}
+
+export interface DiscardChangesResponse {
+  previews: GitCommandPreview[];
+  stdout: string;
+  stderr: string;
+}

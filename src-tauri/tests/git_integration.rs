@@ -3,9 +3,9 @@ use std::process::Command;
 use tempfile::TempDir;
 use vapor_lib::git::models::{
     AddRemoteRequest, CheckoutBranchRequest, CherryPickRequest, CommitRequest, CreateBranchRequest,
-    CreateStashRequest, DeleteBranchRequest, DiffScope, PullRequest, PushRequest, RemoveRemoteRequest,
-    RenameBranchRequest, RepositoryOperationKind, SetRemoteUrlRequest, StageRequest, StashRefRequest,
-    TagPushMode,
+    CreateStashRequest, DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest,
+    MergeBranchRequest, PullRequest, PushRequest, RemoveRemoteRequest, RenameBranchRequest,
+    RepositoryOperationKind, SetRemoteUrlRequest, StageRequest, StashRefRequest, TagPushMode,
 };
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
@@ -567,4 +567,130 @@ fn cherry_picks_commit_and_reports_in_progress_operation() {
 
     service.abort_operation(work.path()).expect("abort");
     assert!(service.repository_state(work.path()).expect("state").operation.is_none());
+}
+
+#[test]
+fn fetches_remote_changes_without_touching_worktree() {
+    let (work, remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    service
+        .push(&PushRequest {
+            repository_path: work.path().to_path_buf(),
+            remote: "origin".to_string(),
+            local_branch: "main".to_string(),
+            target_branch: "main".to_string(),
+            tag_mode: TagPushMode::None,
+            force_with_lease: false,
+        })
+        .expect("push");
+
+    // 第二個 clone 推進一個新 commit,讓 origin/main 領先。
+    let other = TempDir::new().expect("other temp");
+    git(
+        other.path(),
+        &[
+            "clone",
+            "--branch",
+            "main",
+            remote.path().to_str().expect("remote path"),
+            ".",
+        ],
+    );
+    git(other.path(), &["config", "user.email", "other@example.com"]);
+    git(other.path(), &["config", "user.name", "Other Test"]);
+    std::fs::write(other.path().join("CHANGELOG.md"), "v1\n").expect("write changelog");
+    git(other.path(), &["add", "CHANGELOG.md"]);
+    git(other.path(), &["commit", "-m", "Add changelog"]);
+    let remote_head = git_stdout(other.path(), &["rev-parse", "HEAD"]);
+    git(other.path(), &["push", "origin", "main"]);
+
+    let response = service
+        .fetch(&FetchRequest {
+            repository_path: work.path().to_path_buf(),
+            remote: Some("origin".to_string()),
+            prune: true,
+        })
+        .expect("fetch");
+    assert_eq!(response.preview.display, "git fetch origin --prune");
+
+    // worktree 不動,但 origin/main 已更新。
+    assert!(!work.path().join("CHANGELOG.md").exists());
+    assert_eq!(
+        git_stdout(work.path(), &["rev-parse", "origin/main"]),
+        remote_head
+    );
+}
+
+#[test]
+fn merges_branch_and_reports_conflict_operation() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    // 快轉合併成功路徑。
+    git(work.path(), &["checkout", "-b", "feature"]);
+    std::fs::write(work.path().join("feature.txt"), "feature\n").expect("write");
+    git(work.path(), &["add", "feature.txt"]);
+    git(work.path(), &["commit", "-m", "Feature commit"]);
+    git(work.path(), &["checkout", "main"]);
+
+    service
+        .merge_branch(&MergeBranchRequest {
+            repository_path: work.path().to_path_buf(),
+            branch_name: "feature".to_string(),
+            no_ff: false,
+        })
+        .expect("merge");
+    assert!(work.path().join("feature.txt").exists());
+
+    // 衝突路徑:兩邊改同一行。
+    git(work.path(), &["checkout", "-b", "conflict"]);
+    std::fs::write(work.path().join("README.md"), "conflict branch\n").expect("write");
+    git(work.path(), &["commit", "-am", "conflict change"]);
+    git(work.path(), &["checkout", "main"]);
+    std::fs::write(work.path().join("README.md"), "main branch\n").expect("write");
+    git(work.path(), &["commit", "-am", "main change"]);
+
+    let conflict = service.merge_branch(&MergeBranchRequest {
+        repository_path: work.path().to_path_buf(),
+        branch_name: "conflict".to_string(),
+        no_ff: false,
+    });
+    assert!(conflict.is_err(), "expected merge conflict");
+
+    let state = service.repository_state(work.path()).expect("state");
+    assert_eq!(
+        state.operation.as_ref().map(|op| &op.kind),
+        Some(&RepositoryOperationKind::Merge)
+    );
+
+    service.abort_operation(work.path()).expect("abort");
+    assert!(service.repository_state(work.path()).expect("state").operation.is_none());
+}
+
+#[test]
+fn discards_tracked_and_untracked_changes() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("README.md"), "dirty\n").expect("write");
+    std::fs::write(work.path().join("scratch.txt"), "temp\n").expect("write");
+
+    let response = service
+        .discard_changes(&DiscardChangesRequest {
+            repository_path: work.path().to_path_buf(),
+            tracked_paths: vec!["README.md".to_string()],
+            untracked_paths: vec!["scratch.txt".to_string()],
+        })
+        .expect("discard");
+    assert_eq!(response.previews.len(), 2);
+
+    assert_eq!(
+        std::fs::read_to_string(work.path().join("README.md")).expect("read"),
+        "hello\n"
+    );
+    assert!(!work.path().join("scratch.txt").exists());
+
+    let state = service.repository_state(work.path()).expect("state");
+    assert!(state.working_tree.is_empty(), "working tree should be clean: {:?}", state.working_tree);
 }

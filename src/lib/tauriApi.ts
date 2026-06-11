@@ -24,7 +24,14 @@ import type {
   CherryPickRequest,
   CherryPickResponse,
   CreateStashRequest,
+  DiscardChangesRequest,
+  DiscardChangesResponse,
+  DiscardPreviewResponse,
+  FetchRequest,
+  FetchResponse,
   ListStashesResponse,
+  MergeBranchRequest,
+  MergeBranchResponse,
   StashMutationResponse,
   StashRefRequest,
 } from "../types/git";
@@ -208,4 +215,30 @@ export async function abortGitOperation(repositoryPath: string): Promise<CherryP
 
 export async function continueGitOperation(repositoryPath: string): Promise<CherryPickResponse> {
   return invoke<CherryPickResponse>("continue_git_operation", { request: { path: repositoryPath } });
+}
+
+export async function previewFetch(request: FetchRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_fetch", { request });
+}
+
+export async function fetchRemote(request: FetchRequest): Promise<FetchResponse> {
+  return invoke<FetchResponse>("fetch_remote", { request });
+}
+
+export async function previewMergeBranch(request: MergeBranchRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_merge_branch", { request });
+}
+
+export async function mergeBranch(request: MergeBranchRequest): Promise<MergeBranchResponse> {
+  return invoke<MergeBranchResponse>("merge_branch", { request });
+}
+
+export async function previewDiscardChanges(
+  request: DiscardChangesRequest,
+): Promise<DiscardPreviewResponse> {
+  return invoke<DiscardPreviewResponse>("preview_discard_changes", { request });
+}
+
+export async function discardChanges(request: DiscardChangesRequest): Promise<DiscardChangesResponse> {
+  return invoke<DiscardChangesResponse>("discard_changes", { request });
 }

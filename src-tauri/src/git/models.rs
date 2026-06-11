@@ -405,3 +405,60 @@ pub struct StashMutationResponse {
     pub stdout: String,
     pub stderr: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchRequest {
+    pub repository_path: PathBuf,
+    /// None 表示 `git fetch --all`。
+    pub remote: Option<String>,
+    pub prune: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchResponse {
+    pub preview: GitCommandPreview,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeBranchRequest {
+    pub repository_path: PathBuf,
+    pub branch_name: String,
+    pub no_ff: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeBranchResponse {
+    pub preview: GitCommandPreview,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscardChangesRequest {
+    pub repository_path: PathBuf,
+    /// 已追蹤檔案:以 `git restore --worktree` 還原。
+    pub tracked_paths: Vec<String>,
+    /// 未追蹤檔案:以 `git clean -fd` 刪除。
+    pub untracked_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscardPreviewResponse {
+    pub previews: Vec<GitCommandPreview>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscardChangesResponse {
+    pub previews: Vec<GitCommandPreview>,
+    pub stdout: String,
+    pub stderr: String,
+}

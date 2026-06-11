@@ -5,6 +5,7 @@ import {
   getDiff,
   getLastCommitMessage,
   getRepositoryState,
+  discardChanges as discardChangesApi,
   stageFiles as stageFilesApi,
   unstageFiles as unstageFilesApi,
 } from "../lib/tauriApi";
@@ -264,6 +265,22 @@ export function useRepository() {
     [refreshRepository],
   );
 
+  const discardFiles = useCallback(
+    async (trackedPaths: string[], untrackedPaths: string[]) => {
+      const path = repositoryPathRef.current;
+      if (!path || (trackedPaths.length === 0 && untrackedPaths.length === 0)) {
+        return;
+      }
+      try {
+        await discardChangesApi({ repositoryPath: path, trackedPaths, untrackedPaths });
+        await refreshRepository();
+      } catch (error) {
+        setState((current) => ({ ...current, isLoading: false, error: error as GitError }));
+      }
+    },
+    [refreshRepository],
+  );
+
   /**
    * Creates a commit and refreshes repository state.
    * Throws on failure — callers must handle the rejected promise.
@@ -299,6 +316,7 @@ export function useRepository() {
     selectFile,
     stageFiles,
     unstageFiles,
+    discardFiles,
     commit,
     loadLastCommitMessage,
   };

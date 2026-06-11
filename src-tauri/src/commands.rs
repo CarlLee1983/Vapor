@@ -3,8 +3,10 @@ use crate::git::models::{
     AddRemoteRequest, BranchMutationResponse, CheckoutBranchRequest, CherryPickRequest, CherryPickResponse,
     CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, CreateBranchRequest, CreateStashRequest,
     CreateTagRequest, CreateTagResponse, DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest,
-    DiffResponse,
+    DiffResponse, DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse,
+    FetchRequest, FetchResponse,
     GitCommandPreview, GitError, ListStashesRequest, ListStashesResponse, ListTagsRequest, ListTagsResponse,
+    MergeBranchRequest, MergeBranchResponse,
     PullRequest, PullResponse, PushRequest, PushResponse, RemoteMutationResponse, RemoveRemoteRequest,
     RenameBranchRequest, RepositoryRequest, RepositoryState, SetRemoteUrlRequest, StageRequest, StageResponse,
     StashMutationResponse, StashRefRequest, TagsmithConfigRequest, TagsmithConfigResponse,
@@ -354,6 +356,65 @@ pub async fn continue_git_operation(request: RepositoryRequest) -> Result<Cherry
         code: crate::git::models::GitErrorCode::CommandFailed,
         message: "Continue task failed before Git completed.".to_string(),
         hint: "Resolve conflicts, stage files, then try continuing again.".to_string(),
+        stderr: error.to_string(),
+    })?
+}
+
+#[tauri::command]
+pub fn preview_fetch(request: FetchRequest) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::fetch_preview(&request)
+}
+
+#[tauri::command]
+pub async fn fetch_remote(request: FetchRequest) -> Result<FetchResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).fetch(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Fetch task failed before Git completed.".to_string(),
+            hint: "Try the fetch again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub fn preview_merge_branch(request: MergeBranchRequest) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::merge_branch_preview(&request)
+}
+
+#[tauri::command]
+pub async fn merge_branch(request: MergeBranchRequest) -> Result<MergeBranchResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).merge_branch(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Merge task failed before Git completed.".to_string(),
+        hint: "Refresh the repository and try again.".to_string(),
+        stderr: error.to_string(),
+    })?
+}
+
+#[tauri::command]
+pub fn preview_discard_changes(
+    request: DiscardChangesRequest,
+) -> Result<DiscardPreviewResponse, GitError> {
+    GitService::<SystemGitRunner>::preview_discard_changes(&request)
+}
+
+#[tauri::command]
+pub async fn discard_changes(
+    request: DiscardChangesRequest,
+) -> Result<DiscardChangesResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).discard_changes(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Discard task failed before Git completed.".to_string(),
+        hint: "Refresh the repository and try again.".to_string(),
         stderr: error.to_string(),
     })?
 }

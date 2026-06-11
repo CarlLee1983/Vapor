@@ -1,8 +1,8 @@
 use super::models::{
     AddRemoteRequest, CheckoutBranchRequest, CherryPickRequest, CommitRequest, CreateBranchRequest,
-    CreateStashRequest, DeleteBranchRequest, DiffScope, GitCommandPreview, GitError, GitErrorCode,
-    PullRequest, PushRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
-    SetRemoteUrlRequest, StashRefRequest, TagPushMode,
+    CreateStashRequest, DeleteBranchRequest, DiffScope, FetchRequest, GitCommandPreview, GitError,
+    GitErrorCode, MergeBranchRequest, PullRequest, PushRequest, RemoveRemoteRequest,
+    RenameBranchRequest, RepositoryOperationKind, SetRemoteUrlRequest, StashRefRequest, TagPushMode,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -529,6 +529,49 @@ pub fn continue_operation_preview(kind: RepositoryOperationKind) -> Result<GitCo
             });
         }
     };
+    Ok(preview(args))
+}
+
+pub fn fetch_preview(request: &FetchRequest) -> Result<GitCommandPreview, GitError> {
+    let mut args = vec!["fetch".to_string()];
+    match &request.remote {
+        Some(remote) => {
+            validate_ref_part(remote, "remote")?;
+            args.push(remote.clone());
+        }
+        None => args.push("--all".to_string()),
+    }
+    if request.prune {
+        args.push("--prune".to_string());
+    }
+    Ok(preview(args))
+}
+
+pub fn merge_branch_preview(request: &MergeBranchRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.branch_name, "branch")?;
+    let mut args = vec!["merge".to_string()];
+    if request.no_ff {
+        args.push("--no-ff".to_string());
+    }
+    args.push(request.branch_name.clone());
+    Ok(preview(args))
+}
+
+pub fn discard_tracked_preview(paths: &[String]) -> Result<GitCommandPreview, GitError> {
+    require_paths(paths)?;
+    let mut args = vec![
+        "restore".to_string(),
+        "--worktree".to_string(),
+        "--".to_string(),
+    ];
+    args.extend(paths.iter().cloned());
+    Ok(preview(args))
+}
+
+pub fn discard_untracked_preview(paths: &[String]) -> Result<GitCommandPreview, GitError> {
+    require_paths(paths)?;
+    let mut args = vec!["clean".to_string(), "-fd".to_string(), "--".to_string()];
+    args.extend(paths.iter().cloned());
     Ok(preview(args))
 }
 
@@ -1086,5 +1129,92 @@ mod tests {
     fn builds_abort_cherry_pick_args() {
         let preview = abort_operation_preview(RepositoryOperationKind::CherryPick).expect("preview");
         assert_eq!(preview.args, vec!["cherry-pick", "--abort"]);
+    }
+
+    #[test]
+    fn builds_fetch_remote_args() {
+        let request = FetchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            remote: Some("origin".to_string()),
+            prune: true,
+        };
+        let preview = fetch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["fetch", "origin", "--prune"]);
+    }
+
+    #[test]
+    fn builds_fetch_all_args() {
+        let request = FetchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            remote: None,
+            prune: false,
+        };
+        let preview = fetch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["fetch", "--all"]);
+    }
+
+    #[test]
+    fn rejects_fetch_remote_injection() {
+        let request = FetchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            remote: Some("--upload-pack=evil".to_string()),
+            prune: false,
+        };
+        let error = fetch_preview(&request).expect_err("invalid remote");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_merge_branch_args() {
+        let request = MergeBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "feature/login".to_string(),
+            no_ff: false,
+        };
+        let preview = merge_branch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["merge", "feature/login"]);
+    }
+
+    #[test]
+    fn builds_merge_branch_no_ff_args() {
+        let request = MergeBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "feature/login".to_string(),
+            no_ff: true,
+        };
+        let preview = merge_branch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["merge", "--no-ff", "feature/login"]);
+    }
+
+    #[test]
+    fn rejects_merge_branch_injection() {
+        let request = MergeBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "-X theirs".to_string(),
+            no_ff: false,
+        };
+        let error = merge_branch_preview(&request).expect_err("invalid branch");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_discard_tracked_args() {
+        let preview =
+            discard_tracked_preview(&["src/a.ts".to_string(), "-rf".to_string()]).expect("preview");
+        assert_eq!(preview.args, vec!["restore", "--worktree", "--", "src/a.ts", "-rf"]);
+    }
+
+    #[test]
+    fn builds_discard_untracked_args() {
+        let preview = discard_untracked_preview(&["notes.txt".to_string()]).expect("preview");
+        assert_eq!(preview.args, vec!["clean", "-fd", "--", "notes.txt"]);
+    }
+
+    #[test]
+    fn rejects_discard_with_no_paths() {
+        let error = discard_tracked_preview(&[]).expect_err("no paths");
+        assert_eq!(error.code, GitErrorCode::CommandFailed);
+        let error = discard_untracked_preview(&[]).expect_err("no paths");
+        assert_eq!(error.code, GitErrorCode::CommandFailed);
     }
 }
