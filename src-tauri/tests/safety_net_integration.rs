@@ -5,6 +5,7 @@ use vapor_lib::git::models::{DiscardChangesRequest, SafetyNetMode};
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
 use vapor_lib::git::snapshot;
+use vapor_lib::git::undo;
 
 fn run_git(repo: &Path, args: &[&str]) {
     let status = Command::new("git").args(args).current_dir(repo).status().unwrap();
@@ -128,6 +129,127 @@ fn skip_mode_runs_without_snapshot() {
     let entries = journal::read_journal(&repo.join(".git")).unwrap();
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].snapshot_ref, "");
+}
+
+// ──────────────────────────────────────────────
+// Task 7: undo.rs 兩階段 Undo
+// ──────────────────────────────────────────────
+
+#[test]
+fn discard_then_undo_restores_file_bytes() {
+    let repo = init_repo();
+    std::fs::write(repo.join("a.txt"), "precious\n").unwrap();
+    let service = GitService::new(SystemGitRunner);
+    service
+        .discard_changes(&DiscardChangesRequest {
+            repository_path: repo.clone(),
+            tracked_paths: vec!["a.txt".to_string()],
+            untracked_paths: vec![],
+            safety_net: SafetyNetMode::Auto,
+        })
+        .unwrap();
+    assert_eq!(std::fs::read_to_string(repo.join("a.txt")).unwrap(), "first\n");
+
+    let plan = undo::plan_undo(&SystemGitRunner, &repo, None).unwrap();
+    assert!(plan.restore_worktree);
+    undo::execute_undo(&SystemGitRunner, &repo, &plan.entry_id).unwrap();
+    assert_eq!(std::fs::read_to_string(repo.join("a.txt")).unwrap(), "precious\n");
+}
+
+#[test]
+fn merge_then_undo_moves_head_back_and_undo_is_redoable() {
+    let repo = init_repo();
+    run_git(&repo, &["checkout", "-b", "feature"]);
+    std::fs::write(repo.join("f.txt"), "feature\n").unwrap();
+    run_git(&repo, &["add", "."]);
+    run_git(&repo, &["commit", "-m", "feature work"]);
+    run_git(&repo, &["checkout", "main"]);
+    let before = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    let before_hash = String::from_utf8_lossy(&before.stdout).trim().to_string();
+
+    let service = GitService::new(SystemGitRunner);
+    service
+        .merge_branch(&vapor_lib::git::models::MergeBranchRequest {
+            repository_path: repo.clone(),
+            branch_name: "feature".to_string(),
+            no_ff: true,
+            safety_net: SafetyNetMode::Auto,
+        })
+        .unwrap();
+
+    let plan = undo::plan_undo(&SystemGitRunner, &repo, None).unwrap();
+    assert_eq!(plan.head_target, Some(before_hash.clone()));
+    undo::execute_undo(&SystemGitRunner, &repo, &plan.entry_id).unwrap();
+    let after = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&after.stdout).trim(), before_hash);
+
+    // Undo 自己也是一筆可復原操作(Redo)
+    let redo_plan = undo::plan_undo(&SystemGitRunner, &repo, None).unwrap();
+    undo::execute_undo(&SystemGitRunner, &repo, &redo_plan.entry_id).unwrap();
+    assert!(std::fs::read_to_string(repo.join("f.txt")).unwrap().contains("feature"));
+}
+
+#[test]
+fn plan_undo_detects_external_changes() {
+    let repo = init_repo();
+    std::fs::write(repo.join("a.txt"), "x\n").unwrap();
+    GitService::new(SystemGitRunner)
+        .discard_changes(&DiscardChangesRequest {
+            repository_path: repo.clone(),
+            tracked_paths: vec!["a.txt".to_string()],
+            untracked_paths: vec![],
+            safety_net: SafetyNetMode::Auto,
+        })
+        .unwrap();
+    // 模擬使用者在終端機額外提交
+    std::fs::write(repo.join("external.txt"), "outside\n").unwrap();
+    run_git(&repo, &["add", "."]);
+    run_git(&repo, &["commit", "-m", "external"]);
+
+    let error = undo::plan_undo(&SystemGitRunner, &repo, None).unwrap_err();
+    assert_eq!(error.code, vapor_lib::git::models::GitErrorCode::UndoStale);
+}
+
+#[test]
+fn delete_branch_then_undo_recreates_branch() {
+    let repo = init_repo();
+    run_git(&repo, &["branch", "doomed"]);
+    let tip = Command::new("git")
+        .args(["rev-parse", "doomed"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    let tip_hash = String::from_utf8_lossy(&tip.stdout).trim().to_string();
+
+    GitService::new(SystemGitRunner)
+        .delete_branch(&vapor_lib::git::models::DeleteBranchRequest {
+            repository_path: repo.clone(),
+            branch_name: "doomed".to_string(),
+            force: true,
+            safety_net: SafetyNetMode::Auto,
+        })
+        .unwrap();
+
+    let plan = undo::plan_undo(&SystemGitRunner, &repo, None).unwrap();
+    assert_eq!(
+        plan.recreate_branch,
+        Some(("doomed".to_string(), tip_hash.clone()))
+    );
+    undo::execute_undo(&SystemGitRunner, &repo, &plan.entry_id).unwrap();
+    let check = Command::new("git")
+        .args(["rev-parse", "doomed"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&check.stdout).trim(), tip_hash);
 }
 
 // ──────────────────────────────────────────────
