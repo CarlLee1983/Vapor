@@ -46,6 +46,7 @@ const repoState = {
     branches: [{ name: "main", isCurrent: true, upstream: "origin/main" }],
     remotes: [{ name: "origin", fetchUrl: "git@example.com:vapor.git", pushUrl: "git@example.com:vapor.git" }],
     workingTree: [{ path: "src/App.tsx", indexStatus: ".", worktreeStatus: "M" }],
+    operation: null,
   },
   commits: [{ hash: "abc123", parents: [], author: "Carl", date: "2026-06-07T22:50:00+08:00", subject: "Initial commit", refs: ["HEAD -> main"] }],
   selectedCommit: null,
@@ -259,5 +260,27 @@ describe("App", () => {
     useWorkspaceMock.mockReturnValue(workspaceValue({ activePath: "/repo/other" }));
     rerender(<App />);
     expect(screen.queryByRole("dialog", { name: "Push branch" })).not.toBeInTheDocument();
+  });
+
+  it("closes the branches dialog when the active repository changes", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<App />);
+    await user.click(screen.getByRole("button", { name: "More Git actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Branches" }));
+    expect(screen.getByRole("dialog", { name: "Manage branches" })).toBeInTheDocument();
+    useWorkspaceMock.mockReturnValue(workspaceValue({ activePath: "/repo/other" }));
+    rerender(<App />);
+    expect(screen.queryByRole("dialog", { name: "Manage branches" })).not.toBeInTheDocument();
+  });
+
+  it("closes the stash dialog when the active repository changes", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<App />);
+    await user.click(screen.getByRole("button", { name: "More Git actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Stash" }));
+    expect(screen.getByRole("dialog", { name: "Manage stashes" })).toBeInTheDocument();
+    useWorkspaceMock.mockReturnValue(workspaceValue({ activePath: "/repo/other" }));
+    rerender(<App />);
+    expect(screen.queryByRole("dialog", { name: "Manage stashes" })).not.toBeInTheDocument();
   });
 });

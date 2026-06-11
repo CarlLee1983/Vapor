@@ -10,6 +10,7 @@ interface CommitInput {
 interface CommitBoxProps {
   repository: RepositoryState;
   hasStagedChanges: boolean;
+  operationInProgress?: boolean;
   onCommit: (input: CommitInput) => Promise<unknown>;
   onPreview: (input: CommitInput) => Promise<{ display: string }>;
   onLoadLastMessage: () => Promise<string>;
@@ -18,6 +19,7 @@ interface CommitBoxProps {
 export function CommitBox({
   repository,
   hasStagedChanges,
+  operationInProgress = false,
   onCommit,
   onPreview,
   onLoadLastMessage,
@@ -33,7 +35,8 @@ export function CommitBox({
 
   // amend with an empty message is allowed: the backend commits with --amend --no-edit (reuse prior message).
   const trimmed = message.trim();
-  const canCommit = !isCommitting && (amend || (trimmed !== "" && hasStagedChanges));
+  const canCommit =
+    !operationInProgress && !isCommitting && (amend || (trimmed !== "" && hasStagedChanges));
 
   const refreshPreview = async (next: Partial<CommitInput> = {}) => {
     // `next` carries the just-changed field because React state updates are async;
@@ -134,6 +137,9 @@ export function CommitBox({
         <p className="commit-box__error" role="alert">
           {error}
         </p>
+      ) : null}
+      {operationInProgress ? (
+        <p className="muted">Finish or abort the in-progress Git operation before committing.</p>
       ) : null}
 
       <button

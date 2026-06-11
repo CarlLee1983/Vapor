@@ -39,6 +39,12 @@ export interface FileStatus {
   worktreeStatus: string;
 }
 
+export type RepositoryOperationKind = "cherryPick" | "merge" | "rebase";
+
+export interface RepositoryOperation {
+  kind: RepositoryOperationKind;
+}
+
 export interface RepositoryState {
   root: string;
   currentBranch: string | null;
@@ -47,6 +53,7 @@ export interface RepositoryState {
   branches: BranchInfo[];
   remotes: RemoteInfo[];
   workingTree: FileStatus[];
+  operation?: RepositoryOperation | null;
 }
 
 export interface CommitSummary {
@@ -124,6 +131,77 @@ export interface RemoveRemoteRequest {
 }
 
 export interface RemoteMutationResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
+export interface CheckoutBranchRequest {
+  repositoryPath: string;
+  branchName: string;
+}
+
+export interface CreateBranchRequest {
+  repositoryPath: string;
+  branchName: string;
+  startPoint?: string;
+  checkout: boolean;
+}
+
+export interface RenameBranchRequest {
+  repositoryPath: string;
+  oldName: string;
+  newName: string;
+}
+
+export interface DeleteBranchRequest {
+  repositoryPath: string;
+  branchName: string;
+  force: boolean;
+}
+
+export interface BranchMutationResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
+export interface StashEntry {
+  reference: string;
+  message: string;
+}
+
+export interface ListStashesRequest {
+  repositoryPath: string;
+}
+
+export interface ListStashesResponse {
+  stashes: StashEntry[];
+}
+
+export interface CreateStashRequest {
+  repositoryPath: string;
+  message?: string;
+  includeUntracked: boolean;
+}
+
+export interface StashRefRequest {
+  repositoryPath: string;
+  stashRef: string;
+}
+
+export interface StashMutationResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
+export interface CherryPickRequest {
+  repositoryPath: string;
+  commitHash: string;
+}
+
+export interface CherryPickResponse {
   preview: GitCommandPreview;
   stdout: string;
   stderr: string;

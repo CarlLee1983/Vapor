@@ -1,5 +1,5 @@
 // Task 5: auto-expand current-branch path is covered in the third test case below.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BranchTree } from "./BranchTree";
@@ -55,6 +55,24 @@ describe("BranchTree", () => {
     expect(screen.getByText("login")).toBeInTheDocument();
     await user.click(screen.getByText("feat"));
     expect(screen.queryByText("login")).not.toBeInTheDocument();
+  });
+
+  it("checks out a branch when onCheckout is provided", async () => {
+    const user = userEvent.setup();
+    const onCheckout = vi.fn();
+    render(
+      <BranchTree
+        branches={[b("main", true), b("dev")]}
+        currentBranchName="main"
+        onCheckout={onCheckout}
+      />,
+    );
+    await user.click(screen.getByText("dev"));
+    expect(onCheckout).toHaveBeenCalledWith({
+      name: "dev",
+      isCurrent: false,
+      upstream: null,
+    });
   });
 
   it("auto-expands the new current-branch path when it changes after mount", () => {

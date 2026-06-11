@@ -1,6 +1,8 @@
 use super::models::{
-    AddRemoteRequest, CommitRequest, DiffScope, GitCommandPreview, GitError, GitErrorCode,
-    PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest, TagPushMode,
+    AddRemoteRequest, CheckoutBranchRequest, CherryPickRequest, CommitRequest, CreateBranchRequest,
+    CreateStashRequest, DeleteBranchRequest, DiffScope, GitCommandPreview, GitError, GitErrorCode,
+    PullRequest, PushRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
+    SetRemoteUrlRequest, StashRefRequest, TagPushMode,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -216,6 +218,7 @@ pub fn commit_log_args(limit: u32, skip: u32) -> Vec<String> {
     vec![
         "log".to_string(),
         "--all".to_string(),
+        "--topo-order".to_string(),
         format!("--max-count={}", limit.min(500)),
         format!("--skip={skip}"),
         format!("--pretty=format:{format}"),
@@ -328,6 +331,205 @@ pub fn delete_remote_tag_preview(
         "--delete".to_string(),
         tag_name.to_string(),
     ]))
+}
+
+fn validate_start_point(value: &str) -> Result<(), GitError> {
+    if let Some((remote, branch)) = value.split_once('/') {
+        validate_ref_part(remote, "remote")?;
+        validate_ref_part(branch, "branch")?;
+    } else {
+        validate_ref_part(value, "start point")?;
+    }
+    Ok(())
+}
+
+pub fn checkout_branch_preview(request: &CheckoutBranchRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.branch_name, "branch name")?;
+    Ok(preview(vec![
+        "checkout".to_string(),
+        request.branch_name.clone(),
+    ]))
+}
+
+pub fn create_branch_preview(request: &CreateBranchRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.branch_name, "branch name")?;
+    if let Some(start_point) = request.start_point.as_deref() {
+        validate_start_point(start_point)?;
+    }
+
+    if request.checkout {
+        let mut args = vec!["checkout".to_string(), "-b".to_string(), request.branch_name.clone()];
+        if let Some(start_point) = request.start_point.as_ref() {
+            args.push(start_point.clone());
+        }
+        Ok(preview(args))
+    } else {
+        let mut args = vec!["branch".to_string(), request.branch_name.clone()];
+        if let Some(start_point) = request.start_point.as_ref() {
+            args.push(start_point.clone());
+        }
+        Ok(preview(args))
+    }
+}
+
+pub fn rename_branch_preview(request: &RenameBranchRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.old_name, "branch name")?;
+    validate_ref_part(&request.new_name, "branch name")?;
+    Ok(preview(vec![
+        "branch".to_string(),
+        "-m".to_string(),
+        request.old_name.clone(),
+        request.new_name.clone(),
+    ]))
+}
+
+pub fn delete_branch_preview(request: &DeleteBranchRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.branch_name, "branch name")?;
+    let flag = if request.force { "-D" } else { "-d" };
+    Ok(preview(vec![
+        "branch".to_string(),
+        flag.to_string(),
+        request.branch_name.clone(),
+    ]))
+}
+
+pub fn stash_list_args() -> Vec<String> {
+    vec![
+        "stash".to_string(),
+        "list".to_string(),
+        "--format=%gd%x09%gs".to_string(),
+    ]
+}
+
+fn validate_stash_message(value: &str) -> Result<(), GitError> {
+    if value.contains('\n') || value.contains('\0') {
+        return Err(GitError {
+            code: GitErrorCode::InvalidRef,
+            message: "Invalid stash message.".to_string(),
+            hint: "Use a single-line message without control characters.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    Ok(())
+}
+
+pub fn validate_stash_ref(value: &str) -> Result<(), GitError> {
+    let Some(index) = value.strip_prefix("stash@{") else {
+        return Err(invalid_stash_ref_error());
+    };
+    let Some(index) = index.strip_suffix('}') else {
+        return Err(invalid_stash_ref_error());
+    };
+    if index.is_empty() || !index.chars().all(|ch| ch.is_ascii_digit()) {
+        return Err(invalid_stash_ref_error());
+    }
+    Ok(())
+}
+
+fn invalid_stash_ref_error() -> GitError {
+    GitError {
+        code: GitErrorCode::InvalidRef,
+        message: "Invalid stash reference.".to_string(),
+        hint: "Choose a stash entry from the list (for example stash@{0}).".to_string(),
+        stderr: String::new(),
+    }
+}
+
+pub fn create_stash_preview(request: &CreateStashRequest) -> Result<GitCommandPreview, GitError> {
+    if let Some(message) = request.message.as_deref() {
+        validate_stash_message(message)?;
+    }
+    let mut args = vec!["stash".to_string(), "push".to_string()];
+    if request.include_untracked {
+        args.push("-u".to_string());
+    }
+    if let Some(message) = request
+        .message
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
+        args.push("-m".to_string());
+        args.push(message.to_string());
+    }
+    Ok(preview(args))
+}
+
+pub fn apply_stash_preview(request: &StashRefRequest) -> Result<GitCommandPreview, GitError> {
+    validate_stash_ref(&request.stash_ref)?;
+    Ok(preview(vec![
+        "stash".to_string(),
+        "apply".to_string(),
+        request.stash_ref.clone(),
+    ]))
+}
+
+pub fn pop_stash_preview(request: &StashRefRequest) -> Result<GitCommandPreview, GitError> {
+    validate_stash_ref(&request.stash_ref)?;
+    Ok(preview(vec![
+        "stash".to_string(),
+        "pop".to_string(),
+        request.stash_ref.clone(),
+    ]))
+}
+
+pub fn drop_stash_preview(request: &StashRefRequest) -> Result<GitCommandPreview, GitError> {
+    validate_stash_ref(&request.stash_ref)?;
+    Ok(preview(vec![
+        "stash".to_string(),
+        "drop".to_string(),
+        request.stash_ref.clone(),
+    ]))
+}
+
+pub fn validate_commit_hash(value: &str) -> Result<(), GitError> {
+    let is_valid = !value.is_empty()
+        && value.len() <= 40
+        && value.chars().all(|ch| ch.is_ascii_hexdigit());
+
+    if is_valid {
+        Ok(())
+    } else {
+        Err(GitError {
+            code: GitErrorCode::InvalidRef,
+            message: "Invalid commit hash.".to_string(),
+            hint: "Choose a commit from the history list.".to_string(),
+            stderr: String::new(),
+        })
+    }
+}
+
+pub fn cherry_pick_preview(request: &CherryPickRequest) -> Result<GitCommandPreview, GitError> {
+    validate_commit_hash(&request.commit_hash)?;
+    Ok(preview(vec![
+        "cherry-pick".to_string(),
+        request.commit_hash.clone(),
+    ]))
+}
+
+pub fn abort_operation_preview(kind: RepositoryOperationKind) -> Result<GitCommandPreview, GitError> {
+    let args = match kind {
+        RepositoryOperationKind::CherryPick => vec!["cherry-pick".to_string(), "--abort".to_string()],
+        RepositoryOperationKind::Merge => vec!["merge".to_string(), "--abort".to_string()],
+        RepositoryOperationKind::Rebase => vec!["rebase".to_string(), "--abort".to_string()],
+    };
+    Ok(preview(args))
+}
+
+pub fn continue_operation_preview(kind: RepositoryOperationKind) -> Result<GitCommandPreview, GitError> {
+    let args = match kind {
+        RepositoryOperationKind::CherryPick => vec!["cherry-pick".to_string(), "--continue".to_string()],
+        RepositoryOperationKind::Rebase => vec!["rebase".to_string(), "--continue".to_string()],
+        RepositoryOperationKind::Merge => {
+            return Err(GitError {
+                code: GitErrorCode::CommandFailed,
+                message: "Merge operations cannot be continued with a single Git command.".to_string(),
+                hint: "Resolve conflicts, stage the files, and create a commit to finish the merge.".to_string(),
+                stderr: String::new(),
+            });
+        }
+    };
+    Ok(preview(args))
 }
 
 #[cfg(test)]
@@ -570,6 +772,7 @@ mod tests {
         let args = commit_log_args(200, 400);
         assert_eq!(args[0], "log");
         assert!(args.contains(&"--all".to_string()));
+        assert!(args.contains(&"--topo-order".to_string()));
         assert!(args.contains(&"--max-count=200".to_string()));
         assert!(args.contains(&"--skip=400".to_string()));
         assert!(args.contains(&"--decorate=short".to_string()));
@@ -704,5 +907,184 @@ mod tests {
     fn rejects_invalid_remote_on_delete() {
         let error = delete_remote_tag_preview("v1.2.0", "bad remote").expect_err("invalid remote");
         assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    fn checkout_branch_request() -> CheckoutBranchRequest {
+        CheckoutBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "feature/foo".to_string(),
+        }
+    }
+
+    #[test]
+    fn builds_checkout_branch_args() {
+        let preview = checkout_branch_preview(&checkout_branch_request()).expect("preview");
+        assert_eq!(preview.args, vec!["checkout", "feature/foo"]);
+        assert_eq!(preview.display, "git checkout feature/foo");
+    }
+
+    #[test]
+    fn rejects_checkout_branch_injection() {
+        let mut request = checkout_branch_request();
+        request.branch_name = "--orphan".to_string();
+        let error = checkout_branch_preview(&request).expect_err("invalid branch");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_create_branch_from_head_with_checkout() {
+        let request = CreateBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "feature/new".to_string(),
+            start_point: None,
+            checkout: true,
+        };
+        let preview = create_branch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["checkout", "-b", "feature/new"]);
+    }
+
+    #[test]
+    fn builds_create_tracking_branch_from_remote_start_point() {
+        let request = CreateBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "feature/track".to_string(),
+            start_point: Some("origin/main".to_string()),
+            checkout: true,
+        };
+        let preview = create_branch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["checkout", "-b", "feature/track", "origin/main"]);
+    }
+
+    #[test]
+    fn builds_create_branch_without_checkout() {
+        let request = CreateBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "feature/side".to_string(),
+            start_point: Some("main".to_string()),
+            checkout: false,
+        };
+        let preview = create_branch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["branch", "feature/side", "main"]);
+    }
+
+    #[test]
+    fn rejects_create_branch_start_point_injection() {
+        let request = CreateBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "feature/new".to_string(),
+            start_point: Some("origin/bad branch".to_string()),
+            checkout: true,
+        };
+        let error = create_branch_preview(&request).expect_err("invalid start point");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_rename_branch_args() {
+        let request = RenameBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            old_name: "old-name".to_string(),
+            new_name: "new-name".to_string(),
+        };
+        let preview = rename_branch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["branch", "-m", "old-name", "new-name"]);
+    }
+
+    #[test]
+    fn builds_safe_delete_branch_args() {
+        let request = DeleteBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "feature/done".to_string(),
+            force: false,
+        };
+        let preview = delete_branch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["branch", "-d", "feature/done"]);
+    }
+
+    #[test]
+    fn builds_force_delete_branch_args() {
+        let request = DeleteBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "feature/done".to_string(),
+            force: true,
+        };
+        let preview = delete_branch_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["branch", "-D", "feature/done"]);
+    }
+
+    #[test]
+    fn rejects_delete_branch_injection() {
+        let request = DeleteBranchRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            branch_name: "-D main".to_string(),
+            force: false,
+        };
+        let error = delete_branch_preview(&request).expect_err("invalid branch");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_stash_list_args() {
+        assert_eq!(
+            stash_list_args(),
+            vec!["stash", "list", "--format=%gd%x09%gs"]
+        );
+    }
+
+    #[test]
+    fn builds_create_stash_with_message_and_untracked() {
+        let request = CreateStashRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            message: Some("Save WIP".to_string()),
+            include_untracked: true,
+        };
+        let preview = create_stash_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["stash", "push", "-u", "-m", "Save WIP"]);
+    }
+
+    #[test]
+    fn builds_apply_stash_args() {
+        let request = StashRefRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            stash_ref: "stash@{0}".to_string(),
+        };
+        let preview = apply_stash_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["stash", "apply", "stash@{0}"]);
+    }
+
+    #[test]
+    fn rejects_stash_ref_injection() {
+        let request = StashRefRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            stash_ref: "stash@{0}; rm -rf /".to_string(),
+        };
+        let error = pop_stash_preview(&request).expect_err("invalid stash ref");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_cherry_pick_args() {
+        let request = CherryPickRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            commit_hash: "abc1234".to_string(),
+        };
+        let preview = cherry_pick_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["cherry-pick", "abc1234"]);
+    }
+
+    #[test]
+    fn rejects_cherry_pick_hash_injection() {
+        let request = CherryPickRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            commit_hash: "abc1234 --no-commit".to_string(),
+        };
+        let error = cherry_pick_preview(&request).expect_err("invalid hash");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_abort_cherry_pick_args() {
+        let preview = abort_operation_preview(RepositoryOperationKind::CherryPick).expect("preview");
+        assert_eq!(preview.args, vec!["cherry-pick", "--abort"]);
     }
 }

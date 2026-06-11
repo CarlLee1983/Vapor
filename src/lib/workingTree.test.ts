@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isStaged, isUnstaged } from "./workingTree";
+import { isConflict, isStaged, isUnstaged } from "./workingTree";
 import type { FileStatus } from "../types/git";
 
 const file = (indexStatus: string, worktreeStatus: string): FileStatus => ({
@@ -32,5 +32,12 @@ describe("workingTree grouping", () => {
     const partial = file("M", "M");
     expect(isStaged(partial)).toBe(true);
     expect(isUnstaged(partial)).toBe(true);
+  });
+
+  it("treats unmerged files as conflicts only", () => {
+    const conflict = file("U", "U");
+    expect(isConflict(conflict)).toBe(true);
+    expect(isStaged(conflict)).toBe(false);
+    expect(isUnstaged(conflict)).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { isStaged, isUnstaged } from "../lib/workingTree";
+import { isConflict, isStaged, isUnstaged } from "../lib/workingTree";
 import type { DiffScope, FileStatus, RepositoryState, SelectedFileTarget } from "../types/git";
 import { CommitBox } from "./CommitBox";
 
@@ -107,7 +107,10 @@ function getStatusInfo(indexStatus: string, worktreeStatus: string) {
   if (hasStatus("M")) {
     return { label: "M", className: "status-badge status-badge--modified status-modified" };
   }
-  if (hasStatus("U") || hasStatus("?")) {
+  if (hasStatus("U")) {
+    return { label: "C", className: "status-badge status-badge--conflict status-conflict" };
+  }
+  if (hasStatus("?")) {
     return { label: "U", className: "status-badge status-badge--untracked status-untracked" };
   }
 
@@ -163,8 +166,10 @@ export function WorkingTreePanel({
   onLoadLastMessage,
 }: Props) {
   const files = repository?.workingTree ?? [];
+  const conflicts = files.filter(isConflict);
   const staged = files.filter(isStaged);
   const unstaged = files.filter(isUnstaged);
+  const operationInProgress = repository?.operation != null;
 
   return (
     <section className="panel working-tree" aria-label="Working tree">
@@ -175,6 +180,32 @@ export function WorkingTreePanel({
           <p className="muted">No local changes</p>
         ) : (
           <>
+            {conflicts.length > 0 ? (
+              <div className="working-tree__group" role="group" aria-label="Conflicted files">
+                <div className="working-tree__group-header">
+                  <span>Conflicts</span>
+                </div>
+                {conflicts.map((file) => (
+                  <div
+                    key={`conflict-${file.path}`}
+                    className={`file-row${selectedFile?.file.path === file.path && selectedFile.scope === "unstaged" ? " active" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      className="file-row__select"
+                      onClick={() => onSelectFile(file, "unstaged")}
+                    >
+                      <span className="file-name-container">
+                        {getFileIcon(file.path)}
+                        <span>{file.path}</span>
+                      </span>
+                      <span className="status-badge status-badge--conflict status-conflict">C</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             <div className="working-tree__group" role="group" aria-label="Staged changes">
               <div className="working-tree__group-header">
                 <span>Staged</span>
@@ -240,6 +271,7 @@ export function WorkingTreePanel({
         <CommitBox
           repository={repository}
           hasStagedChanges={staged.length > 0}
+          operationInProgress={operationInProgress}
           onCommit={onCommit}
           onPreview={onPreviewCommit}
           onLoadLastMessage={onLoadLastMessage}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { CommitSummary } from "../types/git";
 import { describeRef } from "../lib/refs";
-import { CommitGraphRow } from "./CommitGraphRow";
+import { CommitGraph } from "./CommitGraph";
 import { buildCommitGraph, LANE_WIDTH, ROW_HEIGHT } from "../lib/commitGraph";
 import { computeVisibleRange, isNearBottom } from "../lib/virtualList";
 
@@ -133,8 +133,14 @@ export function CommitList({
         <div className="commit-list-spacer" style={{ height: range.totalHeight }}>
           <div
             className="commit-list-window"
-            style={{ transform: `translateY(${range.offsetY}px)` }}
+            style={
+              {
+                transform: `translateY(${range.offsetY}px)`,
+                "--gutter-width": `${gutterWidth}px`,
+              } as CSSProperties
+            }
           >
+            <CommitGraph rows={visibleRows} width={gutterWidth} />
             {visibleRows.map((row) => {
               const commit = row.commit;
               return (
@@ -147,7 +153,6 @@ export function CommitList({
                   aria-pressed={commit.hash === selectedCommit?.hash}
                   onClick={() => onSelectCommit(commit)}
                 >
-                  <CommitGraphRow row={row} width={gutterWidth} />
                   <div
                     className="commit-avatar"
                     style={{ backgroundColor: `${getAvatarColor(commit.author)}e6` }}

@@ -1,8 +1,20 @@
 # Vapor 多視窗 / 多 repo 設計
 
 - 日期:2026-06-10
-- 狀態:草案(待實作)
+- 狀態:已落地(2026-06-11)
 - 範圍:讓 Vapor 在單一視窗內同時管理多個已開 repo(側欄清單 + 頂部分頁),並可將任一 repo 在獨立的新視窗開啟。
+
+## 落地摘要
+
+- Phase 1(單視窗多 repo):`useWorkspace`、`RepoTabs`、側欄互動清單、session 持久化均已實作。
+- Phase 2(多視窗):`open_repo_window` Tauri 指令、`?repo=` 開機分支、`openRepoWindow` 入口均已實作。
+- 自動化測試:`useWorkspace.test.ts`、`App.test.tsx`、`window.test.ts` 與後端 label 純函式測試已覆蓋主要路徑。
+
+## 剩餘手動驗證缺口
+
+- 次要視窗冷啟動後,Push/Pull/Remotes/Tags 對話框在 active repo 切換時是否正確關閉(程式邏輯已有,需 GUI smoke)。
+- macOS 多視窗生命週期:全部視窗關閉後 app 仍存活、再次 `vapor .` 行為是否符合預期。
+- session 還原後失效 path 的手動關閉流程(規格刻意不自動剔除,需人工確認 UX 可接受)。
 
 ## 背景與問題
 

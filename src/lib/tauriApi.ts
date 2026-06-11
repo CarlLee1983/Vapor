@@ -1,9 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AddRemoteRequest,
+  BranchMutationResponse,
+  CheckoutBranchRequest,
   CommitRequest,
   CommitResponse,
   CommitSummary,
+  CreateBranchRequest,
+  DeleteBranchRequest,
   DiffRequest,
   GitCommandPreview,
   PullRequest,
@@ -12,10 +16,17 @@ import type {
   PushResponse,
   RemoteMutationResponse,
   RemoveRemoteRequest,
+  RenameBranchRequest,
   RepositoryState,
   SetRemoteUrlRequest,
   StageRequest,
   StageResponse,
+  CherryPickRequest,
+  CherryPickResponse,
+  CreateStashRequest,
+  ListStashesResponse,
+  StashMutationResponse,
+  StashRefRequest,
 } from "../types/git";
 import type {
   CreateTagRequest,
@@ -118,4 +129,83 @@ export async function previewDeleteTag(request: DeleteTagRequest): Promise<GitCo
 
 export async function deleteGitTag(request: DeleteTagRequest): Promise<DeleteTagResponse> {
   return invoke<DeleteTagResponse>("delete_git_tag", { request });
+}
+
+export async function previewCheckoutBranch(
+  request: CheckoutBranchRequest,
+): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_checkout_branch", { request });
+}
+
+export async function checkoutBranch(
+  request: CheckoutBranchRequest,
+): Promise<BranchMutationResponse> {
+  return invoke<BranchMutationResponse>("checkout_branch", { request });
+}
+
+export async function previewCreateBranch(request: CreateBranchRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_create_branch", { request });
+}
+
+export async function createBranch(request: CreateBranchRequest): Promise<BranchMutationResponse> {
+  return invoke<BranchMutationResponse>("create_branch", { request });
+}
+
+export async function previewRenameBranch(request: RenameBranchRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_rename_branch", { request });
+}
+
+export async function renameBranch(request: RenameBranchRequest): Promise<BranchMutationResponse> {
+  return invoke<BranchMutationResponse>("rename_branch", { request });
+}
+
+export async function previewDeleteBranch(request: DeleteBranchRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_delete_branch", { request });
+}
+
+export async function deleteBranch(request: DeleteBranchRequest): Promise<BranchMutationResponse> {
+  return invoke<BranchMutationResponse>("delete_branch", { request });
+}
+
+export async function listStashes(repositoryPath: string): Promise<ListStashesResponse["stashes"]> {
+  const response = await invoke<ListStashesResponse>("list_stashes", {
+    request: { repositoryPath },
+  });
+  return response.stashes;
+}
+
+export async function previewCreateStash(request: CreateStashRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_create_stash", { request });
+}
+
+export async function createStash(request: CreateStashRequest): Promise<StashMutationResponse> {
+  return invoke<StashMutationResponse>("create_stash", { request });
+}
+
+export async function applyStash(request: StashRefRequest): Promise<StashMutationResponse> {
+  return invoke<StashMutationResponse>("apply_stash", { request });
+}
+
+export async function popStash(request: StashRefRequest): Promise<StashMutationResponse> {
+  return invoke<StashMutationResponse>("pop_stash", { request });
+}
+
+export async function dropStash(request: StashRefRequest): Promise<StashMutationResponse> {
+  return invoke<StashMutationResponse>("drop_stash", { request });
+}
+
+export async function previewCherryPick(request: CherryPickRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_cherry_pick", { request });
+}
+
+export async function cherryPickCommit(request: CherryPickRequest): Promise<CherryPickResponse> {
+  return invoke<CherryPickResponse>("cherry_pick_commit", { request });
+}
+
+export async function abortGitOperation(repositoryPath: string): Promise<CherryPickResponse> {
+  return invoke<CherryPickResponse>("abort_git_operation", { request: { path: repositoryPath } });
+}
+
+export async function continueGitOperation(repositoryPath: string): Promise<CherryPickResponse> {
+  return invoke<CherryPickResponse>("continue_git_operation", { request: { path: repositoryPath } });
 }

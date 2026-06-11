@@ -1,7 +1,8 @@
 use super::models::{GitError, RepositoryState};
-use super::parsers::{parse_branches, parse_porcelain_status, parse_remotes};
+use super::operation::detect_repository_operation;
+use super::parsers::{parse_branches, parse_porcelain_status, parse_remotes, parse_stash_list};
 use super::runner::GitRunner;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct GitService<R: GitRunner> {
     runner: R,
@@ -33,14 +34,18 @@ impl<R: GitRunner> GitService<R> {
 
         let (current_branch, ahead, behind, working_tree) = parse_porcelain_status(&status.stdout);
 
+        let root_path = PathBuf::from(root.stdout.trim());
+        let operation = detect_repository_operation(&root_path);
+
         Ok(RepositoryState {
-            root: root.stdout.trim().into(),
+            root: root_path,
             current_branch,
             ahead,
             behind,
             branches: parse_branches(&branches.stdout),
             remotes: parse_remotes(&remotes.stdout),
             working_tree,
+            operation,
         })
     }
 
@@ -315,6 +320,150 @@ impl<R: GitRunner> GitService<R> {
             remote_preview,
             stdout: combined_stdout,
             stderr: combined_stderr,
+        })
+    }
+
+    fn run_branch_mutation(
+        &self,
+        repository_path: &std::path::Path,
+        preview: super::models::GitCommandPreview,
+    ) -> Result<super::models::BranchMutationResponse, GitError> {
+        let output = self.runner.run(repository_path, &preview.args)?;
+        Ok(super::models::BranchMutationResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn checkout_branch(
+        &self,
+        request: &super::models::CheckoutBranchRequest,
+    ) -> Result<super::models::BranchMutationResponse, GitError> {
+        let preview = super::command_builder::checkout_branch_preview(request)?;
+        self.run_branch_mutation(&request.repository_path, preview)
+    }
+
+    pub fn create_branch(
+        &self,
+        request: &super::models::CreateBranchRequest,
+    ) -> Result<super::models::BranchMutationResponse, GitError> {
+        let preview = super::command_builder::create_branch_preview(request)?;
+        self.run_branch_mutation(&request.repository_path, preview)
+    }
+
+    pub fn rename_branch(
+        &self,
+        request: &super::models::RenameBranchRequest,
+    ) -> Result<super::models::BranchMutationResponse, GitError> {
+        let preview = super::command_builder::rename_branch_preview(request)?;
+        self.run_branch_mutation(&request.repository_path, preview)
+    }
+
+    pub fn delete_branch(
+        &self,
+        request: &super::models::DeleteBranchRequest,
+    ) -> Result<super::models::BranchMutationResponse, GitError> {
+        let preview = super::command_builder::delete_branch_preview(request)?;
+        self.run_branch_mutation(&request.repository_path, preview)
+    }
+
+    fn run_stash_mutation(
+        &self,
+        repository_path: &Path,
+        preview: super::models::GitCommandPreview,
+    ) -> Result<super::models::StashMutationResponse, GitError> {
+        let output = self.runner.run(repository_path, &preview.args)?;
+        Ok(super::models::StashMutationResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn list_stashes(&self, path: &Path) -> Result<Vec<super::models::StashEntry>, GitError> {
+        let output = self
+            .runner
+            .run(path, &super::command_builder::stash_list_args())?;
+        Ok(parse_stash_list(&output.stdout))
+    }
+
+    pub fn create_stash(
+        &self,
+        request: &super::models::CreateStashRequest,
+    ) -> Result<super::models::StashMutationResponse, GitError> {
+        let preview = super::command_builder::create_stash_preview(request)?;
+        self.run_stash_mutation(&request.repository_path, preview)
+    }
+
+    pub fn apply_stash(
+        &self,
+        request: &super::models::StashRefRequest,
+    ) -> Result<super::models::StashMutationResponse, GitError> {
+        let preview = super::command_builder::apply_stash_preview(request)?;
+        self.run_stash_mutation(&request.repository_path, preview)
+    }
+
+    pub fn pop_stash(
+        &self,
+        request: &super::models::StashRefRequest,
+    ) -> Result<super::models::StashMutationResponse, GitError> {
+        let preview = super::command_builder::pop_stash_preview(request)?;
+        self.run_stash_mutation(&request.repository_path, preview)
+    }
+
+    pub fn drop_stash(
+        &self,
+        request: &super::models::StashRefRequest,
+    ) -> Result<super::models::StashMutationResponse, GitError> {
+        let preview = super::command_builder::drop_stash_preview(request)?;
+        self.run_stash_mutation(&request.repository_path, preview)
+    }
+
+    pub fn cherry_pick(
+        &self,
+        request: &super::models::CherryPickRequest,
+    ) -> Result<super::models::CherryPickResponse, GitError> {
+        let preview = super::command_builder::cherry_pick_preview(request)?;
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::CherryPickResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn abort_operation(&self, path: &Path) -> Result<super::models::CherryPickResponse, GitError> {
+        let state = self.repository_state(path)?;
+        let operation = state.operation.ok_or_else(|| GitError {
+            code: super::models::GitErrorCode::CommandFailed,
+            message: "No Git operation is in progress.".to_string(),
+            hint: "Refresh the repository and try again.".to_string(),
+            stderr: String::new(),
+        })?;
+        let preview = super::command_builder::abort_operation_preview(operation.kind)?;
+        let output = self.runner.run(path, &preview.args)?;
+        Ok(super::models::CherryPickResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn continue_operation(&self, path: &Path) -> Result<super::models::CherryPickResponse, GitError> {
+        let state = self.repository_state(path)?;
+        let operation = state.operation.ok_or_else(|| GitError {
+            code: super::models::GitErrorCode::CommandFailed,
+            message: "No Git operation is in progress.".to_string(),
+            hint: "Refresh the repository and try again.".to_string(),
+            stderr: String::new(),
+        })?;
+        let preview = super::command_builder::continue_operation_preview(operation.kind)?;
+        let output = self.runner.run(path, &preview.args)?;
+        Ok(super::models::CherryPickResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
         })
     }
 }

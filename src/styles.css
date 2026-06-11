@@ -254,8 +254,64 @@ button:not(.commit-row):disabled {
   color: var(--accent-blue-text);
 }
 
+.toolbar-menu,
 .settings-menu {
   position: relative;
+}
+
+.toolbar-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.toolbar-menu__trigger:hover {
+  background: var(--bg-active);
+}
+
+.toolbar-menu__chevron {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.toolbar-menu__dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 160px;
+  padding: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.toolbar-menu__item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.toolbar-menu__item:hover:not(:disabled) {
+  background: var(--bg-active);
+}
+
+.toolbar-menu__item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .settings-menu__trigger {
@@ -562,6 +618,16 @@ button:not(.commit-row):disabled {
   right: 0;
 }
 
+/* One SVG gutter overlay; row-local SVGs caused visible discontinuities at row seams. */
+.commit-graph {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 2;
+}
+
 .commit-list-loading {
   position: sticky;
   bottom: 0;
@@ -573,29 +639,22 @@ button:not(.commit-row):disabled {
 
 .commit-row {
   width: 100%;
-  height: var(--commit-row-height, 44px);  /* 對齊 commitGraph.ts 的 ROW_HEIGHT */
+  height: var(--commit-row-height, 32px);  /* 對齊 commitGraph.ts 的 ROW_HEIGHT */
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border: 0;
   border-bottom: 1px solid var(--border-color-light);
   background: transparent;
   color: inherit;
-  padding: 10px 8px 10px 8px;
+  padding: 0 8px 0 calc(var(--gutter-width, 16px) + 8px);
   text-align: left;
   cursor: pointer;
   transition: var(--transition-smooth);
   position: relative;
-}
-
-/* Per-row branch graph gutter; lanes line up vertically across stacked rows. */
-.commit-graph-row {
-  display: block;
-  flex-shrink: 0;
-  pointer-events: none;
-  align-self: stretch;
+  z-index: 1;
 }
 
 .commit-row:hover:not(.commit-row--selected) {
@@ -624,14 +683,14 @@ button:not(.commit-row):disabled {
 }
 
 .commit-avatar {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   flex-shrink: 0;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
@@ -1129,6 +1188,12 @@ button:not(.commit-row):disabled {
   color: var(--accent-red-text);
 }
 
+.status-conflict,
+.status-badge--conflict {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
 .status-untracked,
 .status-badge--untracked {
   background-color: var(--accent-blue-bg);
@@ -1286,6 +1351,95 @@ button:not(.commit-row):disabled {
   flex-direction: column;
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.sidebar-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-section__action {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.branch-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-color);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+}
+
+.branch-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.branch-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.stash-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.stash-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-color);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+}
+
+.stash-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.operation-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 16px 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgba(var(--accent-amber-rgb, 245, 158, 11), 0.08);
+}
+
+.operation-banner__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .remote-row {

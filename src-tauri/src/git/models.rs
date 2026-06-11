@@ -61,6 +61,20 @@ pub struct PushRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub enum RepositoryOperationKind {
+    CherryPick,
+    Merge,
+    Rebase,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryOperation {
+    pub kind: RepositoryOperationKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryState {
     pub root: PathBuf,
     pub current_branch: Option<String>,
@@ -69,6 +83,22 @@ pub struct RepositoryState {
     pub branches: Vec<BranchInfo>,
     pub remotes: Vec<RemoteInfo>,
     pub working_tree: Vec<FileStatus>,
+    pub operation: Option<RepositoryOperation>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CherryPickRequest {
+    pub repository_path: PathBuf,
+    pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CherryPickResponse {
+    pub preview: GitCommandPreview,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -290,6 +320,88 @@ pub struct DeleteTagRequest {
 pub struct DeleteTagResponse {
     pub preview: GitCommandPreview,
     pub remote_preview: Option<GitCommandPreview>,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckoutBranchRequest {
+    pub repository_path: PathBuf,
+    pub branch_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateBranchRequest {
+    pub repository_path: PathBuf,
+    pub branch_name: String,
+    pub start_point: Option<String>,
+    pub checkout: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameBranchRequest {
+    pub repository_path: PathBuf,
+    pub old_name: String,
+    pub new_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteBranchRequest {
+    pub repository_path: PathBuf,
+    pub branch_name: String,
+    pub force: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchMutationResponse {
+    pub preview: GitCommandPreview,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StashEntry {
+    pub reference: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ListStashesRequest {
+    pub repository_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ListStashesResponse {
+    pub stashes: Vec<StashEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateStashRequest {
+    pub repository_path: PathBuf,
+    pub message: Option<String>,
+    pub include_untracked: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StashRefRequest {
+    pub repository_path: PathBuf,
+    pub stash_ref: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StashMutationResponse {
+    pub preview: GitCommandPreview,
     pub stdout: String,
     pub stderr: String,
 }

@@ -1,4 +1,4 @@
-use super::models::{BranchInfo, CommitSummary, FileStatus, GitError, GitErrorCode, RemoteInfo};
+use super::models::{BranchInfo, CommitSummary, FileStatus, GitError, GitErrorCode, RemoteInfo, StashEntry};
 
 pub fn classify_git_error(stderr: &str) -> GitError {
     let lower = stderr.to_lowercase();
@@ -128,6 +128,17 @@ pub fn parse_porcelain_status(stdout: &str) -> (Option<String>, u32, u32, Vec<Fi
                     worktree_status: xy.chars().nth(1).unwrap_or('.').to_string(),
                 });
             }
+        } else if let Some(rest) = line.strip_prefix("u ") {
+            // Unmerged: "<XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>"
+            let fields: Vec<&str> = rest.splitn(10, ' ').collect();
+            if fields.len() == 10 {
+                let xy = fields[0];
+                files.push(FileStatus {
+                    path: fields[9].to_string(),
+                    index_status: xy.chars().next().unwrap_or('U').to_string(),
+                    worktree_status: xy.chars().nth(1).unwrap_or('U').to_string(),
+                });
+            }
         } else if let Some(path) = line.strip_prefix("? ") {
             files.push(FileStatus {
                 path: path.to_string(),
@@ -188,6 +199,23 @@ pub fn parse_remotes(stdout: &str) -> Vec<RemoteInfo> {
     remotes
 }
 
+pub fn parse_stash_list(stdout: &str) -> Vec<StashEntry> {
+    stdout
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() {
+                return None;
+            }
+            let (reference, message) = line.split_once('\t')?;
+            Some(StashEntry {
+                reference: reference.to_string(),
+                message: message.to_string(),
+            })
+        })
+        .collect()
+}
+
 pub fn parse_commit_log(stdout: &str) -> Vec<CommitSummary> {
     stdout
         .split('\x1e')
@@ -233,6 +261,16 @@ mod repository_parser_tests {
     }
 
     #[test]
+    fn parses_porcelain_unmerged_entry() {
+        let input = "# branch.head main\nu UU N... 100644 100644 100644 abc def ghi 100644 conflict.txt\n";
+        let (_branch, _ahead, _behind, files) = parse_porcelain_status(input);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "conflict.txt");
+        assert_eq!(files[0].index_status, "U");
+        assert_eq!(files[0].worktree_status, "U");
+    }
+
+    #[test]
     fn parses_porcelain_rename_entry_path() {
         let input = "# branch.head main\n2 R. N... 100644 100644 100644 abc abc R100 new name.rs\told.rs\n";
         let (_branch, _ahead, _behind, files) = parse_porcelain_status(input);
@@ -268,5 +306,15 @@ mod repository_parser_tests {
         assert_eq!(remotes[0].name, "origin");
         assert_eq!(remotes[0].fetch_url.as_deref(), Some("git@example.com:vapor.git"));
         assert_eq!(remotes[0].push_url.as_deref(), Some("git@example.com:vapor.git"));
+    }
+
+    #[test]
+    fn parses_stash_list_entries() {
+        let input = "stash@{0}\tWIP on main: abc1234 Save work\nstash@{1}\tOn dev: def5678 older stash\n";
+        let stashes = parse_stash_list(input);
+        assert_eq!(stashes.len(), 2);
+        assert_eq!(stashes[0].reference, "stash@{0}");
+        assert_eq!(stashes[0].message, "WIP on main: abc1234 Save work");
+        assert_eq!(stashes[1].reference, "stash@{1}");
     }
 }

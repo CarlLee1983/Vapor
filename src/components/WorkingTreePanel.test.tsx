@@ -106,4 +106,20 @@ describe("WorkingTreePanel", () => {
     setup({ repository: { ...baseRepo, workingTree: [] } });
     expect(screen.getByText(/no local changes/i)).toBeInTheDocument();
   });
+
+  it("groups conflicted files separately from staged and unstaged", () => {
+    setup({
+      repository: {
+        ...baseRepo,
+        workingTree: [
+          { path: "conflict.ts", indexStatus: "U", worktreeStatus: "U" },
+          { path: "staged.ts", indexStatus: "M", worktreeStatus: "." },
+        ],
+        operation: { kind: "cherryPick" },
+      },
+    });
+    expect(screen.getByRole("group", { name: /conflicted files/i })).toHaveTextContent("conflict.ts");
+    expect(screen.getByRole("group", { name: "Staged changes" })).not.toHaveTextContent("conflict.ts");
+    expect(screen.getByText(/finish or abort the in-progress git operation/i)).toBeInTheDocument();
+  });
 });

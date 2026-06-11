@@ -1,4 +1,4 @@
-import type { RepoEntry, RepositoryState } from "../types/git";
+import type { BranchInfo, RepoEntry, RepositoryState } from "../types/git";
 import { FolderIcon, GlobeIcon, HistoryIcon } from "./sidebarIcons";
 import { BranchTree } from "./BranchTree";
 
@@ -11,6 +11,8 @@ interface Props {
   onActivate: (path: string) => void;
   onClose: (path: string) => void;
   onOpen: () => void;
+  onCheckoutBranch?: (branch: BranchInfo) => void;
+  onOpenBranches?: () => void;
 }
 
 const VaporLogo = () => (
@@ -42,6 +44,8 @@ export function RepositorySidebar({
   onActivate,
   onClose,
   onOpen,
+  onCheckoutBranch,
+  onOpenBranches,
 }: Props) {
   return (
     <aside className="sidebar" aria-label="Repositories">
@@ -145,10 +149,18 @@ export function RepositorySidebar({
             </section>
 
             <section className="sidebar-section">
-              <h2>Branches</h2>
+              <div className="sidebar-section__header">
+                <h2>Branches</h2>
+                {onOpenBranches ? (
+                  <button type="button" className="sidebar-section__action" onClick={onOpenBranches}>
+                    Manage
+                  </button>
+                ) : null}
+              </div>
               <BranchTree
                 branches={repository.branches}
                 currentBranchName={repository.currentBranch}
+                onCheckout={onCheckoutBranch}
               />
             </section>
 

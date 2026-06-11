@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
+import { BranchesDialog } from "./components/BranchesDialog";
+import { CherryPickDialog } from "./components/CherryPickDialog";
+import { OperationBanner } from "./components/OperationBanner";
+import { StashDialog } from "./components/StashDialog";
 import { TagsDialog } from "./components/TagsDialog";
 import { PushDialog } from "./components/PushDialog";
 import { PullDialog } from "./components/PullDialog";
@@ -9,6 +13,7 @@ import { AboutDialog } from "./components/AboutDialog";
 import { DoctorDialog } from "./components/DoctorDialog";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { type ThemeMode } from "./components/ThemeToggle";
+import { GitActionsMenu } from "./components/GitActionsMenu";
 import { SettingsMenu } from "./components/SettingsMenu";
 import { LayoutControls } from "./components/LayoutControls";
 import { SplitPane } from "./components/SplitPane";
@@ -20,7 +25,8 @@ import { RepoTabs } from "./components/RepoTabs";
 import { useLayoutPreferences } from "./hooks/useLayoutPreferences";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
 import { getRepoParam, openRepoWindow } from "./lib/window";
-import { previewCommit } from "./lib/tauriApi";
+import { checkoutBranch, previewCommit } from "./lib/tauriApi";
+import type { BranchInfo } from "./types/git";
 import "./styles.css";
 
 export const AUTO_REFRESH_INTERVAL_MS = 5000;
@@ -34,6 +40,9 @@ export default function App() {
   const [isPushOpen, setIsPushOpen] = useState(false);
   const [isPullOpen, setIsPullOpen] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
+  const [isBranchesOpen, setIsBranchesOpen] = useState(false);
+  const [isStashOpen, setIsStashOpen] = useState(false);
+  const [isCherryPickOpen, setIsCherryPickOpen] = useState(false);
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDoctorOpen, setIsDoctorOpen] = useState(false);
@@ -93,8 +102,31 @@ export default function App() {
     setIsPushOpen(false);
     setIsPullOpen(false);
     setIsTagsOpen(false);
+    setIsBranchesOpen(false);
+    setIsStashOpen(false);
+    setIsCherryPickOpen(false);
     setIsRemotesOpen(false);
   }, [workspace.activePath]);
+
+  const refreshActiveRepository = () => {
+    if (repoView.repositoryPath) {
+      void repoView.loadRepository(repoView.repositoryPath);
+    }
+  };
+
+  const handleCheckoutBranch = (branch: BranchInfo) => {
+    if (!repoView.repository || branch.isCurrent) {
+      return;
+    }
+    void checkoutBranch({
+      repositoryPath: repoView.repository.root,
+      branchName: branch.name,
+    })
+      .then(refreshActiveRepository)
+      .catch(() => {
+        // Errors surface on next refresh via repository state; sidebar checkout stays fire-and-forget.
+      });
+  };
 
   useEffect(() => {
     if (!repoView.repositoryPath) {
@@ -137,6 +169,8 @@ export default function App() {
         onActivate={workspace.activateRepository}
         onClose={workspace.closeRepository}
         onOpen={() => void handleOpen()}
+        onCheckoutBranch={handleCheckoutBranch}
+        onOpenBranches={() => setIsBranchesOpen(true)}
       />
       <section className="workspace" aria-label="Git workbench">
         <header className="toolbar">
@@ -155,15 +189,25 @@ export default function App() {
             <button type="button" disabled={!repoView.repository} onClick={() => void refreshRepository()}>
               Refresh
             </button>
-            <button type="button" disabled={!repoView.repository} onClick={() => setIsPushOpen(true)}>
+            <button
+              type="button"
+              disabled={!repoView.repository || !!repoView.repository.operation}
+              onClick={() => setIsPushOpen(true)}
+            >
               Push
             </button>
             <button type="button" disabled={!repoView.repository} onClick={() => setIsPullOpen(true)}>
               Pull
             </button>
-            <button type="button" disabled={!repoView.repository} onClick={() => setIsTagsOpen(true)}>
-              Tags
-            </button>
+            <GitActionsMenu
+              repository={repoView.repository}
+              viewMode={viewMode}
+              selectedCommit={repoView.selectedCommit}
+              onOpenTags={() => setIsTagsOpen(true)}
+              onOpenBranches={() => setIsBranchesOpen(true)}
+              onOpenStash={() => setIsStashOpen(true)}
+              onOpenCherryPick={() => setIsCherryPickOpen(true)}
+            />
             <span className="toolbar-divider" aria-hidden="true" />
             <LayoutControls
               orientation={layout.prefs.orientation}
@@ -193,6 +237,13 @@ export default function App() {
         <UpdateBanner />
         {repoView.error ? (
           <div className="error-banner" role="alert">{repoView.error.message} {repoView.error.hint}</div>
+        ) : null}
+        {repoView.repository?.operation ? (
+          <OperationBanner
+            repositoryPath={repoView.repository.root}
+            operation={repoView.repository.operation}
+            onChanged={refreshActiveRepository}
+          />
         ) : null}
         <SplitPane
           orientation={layout.prefs.orientation}
@@ -263,11 +314,29 @@ export default function App() {
         <TagsDialog
           repository={repoView.repository}
           onClose={() => setIsTagsOpen(false)}
-          onChanged={() => {
-            if (repoView.repositoryPath) {
-              void repoView.loadRepository(repoView.repositoryPath);
-            }
-          }}
+          onChanged={refreshActiveRepository}
+        />
+      ) : null}
+      {isBranchesOpen && repoView.repository ? (
+        <BranchesDialog
+          repository={repoView.repository}
+          onClose={() => setIsBranchesOpen(false)}
+          onChanged={refreshActiveRepository}
+        />
+      ) : null}
+      {isStashOpen && repoView.repository ? (
+        <StashDialog
+          repository={repoView.repository}
+          onClose={() => setIsStashOpen(false)}
+          onChanged={refreshActiveRepository}
+        />
+      ) : null}
+      {isCherryPickOpen && repoView.repository && repoView.selectedCommit ? (
+        <CherryPickDialog
+          repositoryPath={repoView.repository.root}
+          commit={repoView.selectedCommit}
+          onClose={() => setIsCherryPickOpen(false)}
+          onCompleted={refreshActiveRepository}
         />
       ) : null}
       {isRemotesOpen && repoView.repository ? (

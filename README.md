@@ -25,9 +25,17 @@ Vapor 用 [Tauri](https://tauri.app/) 打造，以較低的記憶體佔用提供
 - **自動更新提醒**——啟動時依安裝來源(Homebrew Cask 或 DMG)比對 GitHub 最新 Release,
   有新版時提供更新指令或下載頁連結。
 - **關於 Vapor**——工具列可開啟 About 對話框,顯示目前版本、專案連結與授權資訊。
+- **多 repo / 多視窗**——單一主視窗可同時開啟多個儲存庫(頂部分頁 + 側欄清單切換),並可將任一 repo 在獨立新視窗開啟;各視窗 workspace 獨立。
+- **Staged diff**——工作樹 Staged 列選取後顯示 `git diff --cached` 內容;同一檔案可獨立檢視 staged 與 unstaged 變更。
+- **標籤管理**——工具列可開啟 Tags 對話框,列出、建立與刪除標籤(刪除前需確認)。
+- **分支操作**——工具列或側欄可開啟 Branches 對話框,支援 checkout、從 HEAD 或遠端起點建立分支、重新命名與刪除(安全刪除預設,強制刪除需確認);側欄分支列可點選 checkout。
+- **Stash**——工具列可開啟 Stash 對話框,列出 stash、建立(可含未追蹤檔)、apply、pop 與 drop(pop/drop 需確認)。
 
-> 目前**不包含**:stash、cherry-pick、合併衝突編輯器與分支建立 UI。詳見
-> [`docs/superpowers/specs`](docs/superpowers/specs)。
+- **Cherry-pick**——在 History 模式選取 commit 後可 cherry-pick 到目前分支;衝突時顯示 operation banner,支援 abort/continue。
+
+> 目前**尚未提供**:合併衝突三方編輯器與完整 merge/rebase 操作輔助。詳見
+> [`docs/superpowers/specs`](docs/superpowers/specs) 與
+> [`docs/superpowers/plans/2026-06-11-vapor-feature-completion-roadmap.md`](docs/superpowers/plans/2026-06-11-vapor-feature-completion-roadmap.md)。
 
 ## 下載與安裝(macOS)
 

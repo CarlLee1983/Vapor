@@ -47,12 +47,12 @@ describe("CommitList", () => {
     expect(screen.queryByText("main")).not.toBeInTheDocument();
   });
 
-  it("renders a per-row branch graph gutter alongside the commit rows", () => {
+  it("renders the branch graph gutter alongside the commit rows", () => {
     const { container } = render(
       <CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} />,
     );
-    expect(container.querySelectorAll("svg.commit-graph-row")).toHaveLength(commits.length);
-    expect(container.querySelectorAll("svg.commit-graph-row circle")).toHaveLength(commits.length);
+    expect(container.querySelector("svg.commit-graph")).toBeInTheDocument();
+    expect(container.querySelectorAll("svg.commit-graph circle")).toHaveLength(commits.length);
     expect(screen.getByText("Older commit")).toBeInTheDocument();
   });
 

@@ -2,8 +2,10 @@ use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 use vapor_lib::git::models::{
-    AddRemoteRequest, CommitRequest, DiffScope, PullRequest, PushRequest, RemoveRemoteRequest,
-    SetRemoteUrlRequest, StageRequest, TagPushMode,
+    AddRemoteRequest, CheckoutBranchRequest, CherryPickRequest, CommitRequest, CreateBranchRequest,
+    CreateStashRequest, DeleteBranchRequest, DiffScope, PullRequest, PushRequest, RemoveRemoteRequest,
+    RenameBranchRequest, RepositoryOperationKind, SetRemoteUrlRequest, StageRequest, StashRefRequest,
+    TagPushMode,
 };
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
@@ -360,4 +362,209 @@ fn amends_last_commit_message() {
     assert_eq!(subject, "Reworded initial commit");
     let count = service.commit_log(work.path(), 20, 0).expect("log").len();
     assert_eq!(count, 1, "amend reword must not add a commit");
+}
+
+#[test]
+fn checks_out_creates_renames_and_deletes_branches() {
+    let (work, remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    service
+        .create_branch(&CreateBranchRequest {
+            repository_path: work.path().to_path_buf(),
+            branch_name: "feature/a".to_string(),
+            start_point: None,
+            checkout: true,
+        })
+        .expect("create and checkout");
+
+    let on_feature = service.repository_state(work.path()).expect("state on feature");
+    assert_eq!(on_feature.current_branch.as_deref(), Some("feature/a"));
+
+    service
+        .checkout_branch(&CheckoutBranchRequest {
+            repository_path: work.path().to_path_buf(),
+            branch_name: "main".to_string(),
+        })
+        .expect("checkout main");
+
+    service
+        .push(&PushRequest {
+            repository_path: work.path().to_path_buf(),
+            remote: "origin".to_string(),
+            local_branch: "main".to_string(),
+            target_branch: "main".to_string(),
+            tag_mode: TagPushMode::None,
+            force_with_lease: false,
+        })
+        .expect("push main");
+
+    git(work.path(), &["fetch", "origin"]);
+    service
+        .create_branch(&CreateBranchRequest {
+            repository_path: work.path().to_path_buf(),
+            branch_name: "feature/track".to_string(),
+            start_point: Some("origin/main".to_string()),
+            checkout: true,
+        })
+        .expect("tracking branch");
+
+    let tracked = service.repository_state(work.path()).expect("tracked state");
+    assert_eq!(tracked.current_branch.as_deref(), Some("feature/track"));
+
+    service
+        .checkout_branch(&CheckoutBranchRequest {
+            repository_path: work.path().to_path_buf(),
+            branch_name: "feature/a".to_string(),
+        })
+        .expect("checkout feature/a");
+
+    service
+        .rename_branch(&RenameBranchRequest {
+            repository_path: work.path().to_path_buf(),
+            old_name: "feature/a".to_string(),
+            new_name: "feature/renamed".to_string(),
+        })
+        .expect("rename");
+
+    service
+        .checkout_branch(&CheckoutBranchRequest {
+            repository_path: work.path().to_path_buf(),
+            branch_name: "main".to_string(),
+        })
+        .expect("checkout main before delete");
+
+    service
+        .delete_branch(&DeleteBranchRequest {
+            repository_path: work.path().to_path_buf(),
+            branch_name: "feature/renamed".to_string(),
+            force: false,
+        })
+        .expect("safe delete");
+
+    let branches: Vec<String> = service
+        .repository_state(work.path())
+        .expect("final state")
+        .branches
+        .into_iter()
+        .map(|branch| branch.name)
+        .collect();
+    assert!(branches.contains(&"main".to_string()));
+    assert!(branches.contains(&"feature/track".to_string()));
+    assert!(!branches.iter().any(|name| name == "feature/renamed"));
+    assert!(!branches.iter().any(|name| name == "feature/a"));
+    let _ = remote;
+}
+
+#[test]
+fn stashes_applies_pops_and_drops_changes() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("README.md"), "dirty work\n").expect("write");
+    service
+        .create_stash(&CreateStashRequest {
+            repository_path: work.path().to_path_buf(),
+            message: Some("save wip".to_string()),
+            include_untracked: false,
+        })
+        .expect("create stash");
+
+    let stashes = service.list_stashes(work.path()).expect("list stashes");
+    assert_eq!(stashes.len(), 1);
+    assert_eq!(stashes[0].reference, "stash@{0}");
+    assert!(stashes[0].message.contains("save wip"));
+
+    let clean = git_stdout(work.path(), &["status", "--porcelain"]);
+    assert!(clean.is_empty(), "working tree should be clean after stash, got {clean}");
+
+    service
+        .apply_stash(&StashRefRequest {
+            repository_path: work.path().to_path_buf(),
+            stash_ref: "stash@{0}".to_string(),
+        })
+        .expect("apply stash");
+
+    let dirty = git_stdout(work.path(), &["status", "--porcelain"]);
+    assert!(dirty.contains("README.md"), "apply should restore changes, got {dirty}");
+    assert_eq!(service.list_stashes(work.path()).expect("list").len(), 1);
+
+    git(work.path(), &["checkout", "--", "README.md"]);
+    let clean_again = git_stdout(work.path(), &["status", "--porcelain"]);
+    assert!(clean_again.is_empty(), "expected clean tree before pop, got {clean_again}");
+
+    service
+        .pop_stash(&StashRefRequest {
+            repository_path: work.path().to_path_buf(),
+            stash_ref: "stash@{0}".to_string(),
+        })
+        .expect("pop stash");
+
+    let popped = git_stdout(work.path(), &["status", "--porcelain"]);
+    assert!(popped.contains("README.md"), "pop should restore changes, got {popped}");
+    assert!(service.list_stashes(work.path()).expect("list").is_empty());
+
+    service
+        .create_stash(&CreateStashRequest {
+            repository_path: work.path().to_path_buf(),
+            message: None,
+            include_untracked: false,
+        })
+        .expect("second stash");
+
+    service
+        .drop_stash(&StashRefRequest {
+            repository_path: work.path().to_path_buf(),
+            stash_ref: "stash@{0}".to_string(),
+        })
+        .expect("drop stash");
+
+    assert!(service.list_stashes(work.path()).expect("list").is_empty());
+}
+
+#[test]
+fn cherry_picks_commit_and_reports_in_progress_operation() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    git(work.path(), &["checkout", "-b", "feature"]);
+    std::fs::write(work.path().join("feature.txt"), "feature\n").expect("write");
+    git(work.path(), &["add", "feature.txt"]);
+    git(work.path(), &["commit", "-m", "Feature commit"]);
+    let feature_hash = git_stdout(work.path(), &["rev-parse", "HEAD"]);
+
+    git(work.path(), &["checkout", "main"]);
+    service
+        .cherry_pick(&CherryPickRequest {
+            repository_path: work.path().to_path_buf(),
+            commit_hash: feature_hash.clone(),
+        })
+        .expect("cherry-pick");
+
+    assert!(std::fs::read_to_string(work.path().join("feature.txt")).unwrap().contains("feature"));
+    let log = service.commit_log(work.path(), 5, 0).expect("log");
+    assert!(log.iter().any(|entry| entry.subject == "Feature commit"));
+
+    git(work.path(), &["checkout", "-b", "conflict"]);
+    std::fs::write(work.path().join("README.md"), "conflict branch\n").expect("write");
+    git(work.path(), &["commit", "-am", "conflict change"]);
+    let conflict_hash = git_stdout(work.path(), &["rev-parse", "HEAD"]);
+    git(work.path(), &["checkout", "main"]);
+    std::fs::write(work.path().join("README.md"), "main branch\n").expect("write");
+    git(work.path(), &["commit", "-am", "main change"]);
+
+    let conflict = service.cherry_pick(&CherryPickRequest {
+        repository_path: work.path().to_path_buf(),
+        commit_hash: conflict_hash,
+    });
+    assert!(conflict.is_err(), "expected cherry-pick conflict");
+
+    let state = service.repository_state(work.path()).expect("state");
+    assert_eq!(
+        state.operation.as_ref().map(|op| &op.kind),
+        Some(&RepositoryOperationKind::CherryPick)
+    );
+
+    service.abort_operation(work.path()).expect("abort");
+    assert!(service.repository_state(work.path()).expect("state").operation.is_none());
 }

@@ -8,6 +8,7 @@ const INDENT_PX = 14;
 interface Props {
   branches: BranchInfo[];
   currentBranchName: string | null;
+  onCheckout?: (branch: BranchInfo) => void;
 }
 
 function expandedPathsFor(current: string | null): Set<string> {
@@ -22,7 +23,7 @@ function expandedPathsFor(current: string | null): Set<string> {
   return paths;
 }
 
-export function BranchTree({ branches, currentBranchName }: Props) {
+export function BranchTree({ branches, currentBranchName, onCheckout }: Props) {
   const tree = useMemo(() => buildBranchTree(branches), [branches]);
   const [expanded, setExpanded] = useState<Set<string>>(() =>
     expandedPathsFor(currentBranchName),
@@ -43,7 +44,11 @@ export function BranchTree({ branches, currentBranchName }: Props) {
     });
   }, []);
 
-  return <>{tree.map((node) => renderNode(node, 0, expanded, toggle))}</>;
+  return (
+    <>
+      {tree.map((node) => renderNode(node, 0, expanded, toggle, onCheckout))}
+    </>
+  );
 }
 
 function renderNode(
@@ -51,6 +56,7 @@ function renderNode(
   depth: number,
   expanded: Set<string>,
   toggle: (path: string) => void,
+  onCheckout?: (branch: BranchInfo) => void,
 ): React.JSX.Element {
   const indent = { paddingLeft: `${depth * INDENT_PX}px` };
 
@@ -82,17 +88,32 @@ function renderNode(
         </div>
         {isOpen &&
           node.children.map((child) =>
-            renderNode(child, depth + 1, expanded, toggle),
+            renderNode(child, depth + 1, expanded, toggle, onCheckout),
           )}
       </div>
     );
   }
 
+  const canCheckout = onCheckout && !node.branch.isCurrent;
+
   return (
     <div
       key={`branch:${node.branch.name}`}
+      role={canCheckout ? "button" : undefined}
+      tabIndex={canCheckout ? 0 : undefined}
       className={`sidebar-row ${node.branch.isCurrent ? "active" : ""}`}
       style={indent}
+      onClick={canCheckout ? () => onCheckout(node.branch) : undefined}
+      onKeyDown={
+        canCheckout
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onCheckout(node.branch);
+              }
+            }
+          : undefined
+      }
     >
       <span style={{ display: "flex", alignItems: "center" }}>
         <BranchIcon />

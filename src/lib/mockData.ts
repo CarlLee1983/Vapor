@@ -14,6 +14,7 @@ export const sampleRepositoryState: RepositoryState = {
     { path: "src/App.tsx", indexStatus: ".", worktreeStatus: "M" },
     { path: "README.md", indexStatus: "?", worktreeStatus: "?" },
   ],
+  operation: null,
 };
 
 export const sampleCommits: CommitSummary[] = [

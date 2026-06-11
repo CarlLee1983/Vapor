@@ -1,5 +1,18 @@
 # Vapor Staged Diff Design
 
+- 日期:2026-06-11
+- 狀態:已落地(2026-06-11)
+
+## 落地摘要
+
+- `DiffScope = "unstaged" | "staged" | "commit"` 已加入 `src/types/git.ts` 與 Rust `DiffRequest`。
+- `WorkingTreePanel` 以 path + scope 區分 Staged/Unstaged 列選取;`DiffViewer` 標題顯示 `Staged:` / `Unstaged:`。
+- Rust command builder 對 staged scope 組出 `git diff --cached`;整合測試驗證同一檔案 staged/unstaged 輸出不同。
+
+## 剩餘手動驗證缺口
+
+- 在實際 Tauri 桌面環境中,對部分暫存檔案點選 Staged 列後 diff 標題與內容是否正確(自動化測試已覆蓋,需一次 GUI smoke)。
+
 ## Goal
 
 Let users inspect exactly what will be included in the next commit after staging files. Vapor already separates Staged and Unstaged files, but selecting a file currently asks the backend for `git diff`, which only shows unstaged working-tree changes. The missing staged diff makes the commit workflow ambiguous when a file has already been staged or has both staged and unstaged edits.

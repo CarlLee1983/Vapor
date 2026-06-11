@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import {
   addRemote,
+  applyStash,
+  checkoutBranch,
+  createBranch,
   createCommit,
+  createStash,
+  listStashes,
   getCommitLog,
   getDiff,
   getLastCommitMessage,
@@ -190,5 +195,54 @@ describe("tauriApi", () => {
     const result = await getLastCommitMessage("/repo");
     expect(invokeMock).toHaveBeenCalledWith("get_last_commit_message", { request: { path: "/repo" } });
     expect(result).toBe("previous message");
+  });
+
+  it("checkoutBranch invokes checkout_branch with the request", async () => {
+    invokeMock.mockResolvedValue({ preview: { program: "git", args: [], display: "" }, stdout: "", stderr: "" } as never);
+    await checkoutBranch({ repositoryPath: "/repo", branchName: "dev" });
+    expect(invokeMock).toHaveBeenCalledWith("checkout_branch", {
+      request: { repositoryPath: "/repo", branchName: "dev" },
+    });
+  });
+
+  it("createBranch invokes create_branch with the request", async () => {
+    invokeMock.mockResolvedValue({ preview: { program: "git", args: [], display: "" }, stdout: "", stderr: "" } as never);
+    await createBranch({
+      repositoryPath: "/repo",
+      branchName: "feature/x",
+      startPoint: "origin/main",
+      checkout: true,
+    });
+    expect(invokeMock).toHaveBeenCalledWith("create_branch", {
+      request: {
+        repositoryPath: "/repo",
+        branchName: "feature/x",
+        startPoint: "origin/main",
+        checkout: true,
+      },
+    });
+  });
+
+  it("listStashes invokes list_stashes with the repository path", async () => {
+    invokeMock.mockResolvedValue({ stashes: [{ reference: "stash@{0}", message: "wip" }] } as never);
+    const result = await listStashes("/repo");
+    expect(invokeMock).toHaveBeenCalledWith("list_stashes", { request: { repositoryPath: "/repo" } });
+    expect(result).toEqual([{ reference: "stash@{0}", message: "wip" }]);
+  });
+
+  it("createStash invokes create_stash with the request", async () => {
+    invokeMock.mockResolvedValue({ preview: { program: "git", args: [], display: "" }, stdout: "", stderr: "" } as never);
+    await createStash({ repositoryPath: "/repo", message: "save", includeUntracked: true });
+    expect(invokeMock).toHaveBeenCalledWith("create_stash", {
+      request: { repositoryPath: "/repo", message: "save", includeUntracked: true },
+    });
+  });
+
+  it("applyStash invokes apply_stash with the request", async () => {
+    invokeMock.mockResolvedValue({ preview: { program: "git", args: [], display: "" }, stdout: "", stderr: "" } as never);
+    await applyStash({ repositoryPath: "/repo", stashRef: "stash@{0}" });
+    expect(invokeMock).toHaveBeenCalledWith("apply_stash", {
+      request: { repositoryPath: "/repo", stashRef: "stash@{0}" },
+    });
   });
 });
