@@ -1,11 +1,11 @@
 import { isStaged, isUnstaged } from "../lib/workingTree";
-import type { FileStatus, RepositoryState } from "../types/git";
+import type { DiffScope, FileStatus, RepositoryState, SelectedFileTarget } from "../types/git";
 import { CommitBox } from "./CommitBox";
 
 interface Props {
   repository: RepositoryState | null;
-  selectedFile: FileStatus | null;
-  onSelectFile: (file: FileStatus) => void;
+  selectedFile: SelectedFileTarget | null;
+  onSelectFile: (file: FileStatus, scope: Extract<DiffScope, "unstaged" | "staged">) => void;
   onStage: (paths: string[]) => void;
   onUnstage: (paths: string[]) => void;
   onCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<unknown>;
@@ -124,15 +124,16 @@ interface FileRowProps {
   isActive: boolean;
   actionLabel: string;
   actionGlyph: string;
-  onSelect: (file: FileStatus) => void;
+  scope: Extract<DiffScope, "unstaged" | "staged">;
+  onSelect: (file: FileStatus, scope: Extract<DiffScope, "unstaged" | "staged">) => void;
   onAction: (path: string) => void;
 }
 
-function FileRow({ file, isActive, actionLabel, actionGlyph, onSelect, onAction }: FileRowProps) {
+function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, onAction }: FileRowProps) {
   const status = getStatusInfo(file.indexStatus, file.worktreeStatus);
   return (
     <div className={`file-row${isActive ? " active" : ""}`}>
-      <button type="button" className="file-row__select" onClick={() => onSelect(file)}>
+      <button type="button" className="file-row__select" onClick={() => onSelect(file, scope)}>
         <span className="file-name-container">
           {getFileIcon(file.path)}
           <span>{file.path}</span>
@@ -192,7 +193,8 @@ export function WorkingTreePanel({
                   <FileRow
                     key={`staged-${file.path}`}
                     file={file}
-                    isActive={selectedFile?.path === file.path}
+                    scope="staged"
+                    isActive={selectedFile?.file.path === file.path && selectedFile.scope === "staged"}
                     actionLabel="Unstage"
                     actionGlyph="−"
                     onSelect={onSelectFile}
@@ -220,7 +222,8 @@ export function WorkingTreePanel({
                   <FileRow
                     key={`unstaged-${file.path}`}
                     file={file}
-                    isActive={selectedFile?.path === file.path}
+                    scope="unstaged"
+                    isActive={selectedFile?.file.path === file.path && selectedFile.scope === "unstaged"}
                     actionLabel="Stage"
                     actionGlyph="+"
                     onSelect={onSelectFile}
