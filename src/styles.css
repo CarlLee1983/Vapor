@@ -870,6 +870,91 @@ button:not(.commit-row):disabled {
   font-weight: 500;
 }
 
+.diff-hunk-block {
+  display: block;
+}
+
+.diff-hunk-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.diff-hunk-header .diff-line {
+  flex: 1;
+}
+
+.diff-hunk-actions {
+  display: flex;
+  gap: 4px;
+  padding-right: 8px;
+}
+
+.diff-hunk-actions button {
+  font-size: 11px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 4px;
+  background: var(--bg-active);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.diff-hunk-actions button:hover {
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
+}
+
+.diff-hunk-actions__danger:hover {
+  background: var(--accent-red-bg) !important;
+  color: var(--accent-red-text) !important;
+}
+
+.diff-line--selectable {
+  cursor: pointer;
+}
+
+.diff-line--selectable:hover {
+  outline: 1px solid var(--accent-blue);
+  outline-offset: -1px;
+}
+
+.diff-line--selected {
+  box-shadow: inset 3px 0 0 var(--accent-blue);
+  filter: brightness(1.12);
+}
+
+.diff-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color, #3a3a3a);
+  background: var(--bg-active);
+}
+
+.diff-action-bar__count {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.diff-action-bar button {
+  font-size: 12px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 4px;
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
+  cursor: pointer;
+}
+
+.diff-action-bar__danger {
+  background: var(--accent-red-bg) !important;
+  color: var(--accent-red-text) !important;
+}
+
 .error-banner {
   margin: 12px 12px 0;
   border: 1px solid var(--border-error);

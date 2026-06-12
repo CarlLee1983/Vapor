@@ -8,13 +8,16 @@ import {
   discardChanges as discardChangesApi,
   stageFiles as stageFilesApi,
   unstageFiles as unstageFilesApi,
+  applyPartial as applyPartialApi,
 } from "../lib/tauriApi";
 import type {
+  ApplyMode,
   CommitResponse,
   CommitSummary,
   DiffScope,
   FileStatus,
   GitError,
+  HunkSelection,
   RepositoryState,
   SafetyNetMode,
   SelectedFileTarget,
@@ -287,6 +290,47 @@ export function useRepository() {
     [refreshRepository],
   );
 
+  const applyPartial = useCallback(
+    async (input: {
+      filePath: string;
+      scope: Extract<DiffScope, "unstaged" | "staged">;
+      mode: ApplyMode;
+      hunks: HunkSelection[];
+    }) => {
+      const path = repositoryPathRef.current;
+      if (!path || input.hunks.length === 0) {
+        return;
+      }
+      try {
+        await applyPartialApi({
+          repositoryPath: path,
+          filePath: input.filePath,
+          scope: input.scope,
+          mode: input.mode,
+          hunks: input.hunks,
+        });
+        await refreshRepository();
+        // refreshRepository 只在檔案消失時清空 diff,否則保留舊 diff;
+        // 部分套用後檔案多半仍有變更,需主動重抓該檔當前 scope 的 diff。
+        const requestId = requestIdRef.current + 1;
+        requestIdRef.current = requestId;
+        const diff = await getDiff({
+          repositoryPath: path,
+          scope: input.scope,
+          commitHash: null,
+          filePath: input.filePath,
+        });
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        setState((current) => ({ ...current, diff }));
+      } catch (error) {
+        setState((current) => ({ ...current, error: error as GitError }));
+      }
+    },
+    [refreshRepository],
+  );
+
   /**
    * Creates a commit and refreshes repository state.
    * Throws on failure — callers must handle the rejected promise.
@@ -323,6 +367,7 @@ export function useRepository() {
     stageFiles,
     unstageFiles,
     discardFiles,
+    applyPartial,
     commit,
     loadLastCommitMessage,
   };

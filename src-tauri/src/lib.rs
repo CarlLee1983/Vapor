@@ -42,6 +42,7 @@ pub fn run() {
             commands::remove_remote,
             commands::stage_files,
             commands::unstage_files,
+            commands::apply_partial,
             commands::preview_commit,
             commands::create_commit,
             commands::get_last_commit_message,

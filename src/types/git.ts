@@ -83,6 +83,26 @@ export interface SelectedFileTarget {
   scope: Extract<DiffScope, "unstaged" | "staged">;
 }
 
+export type ApplyMode = "stage" | "unstage" | "discard";
+
+export interface HunkSelection {
+  index: number;
+  selectedLines: number[];
+}
+
+export interface PartialApplyRequest {
+  repositoryPath: string;
+  filePath: string;
+  scope: Extract<DiffScope, "unstaged" | "staged">;
+  mode: ApplyMode;
+  hunks: HunkSelection[];
+}
+
+export interface PartialApplyResponse {
+  stdout: string;
+  stderr: string;
+}
+
 export interface PushRequest {
   repositoryPath: string;
   remote: string;

@@ -8,6 +8,7 @@ use crate::git::models::{
     FetchRequest, FetchResponse,
     GitCommandPreview, GitError, ListStashesRequest, ListStashesResponse, ListTagsRequest, ListTagsResponse,
     MergeBranchRequest, MergeBranchResponse,
+    PartialApplyRequest, PartialApplyResponse,
     PullRequest, PullResponse, PushRequest, PushResponse, RemoteMutationResponse, RemoveRemoteRequest,
     RenameBranchRequest, RepositoryRequest, RepositoryState, SetRemoteUrlRequest, StageRequest, StageResponse,
     StashMutationResponse, StashRefRequest, TagsmithConfigRequest, TagsmithConfigResponse,
@@ -134,6 +135,18 @@ pub fn stage_files(request: StageRequest) -> Result<StageResponse, GitError> {
 #[tauri::command]
 pub fn unstage_files(request: StageRequest) -> Result<StageResponse, GitError> {
     GitService::new(SystemGitRunner).unstage(&request)
+}
+
+#[tauri::command]
+pub async fn apply_partial(request: PartialApplyRequest) -> Result<PartialApplyResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).apply_partial(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Apply task failed before Git completed.".to_string(),
+            hint: "Try the apply again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
 }
 
 #[tauri::command]

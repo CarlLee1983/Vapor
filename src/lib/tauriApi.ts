@@ -23,6 +23,8 @@ import type {
   SetRemoteUrlRequest,
   StageRequest,
   StageResponse,
+  PartialApplyRequest,
+  PartialApplyResponse,
   CherryPickRequest,
   CherryPickResponse,
   CreateStashRequest,
@@ -110,6 +112,10 @@ export async function stageFiles(request: StageRequest): Promise<StageResponse> 
 
 export async function unstageFiles(request: StageRequest): Promise<StageResponse> {
   return invoke<StageResponse>("unstage_files", { request });
+}
+
+export async function applyPartial(request: PartialApplyRequest): Promise<PartialApplyResponse> {
+  return invoke<PartialApplyResponse>("apply_partial", { request });
 }
 
 export async function previewCommit(request: CommitRequest): Promise<GitCommandPreview> {

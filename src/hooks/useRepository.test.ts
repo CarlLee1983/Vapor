@@ -10,6 +10,7 @@ vi.mock("../lib/tauriApi", () => ({
   getDiff: vi.fn(),
   stageFiles: vi.fn(),
   unstageFiles: vi.fn(),
+  applyPartial: vi.fn(),
   createCommit: vi.fn(),
   getLastCommitMessage: vi.fn(),
 }));
@@ -304,5 +305,51 @@ describe("useRepository commit actions", () => {
       message = await result.current.loadLastCommitMessage();
     });
     expect(message).toBe("prev");
+  });
+
+  it("applyPartial calls the API then refreshes and re-fetches the file diff", async () => {
+    vi.mocked(tauriApi.applyPartial).mockResolvedValue({ stdout: "", stderr: "" });
+    vi.mocked(tauriApi.getRepositoryState).mockResolvedValue({
+      root: "/repo",
+      currentBranch: "main",
+      ahead: 0,
+      behind: 0,
+      branches: [],
+      remotes: [],
+      workingTree: [],
+      operation: null,
+    });
+    vi.mocked(tauriApi.getCommitLog).mockResolvedValue([]);
+    vi.mocked(tauriApi.getDiff).mockResolvedValue("refreshed-diff");
+
+    const { result } = renderHook(() => useRepository());
+    await act(async () => {
+      await result.current.loadRepository("/repo");
+    });
+
+    await act(async () => {
+      await result.current.applyPartial({
+        filePath: "a.ts",
+        scope: "unstaged",
+        mode: "stage",
+        hunks: [{ index: 0, selectedLines: [1] }],
+      });
+    });
+
+    expect(tauriApi.applyPartial).toHaveBeenCalledWith({
+      repositoryPath: "/repo",
+      filePath: "a.ts",
+      scope: "unstaged",
+      mode: "stage",
+      hunks: [{ index: 0, selectedLines: [1] }],
+    });
+    // 套用後會重抓 unstaged diff 並寫回 state。
+    expect(tauriApi.getDiff).toHaveBeenCalledWith({
+      repositoryPath: "/repo",
+      scope: "unstaged",
+      commitHash: null,
+      filePath: "a.ts",
+    });
+    expect(result.current.diff).toBe("refreshed-diff");
   });
 });
