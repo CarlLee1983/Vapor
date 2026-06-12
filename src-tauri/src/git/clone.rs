@@ -48,6 +48,20 @@ pub fn run_clone(
 ) -> Result<CloneResponse, GitError> {
     let preview = clone_preview(request)?;
 
+    let target = std::path::Path::new(&request.target_dir);
+    let target_non_empty = target
+        .read_dir()
+        .map(|mut entries| entries.next().is_some())
+        .unwrap_or(false);
+    if target_non_empty {
+        return Err(GitError {
+            code: super::models::GitErrorCode::InvalidInput,
+            message: "Target folder already exists and is not empty.".to_string(),
+            hint: "Choose a different destination folder.".to_string(),
+            stderr: String::new(),
+        });
+    }
+
     let mut child = Command::new("git")
         .args(&preview.args)
         .env("PATH", login_env::effective_path())

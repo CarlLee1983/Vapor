@@ -40,3 +40,18 @@ fn run_clone_clones_local_repo_and_reports_path() {
     assert_eq!(response.path, dest.display().to_string());
     assert!(dest.join(".git").exists(), "cloned working tree should have .git");
 }
+
+#[test]
+fn run_clone_rejects_existing_non_empty_target() {
+    use vapor_lib::git::models::GitErrorCode;
+    let tmp = TempDir::new().unwrap();
+    let dest = tmp.path().join("dest");
+    std::fs::create_dir_all(&dest).unwrap();
+    std::fs::write(dest.join("existing.txt"), "x").unwrap();
+    let request = CloneRequest {
+        url: "file:///nonexistent/repo".to_string(),
+        target_dir: dest.display().to_string(),
+    };
+    let err = run_clone(&request, |_| {}).unwrap_err();
+    assert_eq!(err.code, GitErrorCode::InvalidInput);
+}
