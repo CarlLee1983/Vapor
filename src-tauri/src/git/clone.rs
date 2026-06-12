@@ -54,11 +54,22 @@ pub fn run_clone(
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|error| GitError {
-            code: super::models::GitErrorCode::GitMissing,
-            message: "Unable to start the git executable.".to_string(),
-            hint: "Install Git and make sure it is available on PATH.".to_string(),
-            stderr: error.to_string(),
+        .map_err(|error| {
+            let is_missing = error.kind() == std::io::ErrorKind::NotFound;
+            GitError {
+                code: if is_missing {
+                    super::models::GitErrorCode::GitMissing
+                } else {
+                    super::models::GitErrorCode::CommandFailed
+                },
+                message: "Unable to start the git executable.".to_string(),
+                hint: if is_missing {
+                    "Install Git and make sure it is available on PATH.".to_string()
+                } else {
+                    format!("Could not start git: {error}")
+                },
+                stderr: error.to_string(),
+            }
         })?;
 
     let mut stderr = child.stderr.take().expect("stderr piped");
@@ -104,13 +115,13 @@ fn flush_line(
     if line.is_empty() {
         return;
     }
-    let text = String::from_utf8_lossy(line).to_string();
-    line.clear();
+    let text = String::from_utf8_lossy(line);
     captured.push_str(&text);
     captured.push('\n');
     if let Some(progress) = parse_clone_progress(&text) {
         on_progress(progress);
     }
+    line.clear();
 }
 
 #[cfg(test)]

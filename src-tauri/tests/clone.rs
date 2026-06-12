@@ -6,7 +6,12 @@ use vapor_lib::git::clone::run_clone;
 use vapor_lib::git::models::CloneRequest;
 
 fn git(args: &[&str], cwd: &std::path::Path) {
-    let status = Command::new("git").args(args).current_dir(cwd).status().unwrap();
+    let status = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .status()
+        .unwrap();
     assert!(status.success(), "git {:?} failed", args);
 }
 
