@@ -195,4 +195,22 @@ describe("WorkingTreePanel", () => {
     });
     expect(screen.getByText("LFS")).toBeInTheDocument();
   });
+
+  it("renders a Track with LFS affordance for large non-LFS files", () => {
+    const repository = {
+      ...baseRepo,
+      workingTree: [
+        {
+          path: "assets/video.mp4",
+          indexStatus: ".",
+          worktreeStatus: "M",
+          sizeBytes: 20 * 1024 * 1024,
+          isLfs: false,
+        },
+      ],
+    };
+    const onTrackLfs = vi.fn();
+    setup({ repository, onTrackLfs });
+    expect(screen.getByRole("button", { name: "Track with LFS" })).toBeInTheDocument();
+  });
 });

@@ -381,3 +381,17 @@ export interface SshDiagnostics {
   keyFiles: string[];
   credentialHelper: string | null;
 }
+
+export type LfsTrackMode = "pattern" | "fileOnly";
+
+export interface LfsTrackRequest {
+  repositoryPath: string;
+  path: string;
+  mode: LfsTrackMode;
+}
+
+export interface LfsTrackResponse {
+  previews: GitCommandPreview[];
+  stdout: string;
+  stderr: string;
+}

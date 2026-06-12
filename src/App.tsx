@@ -324,6 +324,7 @@ export default function App() {
                 setLastDiscard({ trackedPaths, untrackedPaths });
                 void repoView.discardFiles(trackedPaths, untrackedPaths);
               }}
+              onTrackLfs={(file, mode) => void repoView.lfsTrack(file.path, mode)}
               onCommit={repoView.commit}
               onPreviewCommit={(input) =>
                 previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })

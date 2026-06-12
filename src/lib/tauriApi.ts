@@ -12,6 +12,8 @@ import type {
   DeleteBranchRequest,
   DiffRequest,
   GitCommandPreview,
+  LfsTrackRequest,
+  LfsTrackResponse,
   PullRequest,
   PullResponse,
   PushRequest,
@@ -116,6 +118,10 @@ export async function unstageFiles(request: StageRequest): Promise<StageResponse
 
 export async function applyPartial(request: PartialApplyRequest): Promise<PartialApplyResponse> {
   return invoke<PartialApplyResponse>("apply_partial", { request });
+}
+
+export async function lfsTrack(request: LfsTrackRequest): Promise<LfsTrackResponse> {
+  return invoke<LfsTrackResponse>("lfs_track", { request });
 }
 
 export async function previewCommit(request: CommitRequest): Promise<GitCommandPreview> {

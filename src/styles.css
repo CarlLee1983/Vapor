@@ -1851,3 +1851,32 @@ button.danger:not(:disabled):hover {
   font-size: 0.85em;
   color: var(--text-secondary);
 }
+
+.lfs-track {
+  position: relative;
+  display: inline-flex;
+}
+
+.lfs-track__toggle {
+  font-size: 0.75em;
+  padding: 1px 6px;
+}
+
+.lfs-track__menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  min-width: 140px;
+}
+
+.lfs-track__menu button {
+  text-align: left;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
