@@ -149,7 +149,7 @@ impl<R: GitRunner> GitService<R> {
         let steps = [
             super::command_builder::lfs_track_args(&pattern)?,
             super::command_builder::stage_args(&[".gitattributes".to_string()])?,
-            super::command_builder::stage_args(&[request.path.clone()])?,
+            super::command_builder::stage_args(std::slice::from_ref(&request.path))?,
         ];
 
         let mut previews = Vec::new();
