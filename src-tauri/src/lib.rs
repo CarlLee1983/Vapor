@@ -32,6 +32,8 @@ pub fn run() {
             commands::get_diff,
             commands::preview_push,
             commands::push_branch,
+            commands::preview_clone,
+            commands::clone_repository,
             commands::preview_pull,
             commands::pull_branch,
             commands::add_remote,
