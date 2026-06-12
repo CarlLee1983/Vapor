@@ -80,6 +80,14 @@ pub fn lfs_track_args(pattern: &str) -> Result<Vec<String>, GitError> {
             stderr: String::new(),
         });
     }
+    if pattern.starts_with('-') {
+        return Err(GitError {
+            code: GitErrorCode::InvalidInput,
+            message: "Track pattern must not start with '-'.".to_string(),
+            hint: "Select a file from the list to track with Git LFS.".to_string(),
+            stderr: String::new(),
+        });
+    }
     Ok(vec!["lfs".to_string(), "track".to_string(), pattern.to_string()])
 }
 
@@ -1359,6 +1367,14 @@ mod tests {
     fn lfs_track_args_rejects_blank_pattern() {
         assert_eq!(
             lfs_track_args("  ").unwrap_err().code,
+            GitErrorCode::InvalidInput
+        );
+    }
+
+    #[test]
+    fn lfs_track_args_rejects_dash_prefixed_pattern() {
+        assert_eq!(
+            lfs_track_args("-rf").unwrap_err().code,
             GitErrorCode::InvalidInput
         );
     }

@@ -132,20 +132,16 @@ impl<R: GitRunner> GitService<R> {
         use super::models::GitErrorCode;
 
         // git-lfs must be installed to register tracking and run the clean filter.
-        if self
-            .runner
-            .run(
-                &request.repository_path,
-                &["lfs".to_string(), "version".to_string()],
-            )
-            .is_err()
-        {
+        if let Err(probe_err) = self.runner.run(
+            &request.repository_path,
+            &["lfs".to_string(), "version".to_string()],
+        ) {
             return Err(GitError {
                 code: GitErrorCode::CommandFailed,
-                message: "Git LFS is not installed.".to_string(),
+                message: "Git LFS is not installed or not functional.".to_string(),
                 hint: "Install git-lfs (brew install git-lfs && git lfs install), then try again. See ⚙ → Doctor."
                     .to_string(),
-                stderr: String::new(),
+                stderr: probe_err.stderr,
             });
         }
 
