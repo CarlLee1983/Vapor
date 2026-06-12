@@ -609,3 +609,14 @@ pub struct SshDiagnostics {
     pub key_files: Vec<String>,
     pub credential_helper: Option<String>,
 }
+
+/// 單一 hunk 的選取描述子。
+/// `index` 為該 hunk 在檔案 diff 中的序號(從 0 起,對應 parse 後的 `FileDiff.hunks`)。
+/// `selected_lines` 為被勾選的變更行在該 hunk body 內的序號(0 起,對 context/add/del/no-newline
+/// 逐行編號;前端只會送出 add/del 行的序號)。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct HunkSelection {
+    pub index: usize,
+    pub selected_lines: Vec<usize>,
+}
