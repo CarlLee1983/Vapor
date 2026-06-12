@@ -43,6 +43,7 @@ pub fn run() {
             commands::stage_files,
             commands::unstage_files,
             commands::apply_partial,
+            commands::lfs_track,
             commands::preview_commit,
             commands::create_commit,
             commands::get_last_commit_message,

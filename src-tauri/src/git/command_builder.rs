@@ -64,6 +64,25 @@ fn preview(args: Vec<String>) -> GitCommandPreview {
     }
 }
 
+/// Public wrapper so services can build a preview from already-validated args.
+pub fn preview_from_args(args: &[String]) -> GitCommandPreview {
+    preview(args.to_vec())
+}
+
+/// `git lfs track <pattern>` — registers an LFS gitattributes pattern.
+/// `git lfs track` treats its argument as a gitattributes pattern and does NOT accept a `--` separator.
+pub fn lfs_track_args(pattern: &str) -> Result<Vec<String>, GitError> {
+    if pattern.trim().is_empty() {
+        return Err(GitError {
+            code: GitErrorCode::InvalidInput,
+            message: "Track pattern is required.".to_string(),
+            hint: "Select a file to track with Git LFS.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    Ok(vec!["lfs".to_string(), "track".to_string(), pattern.to_string()])
+}
+
 pub fn clone_preview(request: &CloneRequest) -> Result<GitCommandPreview, GitError> {
     if request.url.trim().is_empty() {
         return Err(GitError {
@@ -1326,5 +1345,21 @@ mod tests {
         let request = CloneRequest { url: "https://x/y.git".to_string(), target_dir: "   ".to_string() };
         let error = clone_preview(&request).unwrap_err();
         assert_eq!(error.code, GitErrorCode::InvalidInput);
+    }
+
+    #[test]
+    fn lfs_track_args_builds_track_command() {
+        assert_eq!(
+            lfs_track_args("*.mp4").unwrap(),
+            vec!["lfs", "track", "*.mp4"]
+        );
+    }
+
+    #[test]
+    fn lfs_track_args_rejects_blank_pattern() {
+        assert_eq!(
+            lfs_track_args("  ").unwrap_err().code,
+            GitErrorCode::InvalidInput
+        );
     }
 }

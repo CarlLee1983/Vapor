@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::models::{FileStatus, GitError};
+use super::models::{FileStatus, GitError, LfsTrackMode};
 use super::runner::GitRunner;
 
 const LFS_FILTER_VALUE: &str = "lfs";
@@ -76,6 +76,28 @@ pub fn detect_lfs_enabled(root: &Path, files: &[FileStatus]) -> bool {
         .unwrap_or(false)
 }
 
+/// Derives the gitattributes pattern to track. `Pattern` → `*.<ext>` when the file
+/// has a usable extension, else the exact path; `FileOnly` → the exact path.
+pub fn track_pattern(path: &str, mode: &LfsTrackMode) -> String {
+    match mode {
+        LfsTrackMode::FileOnly => path.to_string(),
+        LfsTrackMode::Pattern => match extension_of(path) {
+            Some(ext) => format!("*.{ext}"),
+            None => path.to_string(),
+        },
+    }
+}
+
+/// Returns the extension after the final '.', or None for dotfiles / no extension.
+fn extension_of(path: &str) -> Option<&str> {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let (stem, ext) = name.rsplit_once('.')?;
+    if stem.is_empty() || ext.is_empty() {
+        return None;
+    }
+    Some(ext)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,5 +123,27 @@ mod tests {
     #[test]
     fn empty_output_yields_empty_map() {
         assert!(parse_check_attr_filter("").is_empty());
+    }
+
+    #[test]
+    fn track_pattern_pattern_mode_uses_extension() {
+        assert_eq!(
+            track_pattern("assets/video.mp4", &LfsTrackMode::Pattern),
+            "*.mp4"
+        );
+    }
+
+    #[test]
+    fn track_pattern_file_only_uses_full_path() {
+        assert_eq!(
+            track_pattern("assets/video.mp4", &LfsTrackMode::FileOnly),
+            "assets/video.mp4"
+        );
+    }
+
+    #[test]
+    fn track_pattern_falls_back_to_path_without_extension() {
+        assert_eq!(track_pattern("assets/LICENSE", &LfsTrackMode::Pattern), "assets/LICENSE");
+        assert_eq!(track_pattern("assets/.gitignore", &LfsTrackMode::Pattern), "assets/.gitignore");
     }
 }

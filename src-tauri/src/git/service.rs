@@ -125,6 +125,54 @@ impl<R: GitRunner> GitService<R> {
         })
     }
 
+    pub fn lfs_track(
+        &self,
+        request: &super::models::LfsTrackRequest,
+    ) -> Result<super::models::LfsTrackResponse, GitError> {
+        use super::models::GitErrorCode;
+
+        // git-lfs must be installed to register tracking and run the clean filter.
+        if self
+            .runner
+            .run(
+                &request.repository_path,
+                &["lfs".to_string(), "version".to_string()],
+            )
+            .is_err()
+        {
+            return Err(GitError {
+                code: GitErrorCode::CommandFailed,
+                message: "Git LFS is not installed.".to_string(),
+                hint: "Install git-lfs (brew install git-lfs && git lfs install), then try again. See ⚙ → Doctor."
+                    .to_string(),
+                stderr: String::new(),
+            });
+        }
+
+        let pattern = super::lfs::track_pattern(&request.path, &request.mode);
+        let steps = [
+            super::command_builder::lfs_track_args(&pattern)?,
+            super::command_builder::stage_args(&[".gitattributes".to_string()])?,
+            super::command_builder::stage_args(&[request.path.clone()])?,
+        ];
+
+        let mut previews = Vec::new();
+        let mut stdout = String::new();
+        let mut stderr = String::new();
+        for args in steps {
+            let output = self.runner.run(&request.repository_path, &args)?;
+            stdout.push_str(&output.stdout);
+            stderr.push_str(&output.stderr);
+            previews.push(super::command_builder::preview_from_args(&args));
+        }
+
+        Ok(super::models::LfsTrackResponse {
+            previews,
+            stdout,
+            stderr,
+        })
+    }
+
     pub fn push(&self, request: &super::models::PushRequest) -> Result<super::models::PushResponse, GitError> {
         let preview = super::command_builder::push_preview(request)?;
         let output = self.runner.run(&request.repository_path, &preview.args)?;

@@ -661,3 +661,26 @@ pub struct PartialApplyResponse {
     pub stdout: String,
     pub stderr: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LfsTrackMode {
+    Pattern,
+    FileOnly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LfsTrackRequest {
+    pub repository_path: PathBuf,
+    pub path: String,
+    pub mode: LfsTrackMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LfsTrackResponse {
+    pub previews: Vec<GitCommandPreview>,
+    pub stdout: String,
+    pub stderr: String,
+}

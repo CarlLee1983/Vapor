@@ -69,3 +69,35 @@ fn repository_state_without_lfs_reports_disabled() {
         .expect("present");
     assert!(!f.is_lfs);
 }
+
+fn git_lfs_available() -> bool {
+    Command::new("git")
+        .args(["lfs", "version"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+#[test]
+fn lfs_track_tracks_pattern_or_reports_missing_lfs() {
+    use vapor_lib::git::models::{LfsTrackMode, LfsTrackRequest};
+
+    let work = setup();
+    std::fs::write(work.path().join("clip.mp4"), vec![0u8; 4096]).unwrap();
+
+    let request = LfsTrackRequest {
+        repository_path: work.path().to_path_buf(),
+        path: "clip.mp4".to_string(),
+        mode: LfsTrackMode::Pattern,
+    };
+    let result = GitService::new(SystemGitRunner).lfs_track(&request);
+
+    if git_lfs_available() {
+        result.expect("lfs_track succeeds");
+        let attrs = std::fs::read_to_string(work.path().join(".gitattributes")).expect("attrs");
+        assert!(attrs.contains("*.mp4"), "pattern written to .gitattributes");
+    } else {
+        let err = result.expect_err("missing git-lfs should error");
+        assert!(err.hint.contains("git-lfs"), "hint points at git-lfs install");
+    }
+}
