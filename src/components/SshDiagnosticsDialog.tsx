@@ -16,9 +16,20 @@ export function SshDiagnosticsDialog({ onClose }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    getSshDiagnostics().then((value) => {
-      if (!cancelled) setData(value);
-    });
+    getSshDiagnostics()
+      .then((value) => {
+        if (!cancelled) setData(value);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setData({
+            agentRunning: false,
+            sshConfigExists: false,
+            keyFiles: [],
+            credentialHelper: null,
+          });
+        }
+      });
     return () => {
       cancelled = true;
     };
