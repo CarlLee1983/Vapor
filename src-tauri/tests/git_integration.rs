@@ -2,11 +2,11 @@ use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 use vapor_lib::git::models::{
-    AddRemoteRequest, CheckoutBranchRequest, CherryPickRequest, CommitRequest, CreateBranchRequest,
-    CreateStashRequest, DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest,
-    MergeBranchRequest, PullRequest, PushRequest, RemoveRemoteRequest, RenameBranchRequest,
-    RepositoryOperationKind, SafetyNetMode, SetRemoteUrlRequest, StageRequest, StashRefRequest,
-    TagPushMode,
+    AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CherryPickRequest, CommitRequest,
+    CreateBranchRequest, CreateStashRequest, DeleteBranchRequest, DiffScope, DiscardChangesRequest,
+    FetchRequest, HunkSelection, MergeBranchRequest, PartialApplyRequest, PullRequest, PushRequest,
+    RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind, SafetyNetMode,
+    SetRemoteUrlRequest, StageRequest, StashRefRequest, TagPushMode,
 };
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
@@ -54,6 +54,29 @@ fn setup_repo() -> (TempDir, TempDir) {
         ],
     );
     (work, remote)
+}
+
+fn write_two_hunk_change(work: &Path) {
+    // 建立 12 行檔案並提交,再改動第 2 與第 11 行。兩處變更間隔 8 行(> 2×預設 context 3),
+    // 真實 `git diff` 才會切成兩個獨立 hunk;6 行間隔會被併成單一 hunk。
+    std::fs::write(work.join("nums.txt"), "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\n").expect("write base");
+    git(work, &["add", "nums.txt"]);
+    git(work, &["commit", "-m", "add nums"]);
+    std::fs::write(work.join("nums.txt"), "a\nb2\nc\nd\ne\nf\ng\nh\ni\nj\nk2\nl\n").expect("write change");
+}
+
+fn select_whole_hunk(diff: &str, hunk_index: usize) -> HunkSelection {
+    use vapor_lib::git::patch::{parse_file_diff, LineKind};
+    let parsed = parse_file_diff(diff).expect("parse diff");
+    let hunk = &parsed.hunks[hunk_index];
+    let selected_lines = hunk
+        .lines
+        .iter()
+        .enumerate()
+        .filter(|(_, line)| matches!(line.kind, LineKind::Add | LineKind::Del))
+        .map(|(i, _)| i)
+        .collect();
+    HunkSelection { index: hunk_index, selected_lines }
 }
 
 #[test]
@@ -704,4 +727,91 @@ fn discards_tracked_and_untracked_changes() {
 
     let state = service.repository_state(work.path()).expect("state");
     assert!(state.working_tree.is_empty(), "working tree should be clean: {:?}", state.working_tree);
+}
+
+#[test]
+fn partial_stage_applies_only_selected_hunk() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+    write_two_hunk_change(work.path());
+
+    let unstaged = service
+        .diff(work.path(), DiffScope::Unstaged, None, Some("nums.txt"))
+        .expect("unstaged diff");
+    let selection = select_whole_hunk(&unstaged, 0);
+
+    service
+        .apply_partial(&PartialApplyRequest {
+            repository_path: work.path().to_path_buf(),
+            file_path: "nums.txt".to_string(),
+            scope: DiffScope::Unstaged,
+            mode: ApplyMode::Stage,
+            hunks: vec![selection],
+        })
+        .expect("partial stage");
+
+    let cached = git_stdout(work.path(), &["diff", "--cached", "-U0", "--", "nums.txt"]);
+    assert!(cached.contains("+b2"), "staged hunk applied: {cached}");
+    assert!(!cached.contains("+k2"), "second hunk NOT staged: {cached}");
+
+    let worktree = git_stdout(work.path(), &["diff", "-U0", "--", "nums.txt"]);
+    assert!(worktree.contains("+k2"), "second hunk still unstaged: {worktree}");
+    assert!(!worktree.contains("+b2"), "first hunk no longer unstaged: {worktree}");
+}
+
+#[test]
+fn partial_unstage_removes_selected_hunk_from_index() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+    write_two_hunk_change(work.path());
+    // 先全部 stage。
+    git(work.path(), &["add", "nums.txt"]);
+
+    let staged = service
+        .diff(work.path(), DiffScope::Staged, None, Some("nums.txt"))
+        .expect("staged diff");
+    let selection = select_whole_hunk(&staged, 0);
+
+    service
+        .apply_partial(&PartialApplyRequest {
+            repository_path: work.path().to_path_buf(),
+            file_path: "nums.txt".to_string(),
+            scope: DiffScope::Staged,
+            mode: ApplyMode::Unstage,
+            hunks: vec![selection],
+        })
+        .expect("partial unstage");
+
+    let cached = git_stdout(work.path(), &["diff", "--cached", "-U0", "--", "nums.txt"]);
+    assert!(!cached.contains("+b2"), "first hunk unstaged from index: {cached}");
+    assert!(cached.contains("+k2"), "second hunk stays staged: {cached}");
+
+    let worktree = git_stdout(work.path(), &["diff", "-U0", "--", "nums.txt"]);
+    assert!(worktree.contains("+b2"), "first hunk back to unstaged: {worktree}");
+}
+
+#[test]
+fn partial_discard_reverts_selected_hunk_in_worktree() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+    write_two_hunk_change(work.path());
+
+    let unstaged = service
+        .diff(work.path(), DiffScope::Unstaged, None, Some("nums.txt"))
+        .expect("unstaged diff");
+    let selection = select_whole_hunk(&unstaged, 0);
+
+    service
+        .apply_partial(&PartialApplyRequest {
+            repository_path: work.path().to_path_buf(),
+            file_path: "nums.txt".to_string(),
+            scope: DiffScope::Unstaged,
+            mode: ApplyMode::Discard,
+            hunks: vec![selection],
+        })
+        .expect("partial discard");
+
+    let worktree = git_stdout(work.path(), &["diff", "-U0", "--", "nums.txt"]);
+    assert!(!worktree.contains("+b2"), "first hunk discarded: {worktree}");
+    assert!(worktree.contains("+k2"), "second hunk remains: {worktree}");
 }
