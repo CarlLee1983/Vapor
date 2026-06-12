@@ -1825,3 +1825,29 @@ button.danger:not(:disabled):hover {
   margin-right: 4px;
   white-space: nowrap;
 }
+
+.diff-lfs-card {
+  margin: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-panel);
+}
+
+.diff-lfs-card__title {
+  font-weight: 600;
+  color: var(--accent-blue-text);
+}
+
+.diff-lfs-card__size {
+  font-size: 1.4em;
+  margin: 6px 0;
+  color: var(--text-primary);
+}
+
+.diff-lfs-card__oid {
+  font-family: monospace;
+  opacity: 0.7;
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}

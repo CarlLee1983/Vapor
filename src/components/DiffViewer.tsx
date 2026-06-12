@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import type { ApplyMode, DiffScope, HunkSelection } from "../types/git";
 import { parseFileDiff, type DiffLine } from "../lib/diffModel";
+import { parseLfsPointer } from "../lib/lfsPointer";
+import { formatBytes } from "../lib/lfsHints";
 
 interface ApplyInput {
   filePath: string;
@@ -51,6 +53,7 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
   const lastClickRef = useRef<Record<number, number>>({});
 
   const parsed = useMemo(() => parseFileDiff(diff), [diff]);
+  const lfsPointer = useMemo(() => parseLfsPointer(diff), [diff]);
 
   // diff 變了就清空選取(套用後 diff 會被重抓)。
   useEffect(() => {
@@ -193,7 +196,21 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
         </div>
       </div>
 
-      {interactive ? (
+      {lfsPointer ? (
+        <div className="diff-lfs-card">
+          <div className="diff-lfs-card__title">Git LFS object</div>
+          <div className="diff-lfs-card__size">
+            {lfsPointer.oldSize !== null && lfsPointer.size !== null
+              ? `${formatBytes(lfsPointer.oldSize)} → ${formatBytes(lfsPointer.size)}`
+              : lfsPointer.size !== null
+              ? formatBytes(lfsPointer.size)
+              : "binary"}
+          </div>
+          {lfsPointer.oid ? (
+            <div className="diff-lfs-card__oid">sha256 {lfsPointer.oid.slice(0, 12)}…</div>
+          ) : null}
+        </div>
+      ) : interactive ? (
         <>
           <pre className="diff-code">
             <code>
