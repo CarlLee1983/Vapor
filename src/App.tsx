@@ -342,6 +342,9 @@ export default function App() {
                 ? `${repoView.selectedFile.scope === "staged" ? "Staged" : "Unstaged"}: ${repoView.selectedFile.file.path}`
                 : undefined
             }
+            scope={viewMode === "history" ? "commit" : repoView.selectedFile?.scope}
+            filePath={viewMode === "history" ? null : repoView.selectedFile?.file.path ?? null}
+            onApplyPartial={repoView.applyPartial}
           />
         </SplitPane>
       </section>
