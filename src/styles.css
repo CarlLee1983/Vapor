@@ -36,7 +36,9 @@
   --accent-orange: #ea580c;
   --accent-orange-bg: #ffedd5;
   --accent-orange-text: #c2410c;
-  
+  --accent-amber-bg: #fef3c7;
+  --accent-amber-text: #92400e;
+
   --bg-badge-head: #dbeafe;
   --text-badge-head: #1d4ed8;
   --bg-badge-branch: #e6e8eb;
@@ -84,7 +86,9 @@
   --accent-orange: #f97316;
   --accent-orange-bg: rgba(249, 115, 22, 0.15);
   --accent-orange-text: #fb923c;
-  
+  --accent-amber-bg: rgba(245, 158, 11, 0.2);
+  --accent-amber-text: #fcd34d;
+
   --bg-badge-head: #1e3a8a;
   --text-badge-head: #93c5fd;
   --bg-badge-branch: #334155;
@@ -1810,14 +1814,14 @@ button.danger:not(:disabled):hover {
 }
 
 .status-badge--lfs {
-  background: var(--accent-blue, #3b82f6);
-  color: #fff;
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
   margin-right: 4px;
 }
 
 .status-badge--large {
-  background: #f59e0b;
-  color: #1f2937;
+  background-color: var(--accent-amber-bg);
+  color: var(--accent-amber-text);
   margin-right: 4px;
   white-space: nowrap;
 }
