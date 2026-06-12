@@ -20,6 +20,10 @@ export function laneColor(lane: number): string {
   return LANE_COLORS[((lane % n) + n) % n];
 }
 
+/** Synthetic row marking pending working-tree changes, à la SourceTree. */
+export const UNCOMMITTED_HASH = "__uncommitted__";
+export const UNCOMMITTED_COLOR = "#9ca3af"; // neutral gray
+
 /** Curve shape a renderer should draw. */
 export type EdgeKind = "straight" | "branch" | "merge";
 /** Which vertical half of the row this edge segment occupies. */
@@ -69,7 +73,15 @@ function primaryChain(commits: CommitSummary[]): Set<string> {
   return chain;
 }
 
-export function buildCommitGraph(commits: CommitSummary[]): CommitGraph {
+export interface BuildCommitGraphOptions {
+  /** When true, prepend a gray node for pending working-tree changes. */
+  hasUncommittedChanges?: boolean;
+}
+
+export function buildCommitGraph(
+  commits: CommitSummary[],
+  options: BuildCommitGraphOptions = {},
+): CommitGraph {
   // Intentionally mutable: in-place lane updates avoid O(n^2) slice allocations.
   const lanes: (string | null)[] = []; // lane index -> hash the lane is waiting for
   const rows: GraphRow[] = [];
@@ -161,6 +173,45 @@ export function buildCommitGraph(commits: CommitSummary[]): CommitGraph {
     maxLaneCount = Math.max(maxLaneCount, laneCount);
 
     rows.push({ commit, node: { lane: nodeLane, color: nodeColor }, edges, laneCount });
+  }
+
+  if (options.hasUncommittedChanges && rows.length > 0) {
+    // SourceTree-style pending node: a gray dot above the newest commit, linked
+    // by a straight gray line. The link is split across two rows — a bottom stub
+    // on the synthetic row and a top stub grafted onto the commit below — so it
+    // reaches that commit's node center without spanning rows.
+    const head = rows[0];
+    const lane = head.node.lane;
+    head.edges.push({
+      fromLane: lane,
+      toLane: lane,
+      color: UNCOMMITTED_COLOR,
+      kind: "straight",
+      half: "top",
+      dangling: false,
+    });
+    rows.unshift({
+      commit: {
+        hash: UNCOMMITTED_HASH,
+        parents: [head.commit.hash],
+        author: "",
+        date: "",
+        subject: "Uncommitted changes",
+        refs: [],
+      },
+      node: { lane, color: UNCOMMITTED_COLOR },
+      edges: [
+        {
+          fromLane: lane,
+          toLane: lane,
+          color: UNCOMMITTED_COLOR,
+          kind: "straight",
+          half: "bottom",
+          dangling: false,
+        },
+      ],
+      laneCount: head.laneCount,
+    });
   }
 
   return { rows, maxLaneCount };

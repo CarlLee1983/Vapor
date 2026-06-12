@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import type { CommitSummary } from "../types/git";
 import { describeRef } from "../lib/refs";
 import { CommitGraph } from "./CommitGraph";
-import { buildCommitGraph, LANE_WIDTH, ROW_HEIGHT } from "../lib/commitGraph";
+import { buildCommitGraph, LANE_WIDTH, ROW_HEIGHT, UNCOMMITTED_HASH } from "../lib/commitGraph";
 import { computeVisibleRange, isNearBottom } from "../lib/virtualList";
 
 const OVERSCAN = 6;
@@ -16,6 +16,10 @@ interface Props {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
+  /** Number of pending working-tree changes; >0 shows the gray uncommitted node. */
+  uncommittedCount?: number;
+  /** Invoked when the uncommitted row is clicked (e.g. switch to the status view). */
+  onSelectUncommitted?: () => void;
 }
 
 export function getInitials(name: string): string {
@@ -54,8 +58,14 @@ export function CommitList({
   hasMore = false,
   isLoadingMore = false,
   onLoadMore,
+  uncommittedCount = 0,
+  onSelectUncommitted,
 }: Props) {
-  const graph = useMemo(() => buildCommitGraph(commits), [commits]);
+  const hasUncommittedChanges = uncommittedCount > 0;
+  const graph = useMemo(
+    () => buildCommitGraph(commits, { hasUncommittedChanges }),
+    [commits, hasUncommittedChanges],
+  );
   const gutterWidth = Math.max(1, graph.maxLaneCount) * LANE_WIDTH;
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -116,7 +126,7 @@ export function CommitList({
     scrollTop: metrics.scrollTop,
     viewportHeight: metrics.viewportHeight,
     rowHeight: ROW_HEIGHT,
-    count: commits.length,
+    count: graph.rows.length,
     overscan: OVERSCAN,
   });
   const visibleRows = graph.rows.slice(range.start, range.end);
@@ -143,6 +153,24 @@ export function CommitList({
             <CommitGraph rows={visibleRows} width={gutterWidth} />
             {visibleRows.map((row) => {
               const commit = row.commit;
+              if (commit.hash === UNCOMMITTED_HASH) {
+                return (
+                  <button
+                    className="commit-row commit-row--uncommitted"
+                    key={commit.hash}
+                    type="button"
+                    onClick={onSelectUncommitted}
+                  >
+                    <div className="commit-avatar commit-avatar--uncommitted" aria-hidden="true" />
+                    <span className="commit-subject">Uncommitted changes</span>
+                    <span className="commit-meta">
+                      <span className="commit-author">
+                        {uncommittedCount} {uncommittedCount === 1 ? "file" : "files"}
+                      </span>
+                    </span>
+                  </button>
+                );
+              }
               return (
                 <button
                   className={

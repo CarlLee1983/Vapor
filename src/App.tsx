@@ -298,6 +298,8 @@ export default function App() {
               hasMore={repoView.hasMore}
               isLoadingMore={repoView.isLoadingMore}
               onLoadMore={repoView.loadMoreCommits}
+              uncommittedCount={repoView.repository?.workingTree.length ?? 0}
+              onSelectUncommitted={() => setViewMode("status")}
             />
           ) : (
             <WorkingTreePanel

@@ -1,5 +1,5 @@
 import type { GraphEdge, GraphRow } from "../lib/commitGraph";
-import { LANE_WIDTH, NODE_RADIUS, ROW_HEIGHT } from "../lib/commitGraph";
+import { LANE_WIDTH, NODE_RADIUS, ROW_HEIGHT, UNCOMMITTED_HASH } from "../lib/commitGraph";
 import { describeRef } from "../lib/refs";
 
 interface Props {
@@ -62,16 +62,19 @@ export function CommitGraph({ rows, width }: Props) {
         ));
       })}
       {rows.map((row, rowIndex) => {
+        const isUncommitted = row.commit.hash === UNCOMMITTED_HASH;
         const isHead = row.commit.refs.some((ref) => describeRef(ref).kind === "head");
+        // Uncommitted: hollow gray ring so it reads as "not yet a real commit".
         return (
           <circle
             key={`${row.commit.hash}-node`}
             cx={laneX(row.node.lane)}
             cy={rowIndex * ROW_HEIGHT + ROW_HEIGHT / 2}
             r={NODE_RADIUS}
-            fill={isHead ? "var(--bg-primary)" : row.node.color}
-            stroke={isHead ? row.node.color : "var(--bg-primary)"}
+            fill={isHead || isUncommitted ? "var(--bg-primary)" : row.node.color}
+            stroke={isHead || isUncommitted ? row.node.color : "var(--bg-primary)"}
             strokeWidth={isHead ? 2 : 1.5}
+            strokeDasharray={isUncommitted ? "2 2" : undefined}
           />
         );
       })}

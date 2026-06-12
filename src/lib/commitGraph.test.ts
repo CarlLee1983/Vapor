@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildCommitGraph, laneColor, LANE_COLORS, LANE_WIDTH, ROW_HEIGHT } from "./commitGraph";
+import {
+  buildCommitGraph,
+  laneColor,
+  LANE_COLORS,
+  LANE_WIDTH,
+  ROW_HEIGHT,
+  UNCOMMITTED_COLOR,
+  UNCOMMITTED_HASH,
+} from "./commitGraph";
 import type { CommitSummary } from "../types/git";
 
 function commit(hash: string, parents: string[]): CommitSummary {
@@ -196,6 +204,43 @@ describe("buildCommitGraph - criss-cross merge with a side testing branch", () =
     const hooks = graph.rows.find((r) => r.commit.hash === "hooks")!;
     expect(tagsmith.node.lane).toBe(1);
     expect(hooks.node.lane).toBe(2);
+  });
+});
+
+describe("buildCommitGraph - uncommitted changes node", () => {
+  const base = [commit("c3", ["c2"]), commit("c2", ["c1"]), commit("c1", [])];
+
+  it("prepends a gray uncommitted node on the topmost commit's lane", () => {
+    const graph = buildCommitGraph(base, { hasUncommittedChanges: true });
+    expect(graph.rows).toHaveLength(base.length + 1);
+    const head = graph.rows[0];
+    expect(head.commit.hash).toBe(UNCOMMITTED_HASH);
+    expect(head.node.color).toBe(UNCOMMITTED_COLOR);
+    expect(head.node.lane).toBe(graph.rows[1].node.lane);
+  });
+
+  it("draws a gray connecting line down into the topmost commit", () => {
+    const graph = buildCommitGraph(base, { hasUncommittedChanges: true });
+    const lane = graph.rows[0].node.lane;
+    expect(graph.rows[0].edges).toEqual([
+      expect.objectContaining({ fromLane: lane, toLane: lane, half: "bottom", color: UNCOMMITTED_COLOR }),
+    ]);
+    // The commit below gains a matching top stub so the line reaches its node.
+    expect(graph.rows[1].edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ fromLane: lane, toLane: lane, half: "top", color: UNCOMMITTED_COLOR }),
+      ]),
+    );
+  });
+
+  it("leaves the graph untouched when the working tree is clean", () => {
+    const clean = buildCommitGraph(base);
+    const withFlag = buildCommitGraph(base, { hasUncommittedChanges: false });
+    expect(withFlag).toEqual(clean);
+  });
+
+  it("adds no uncommitted node when there are no commits", () => {
+    expect(buildCommitGraph([], { hasUncommittedChanges: true })).toEqual({ rows: [], maxLaneCount: 0 });
   });
 });
 

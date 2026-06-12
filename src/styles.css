@@ -696,6 +696,21 @@ button:not(.commit-row):disabled {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
 }
 
+/* Pending working-tree node, mirroring SourceTree's gray "uncommitted" entry. */
+.commit-row--uncommitted .commit-subject {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.commit-avatar--uncommitted {
+  width: 18px;
+  height: 18px;
+  border: 1.5px dashed #9ca3af;
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+}
+
 .commit-subject {
   overflow: hidden;
   text-overflow: ellipsis;

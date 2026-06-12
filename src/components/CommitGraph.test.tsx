@@ -74,5 +74,14 @@ describe("CommitGraph", () => {
       expect(circle.getAttribute("fill")).toBe(graph.rows[0].node.color);
       expect(circle.getAttribute("stroke")).toBe("var(--bg-primary)");
     });
+
+    it("draws the uncommitted node as a hollow gray dashed ring", () => {
+      const graph = buildCommitGraph([commit("c1", [])], { hasUncommittedChanges: true });
+      const { container } = render(<CommitGraph rows={graph.rows} width={16} />);
+      const ring = container.querySelectorAll("circle")[0];
+      expect(ring.getAttribute("fill")).toBe("var(--bg-primary)");
+      expect(ring.getAttribute("stroke")).toBe(graph.rows[0].node.color);
+      expect(ring.getAttribute("stroke-dasharray")).toBe("2 2");
+    });
   });
 });

@@ -155,6 +155,32 @@ describe("CommitList", () => {
     expect(onLoadMore).not.toHaveBeenCalled();
   });
 
+  it("shows a gray uncommitted row above the history when the working tree is dirty", () => {
+    const onSelectUncommitted = vi.fn();
+    const { container } = render(
+      <CommitList
+        commits={commits}
+        selectedCommit={null}
+        onSelectCommit={vi.fn()}
+        uncommittedCount={3}
+        onSelectUncommitted={onSelectUncommitted}
+      />,
+    );
+    expect(screen.getByText("Uncommitted changes")).toBeInTheDocument();
+    expect(screen.getByText("3 files")).toBeInTheDocument();
+    // One extra graph node beyond the commits for the gray dot.
+    expect(container.querySelectorAll("svg.commit-graph circle")).toHaveLength(commits.length + 1);
+    fireEvent.click(screen.getByText("Uncommitted changes"));
+    expect(onSelectUncommitted).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits the uncommitted row when the working tree is clean", () => {
+    render(
+      <CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} uncommittedCount={0} />,
+    );
+    expect(screen.queryByText("Uncommitted changes")).not.toBeInTheDocument();
+  });
+
   it("renders initials avatars correctly for single and multi-word names", () => {
     const testCommits: CommitSummary[] = [
       {
