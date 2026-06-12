@@ -271,6 +271,7 @@ export function WorkingTreePanel({
                 <p className="muted">Nothing staged</p>
               ) : (
                 staged.map((file) => (
+                  /* onTrackLfs is offered on staged rows too: lfs_track re-adds the path through the LFS clean filter. */
                   <FileRow
                     key={`staged-${file.path}`}
                     file={file}

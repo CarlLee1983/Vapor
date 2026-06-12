@@ -29,4 +29,11 @@ describe("LfsTrackMenu", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Only this file" }));
     expect(onTrack).toHaveBeenCalledWith(noExt, "fileOnly");
   });
+
+  it("closes the menu after a choice is made", () => {
+    render(<LfsTrackMenu file={file} onTrack={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Track with LFS" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Track all *.mp4" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
 });
