@@ -21,6 +21,7 @@ import {
   setRemoteUrl,
   stageFiles,
   unstageFiles,
+  applyPartial,
   getTimeline,
   planUndo,
   executeUndo,
@@ -45,6 +46,19 @@ describe("tauriApi", () => {
     invokeMock.mockResolvedValue({} as never);
     await getRepositoryState("/repo");
     expect(invokeMock).toHaveBeenCalledWith("get_repository_state", { request: { path: "/repo" } });
+  });
+
+  it("applyPartial invokes apply_partial with the request", async () => {
+    invokeMock.mockResolvedValue({ stdout: "", stderr: "" } as never);
+    const request = {
+      repositoryPath: "/repo",
+      filePath: "src/app.ts",
+      scope: "unstaged" as const,
+      mode: "stage" as const,
+      hunks: [{ index: 0, selectedLines: [1, 2] }],
+    };
+    await applyPartial(request);
+    expect(invokeMock).toHaveBeenCalledWith("apply_partial", { request });
   });
 
   it("getCommitLog passes repositoryPath and default limit and skip", async () => {
