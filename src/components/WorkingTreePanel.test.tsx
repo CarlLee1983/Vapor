@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkingTreePanel } from "./WorkingTreePanel";
 import type { RepositoryState, SelectedFileTarget } from "../types/git";
+import { LARGE_FILE_THRESHOLD_BYTES } from "../lib/lfsHints";
 
 const baseRepo: RepositoryState = {
   root: "/repo",
@@ -156,5 +157,42 @@ describe("WorkingTreePanel", () => {
     expect(screen.getByRole("group", { name: /conflicted files/i })).toHaveTextContent("conflict.ts");
     expect(screen.getByRole("group", { name: "Staged changes" })).not.toHaveTextContent("conflict.ts");
     expect(screen.getByText(/finish or abort the in-progress git operation/i)).toBeInTheDocument();
+  });
+
+  it("shows a size badge for large non-LFS files", () => {
+    setup({
+      repository: {
+        ...baseRepo,
+        workingTree: [
+          {
+            path: "assets/video.mp4",
+            indexStatus: ".",
+            worktreeStatus: "M",
+            sizeBytes: LARGE_FILE_THRESHOLD_BYTES + 5 * 1024 * 1024,
+            isLfs: false,
+          },
+        ],
+      },
+    });
+    // 徽章內容是「⬢ 15.0 MB」,用 regex 比子字串。
+    expect(screen.getByText(/15\.0 MB/)).toBeInTheDocument();
+  });
+
+  it("shows an LFS chip for LFS-tracked files", () => {
+    setup({
+      repository: {
+        ...baseRepo,
+        workingTree: [
+          {
+            path: "assets/model.bin",
+            indexStatus: ".",
+            worktreeStatus: "M",
+            sizeBytes: LARGE_FILE_THRESHOLD_BYTES + 1,
+            isLfs: true,
+          },
+        ],
+      },
+    });
+    expect(screen.getByText("LFS")).toBeInTheDocument();
   });
 });

@@ -1808,3 +1808,16 @@ button.danger:not(:disabled):hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.status-badge--lfs {
+  background: var(--accent-blue, #3b82f6);
+  color: #fff;
+  margin-right: 4px;
+}
+
+.status-badge--large {
+  background: #f59e0b;
+  color: #1f2937;
+  margin-right: 4px;
+  white-space: nowrap;
+}

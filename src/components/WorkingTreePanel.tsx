@@ -1,4 +1,5 @@
 import { isConflict, isStaged, isUnstaged, isUntracked } from "../lib/workingTree";
+import { formatBytes, isLargeNonLfs } from "../lib/lfsHints";
 import type { DiffScope, FileStatus, RepositoryState, SelectedFileTarget } from "../types/git";
 import { CommitBox } from "./CommitBox";
 
@@ -143,7 +144,20 @@ function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, on
           {getFileIcon(file.path)}
           <span>{file.path}</span>
         </span>
-        <span className={status.className}>{status.label}</span>
+        {file.isLfs ? (
+            <span className="status-badge status-badge--lfs" title="Tracked by Git LFS">
+              LFS
+            </span>
+          ) : null}
+          {isLargeNonLfs(file) ? (
+            <span
+              className="status-badge status-badge--large"
+              title="大型二進位檔將進入 Git 歷史;考慮改用 Git LFS"
+            >
+              ⬢ {formatBytes(file.sizeBytes)}
+            </span>
+          ) : null}
+          <span className={status.className}>{status.label}</span>
       </button>
       {onDiscard ? (
         <button
