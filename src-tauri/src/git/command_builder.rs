@@ -1,8 +1,9 @@
 use super::models::{
-    AddRemoteRequest, CheckoutBranchRequest, CherryPickRequest, CommitRequest, CreateBranchRequest,
-    CreateStashRequest, DeleteBranchRequest, DiffScope, FetchRequest, GitCommandPreview, GitError,
-    GitErrorCode, MergeBranchRequest, PullRequest, PushRequest, RemoveRemoteRequest,
-    RenameBranchRequest, RepositoryOperationKind, SetRemoteUrlRequest, StashRefRequest, TagPushMode,
+    AddRemoteRequest, CheckoutBranchRequest, CherryPickRequest, CloneRequest, CommitRequest,
+    CreateBranchRequest, CreateStashRequest, DeleteBranchRequest, DiffScope, FetchRequest,
+    GitCommandPreview, GitError, GitErrorCode, MergeBranchRequest, PullRequest, PushRequest,
+    RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind, SetRemoteUrlRequest,
+    StashRefRequest, TagPushMode,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -61,6 +62,31 @@ fn preview(args: Vec<String>) -> GitCommandPreview {
         args,
         display,
     }
+}
+
+pub fn clone_preview(request: &CloneRequest) -> Result<GitCommandPreview, GitError> {
+    if request.url.trim().is_empty() {
+        return Err(GitError {
+            code: GitErrorCode::InvalidInput,
+            message: "Repository URL is required.".to_string(),
+            hint: "Enter a Git URL such as git@github.com:owner/repo.git.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    if request.target_dir.trim().is_empty() {
+        return Err(GitError {
+            code: GitErrorCode::InvalidInput,
+            message: "Target folder is required.".to_string(),
+            hint: "Choose a parent folder and a destination name.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    Ok(preview(vec![
+        "clone".to_string(),
+        "--progress".to_string(),
+        request.url.trim().to_string(),
+        request.target_dir.trim().to_string(),
+    ]))
 }
 
 pub fn push_preview(request: &PushRequest) -> Result<GitCommandPreview, GitError> {
@@ -1228,5 +1254,44 @@ mod tests {
         assert_eq!(error.code, GitErrorCode::CommandFailed);
         let error = discard_untracked_preview(&[]).expect_err("no paths");
         assert_eq!(error.code, GitErrorCode::CommandFailed);
+    }
+
+    #[test]
+    fn clone_preview_builds_clone_args() {
+        let request = CloneRequest {
+            url: "git@github.com:foo/bar.git".to_string(),
+            target_dir: "/tmp/work/bar".to_string(),
+        };
+        let preview = clone_preview(&request).unwrap();
+        assert_eq!(
+            preview.args,
+            vec![
+                "clone".to_string(),
+                "--progress".to_string(),
+                "git@github.com:foo/bar.git".to_string(),
+                "/tmp/work/bar".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn clone_preview_rejects_empty_url() {
+        let request = CloneRequest { url: "  ".to_string(), target_dir: "/tmp/x".to_string() };
+        let error = clone_preview(&request).unwrap_err();
+        assert_eq!(error.code, GitErrorCode::InvalidInput);
+    }
+
+    #[test]
+    fn clone_preview_rejects_empty_target() {
+        let request = CloneRequest { url: "https://x/y.git".to_string(), target_dir: "".to_string() };
+        let error = clone_preview(&request).unwrap_err();
+        assert_eq!(error.code, GitErrorCode::InvalidInput);
+    }
+
+    #[test]
+    fn clone_preview_rejects_whitespace_target() {
+        let request = CloneRequest { url: "https://x/y.git".to_string(), target_dir: "   ".to_string() };
+        let error = clone_preview(&request).unwrap_err();
+        assert_eq!(error.code, GitErrorCode::InvalidInput);
     }
 }

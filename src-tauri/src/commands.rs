@@ -1,6 +1,7 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
     AddRemoteRequest, BranchMutationResponse, CheckoutBranchRequest, CherryPickRequest, CherryPickResponse,
+    CloneRequest, CloneResponse,
     CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, CreateBranchRequest, CreateStashRequest,
     CreateTagRequest, CreateTagResponse, DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest,
     DiffResponse, DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse,
@@ -15,7 +16,7 @@ use crate::git::models::{
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
-use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use crate::window::{next_window_label, repo_title};
 
 /// 解析目前執行檔路徑;找不到時回傳一致的 GitError。
@@ -64,6 +65,33 @@ pub async fn push_branch(request: PushRequest) -> Result<PushResponse, GitError>
             hint: "Try the push again. If it keeps failing, restart Vapor.".to_string(),
             stderr: error.to_string(),
         })?
+}
+
+#[tauri::command]
+pub fn preview_clone(
+    request: CloneRequest,
+) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::clone_preview(&request)
+}
+
+#[tauri::command]
+pub async fn clone_repository(
+    request: CloneRequest,
+    window: tauri::WebviewWindow,
+) -> Result<CloneResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::git::clone::run_clone(&request, |progress| {
+            // 進度送不出去(視窗關閉)時忽略,clone 仍會完成。
+            let _ = window.emit("clone://progress", progress);
+        })
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Clone task failed before Git completed.".to_string(),
+        hint: "Try the clone again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -556,6 +584,11 @@ pub async fn cleanup_snapshots(request: TimelineRequest) -> Result<(), GitError>
         hint: "It will retry next time the repository is opened.".to_string(),
         stderr: error.to_string(),
     })?
+}
+
+#[tauri::command]
+pub fn get_ssh_diagnostics() -> crate::git::models::SshDiagnostics {
+    crate::git::ssh_doctor::diagnostics()
 }
 
 /// Open the given repository in a new, independent OS window.

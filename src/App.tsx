@@ -11,6 +11,8 @@ import { PullDialog } from "./components/PullDialog";
 import { FetchDialog } from "./components/FetchDialog";
 import { RemotesDialog } from "./components/RemotesDialog";
 import { AboutDialog } from "./components/AboutDialog";
+import { CloneDialog } from "./components/CloneDialog";
+import { SshDiagnosticsDialog } from "./components/SshDiagnosticsDialog";
 import { DoctorDialog } from "./components/DoctorDialog";
 import { TimeMachineDialog } from "./components/TimeMachineDialog";
 import { UndoButton } from "./components/UndoButton";
@@ -53,6 +55,8 @@ export default function App() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDoctorOpen, setIsDoctorOpen] = useState(false);
   const [isTimeMachineOpen, setIsTimeMachineOpen] = useState(false);
+  const [isCloneOpen, setIsCloneOpen] = useState(false);
+  const [isSshOpen, setIsSshOpen] = useState(false);
   // 記住最後一次 discard 的目標,供安全網逃生口(force/skip)重送。
   const [lastDiscard, setLastDiscard] = useState<{
     trackedPaths: string[];
@@ -121,6 +125,8 @@ export default function App() {
     setIsStashOpen(false);
     setIsCherryPickOpen(false);
     setIsRemotesOpen(false);
+    setIsCloneOpen(false);
+    setIsSshOpen(false);
     setLastDiscard(null);
   }, [workspace.activePath]);
 
@@ -201,6 +207,12 @@ export default function App() {
           <div className="toolbar-actions">
             <button type="button" onClick={() => void handleOpen()}>
               Open Repository
+            </button>
+            <button type="button" onClick={() => setIsCloneOpen(true)}>
+              Clone
+            </button>
+            <button type="button" onClick={() => setIsSshOpen(true)}>
+              SSH
             </button>
             <button type="button" disabled={!repoView.repository} onClick={() => void refreshRepository()}>
               Refresh
@@ -402,6 +414,16 @@ export default function App() {
           }}
         />
       ) : null}
+      {isCloneOpen && (
+        <CloneDialog
+          onClose={() => setIsCloneOpen(false)}
+          onCloned={(path) => {
+            setIsCloneOpen(false);
+            workspace.openRepository(path);
+          }}
+        />
+      )}
+      {isSshOpen && <SshDiagnosticsDialog onClose={() => setIsSshOpen(false)} />}
       {isAboutOpen ? <AboutDialog onClose={() => setIsAboutOpen(false)} /> : null}
       {isDoctorOpen ? <DoctorDialog onClose={() => setIsDoctorOpen(false)} /> : null}
       {isTimeMachineOpen && repoView.repositoryPath ? (

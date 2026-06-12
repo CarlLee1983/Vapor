@@ -3,6 +3,8 @@ import type {
   AddRemoteRequest,
   BranchMutationResponse,
   CheckoutBranchRequest,
+  CloneRequest,
+  CloneResponse,
   CommitRequest,
   CommitResponse,
   CommitSummary,
@@ -72,6 +74,14 @@ export async function previewPush(request: PushRequest): Promise<GitCommandPrevi
 
 export async function pushBranch(request: PushRequest): Promise<PushResponse> {
   return invoke<PushResponse>("push_branch", { request });
+}
+
+export async function previewClone(request: CloneRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_clone", { request });
+}
+
+export async function cloneRepository(request: CloneRequest): Promise<CloneResponse> {
+  return invoke<CloneResponse>("clone_repository", { request });
 }
 
 export async function previewPull(request: PullRequest): Promise<GitCommandPreview> {

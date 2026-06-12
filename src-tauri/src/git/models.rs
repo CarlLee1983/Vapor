@@ -28,6 +28,7 @@ pub enum GitErrorCode {
     SnapshotFailed,
     SnapshotTooLarge,
     UndoStale,
+    InvalidInput,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -577,4 +578,34 @@ pub struct RestoreSnapshotFileRequest {
     pub repository_path: PathBuf,
     pub entry_id: String,
     pub file_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CloneRequest {
+    pub url: String,
+    pub target_dir: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CloneProgress {
+    pub phase: String,
+    pub percent: Option<u8>,
+    pub objects: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CloneResponse {
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SshDiagnostics {
+    pub agent_running: bool,
+    pub ssh_config_exists: bool,
+    pub key_files: Vec<String>,
+    pub credential_helper: Option<String>,
 }
