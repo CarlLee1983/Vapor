@@ -66,12 +66,17 @@ fn wrapper_candidates() -> Vec<PathBuf> {
     candidates
 }
 
-/// 若任一候選 wrapper 存在且其啟動行指向 `app_binary`(以 `"<app_binary>"` 比對),回傳 true。
+/// 若任一候選 wrapper 存在且其內容與目前 `wrapper_script(app_binary)` 完全相同,回傳 true。
+///
+/// 採用完整內容比對(而非僅比對 binary 路徑),才能偵測「指向正確 binary 但
+/// 仍是舊版阻塞式 `exec` 樣板」的過時 wrapper——這類 wrapper 會把 app 綁在
+/// 終端機上(`vapor .` 卡住、關閉終端機連帶關閉 app)。內容不符即視為未安裝,
+/// 讓 Doctor / 安裝橫幅提示重新安裝。
 fn cli_installed_in(candidates: &[PathBuf], app_binary: &Path) -> bool {
-    let needle = format!("\"{}\"", app_binary.display());
+    let expected = wrapper_script(app_binary);
     candidates.iter().any(|path| {
         fs::read_to_string(path)
-            .map(|contents| contents.contains(&needle))
+            .map(|contents| contents == expected)
             .unwrap_or(false)
     })
 }
@@ -145,6 +150,19 @@ mod status_tests {
         let dir = TempDir::new().expect("temp dir");
         let wrapper = dir.path().join("vapor"); // 不建立
         let binary = PathBuf::from("/Applications/Vapor.app/Contents/MacOS/vapor");
+        assert!(!cli_installed_in(&[wrapper], &binary));
+    }
+
+    #[test]
+    fn not_installed_when_wrapper_is_stale_exec_form() {
+        let dir = TempDir::new().expect("temp dir");
+        let wrapper = dir.path().join("vapor");
+        let binary = PathBuf::from("/Applications/Vapor.app/Contents/MacOS/vapor");
+        // Pre-fix wrapper: points at the right binary but uses blocking `exec`,
+        // which ties the app to the terminal. Must be treated as not installed
+        // so Doctor / the banner prompt a reinstall.
+        let stale = format!("#!/bin/sh\nexec \"{}\" \"$target\"\n", binary.display());
+        fs::write(&wrapper, stale).expect("write wrapper");
         assert!(!cli_installed_in(&[wrapper], &binary));
     }
 
