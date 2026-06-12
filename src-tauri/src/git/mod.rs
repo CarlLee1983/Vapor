@@ -7,4 +7,5 @@ pub mod parsers;
 pub mod runner;
 pub mod service;
 pub mod snapshot;
+pub mod clone;
 pub mod undo;
