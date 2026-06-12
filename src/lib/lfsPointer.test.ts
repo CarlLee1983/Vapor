@@ -32,6 +32,17 @@ const PLAIN = `diff --git a/a.txt b/a.txt
 +world
 `;
 
+const DELETED = `diff --git a/asset.bin b/asset.bin
+deleted file mode 100644
+index 1111111..0000000
+--- a/asset.bin
++++ /dev/null
+@@ -1,3 +0,0 @@
+-version https://git-lfs.github.com/spec/v1
+-oid sha256:1111111111111111111111111111111111111111111111111111111111111111
+-size 100
+`;
+
 describe("parseLfsPointer", () => {
   it("parses a newly added pointer", () => {
     const info = parseLfsPointer(ADDED);
@@ -54,5 +65,13 @@ describe("parseLfsPointer", () => {
 
   it("returns null for a non-pointer diff", () => {
     expect(parseLfsPointer(PLAIN)).toBeNull();
+  });
+
+  it("parses a deleted pointer with oldSize only", () => {
+    const info = parseLfsPointer(DELETED);
+    expect(info).not.toBeNull();
+    expect(info?.size).toBeNull();
+    expect(info?.oldSize).toBe(100);
+    expect(info?.oid).toBeNull();
   });
 });

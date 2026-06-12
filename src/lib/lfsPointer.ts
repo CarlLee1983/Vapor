@@ -36,6 +36,7 @@ export function parseLfsPointer(diff: string): LfsPointerInfo | null {
   }
   const added: string[] = [];
   const removed: string[] = [];
+  const context: string[] = [];
   for (const raw of diff.split(/\r?\n/)) {
     if (raw.startsWith("+++") || raw.startsWith("---")) {
       continue;
@@ -44,12 +45,14 @@ export function parseLfsPointer(diff: string): LfsPointerInfo | null {
       added.push(raw.slice(1));
     } else if (raw.startsWith("-")) {
       removed.push(raw.slice(1));
+    } else if (raw.startsWith(" ")) {
+      context.push(raw.slice(1));
     }
   }
-  const newSide = added.length > 0 ? added : diff.split(/\r?\n/);
+  const newSide = added.length > 0 ? added : context;
   return {
     oid: extractOid(newSide),
-    size: extractSize(added),
+    size: extractSize(newSide),
     oldSize: extractSize(removed),
   };
 }
