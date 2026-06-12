@@ -1,6 +1,7 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
     AddRemoteRequest, BranchMutationResponse, CheckoutBranchRequest, CherryPickRequest, CherryPickResponse,
+    CloneRequest, CloneResponse,
     CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, CreateBranchRequest, CreateStashRequest,
     CreateTagRequest, CreateTagResponse, DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest,
     DiffResponse, DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse,
@@ -68,16 +69,16 @@ pub async fn push_branch(request: PushRequest) -> Result<PushResponse, GitError>
 
 #[tauri::command]
 pub fn preview_clone(
-    request: crate::git::models::CloneRequest,
+    request: CloneRequest,
 ) -> Result<GitCommandPreview, GitError> {
     crate::git::command_builder::clone_preview(&request)
 }
 
 #[tauri::command]
 pub async fn clone_repository(
-    request: crate::git::models::CloneRequest,
+    request: CloneRequest,
     window: tauri::WebviewWindow,
-) -> Result<crate::git::models::CloneResponse, GitError> {
+) -> Result<CloneResponse, GitError> {
     tauri::async_runtime::spawn_blocking(move || {
         crate::git::clone::run_clone(&request, |progress| {
             // 進度送不出去(視窗關閉)時忽略,clone 仍會完成。
