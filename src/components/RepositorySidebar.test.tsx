@@ -13,9 +13,10 @@ const mockRepo: RepositoryState = {
   branches: [{ name: "main", isCurrent: true, upstream: "origin/main" }],
   remotes: [{ name: "origin", fetchUrl: "", pushUrl: "" }],
   workingTree: [
-    { path: "a.ts", indexStatus: "M", worktreeStatus: "." },
-    { path: "b.ts", indexStatus: ".", worktreeStatus: "M" },
+    { path: "a.ts", indexStatus: "M", worktreeStatus: ".", sizeBytes: 0, isLfs: false },
+    { path: "b.ts", indexStatus: ".", worktreeStatus: "M", sizeBytes: 0, isLfs: false },
   ],
+  lfsEnabled: false,
 };
 
 const openRepos: RepoEntry[] = [

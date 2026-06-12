@@ -24,6 +24,7 @@ const repository: RepositoryState = {
   ],
   remotes: [{ name: "origin", fetchUrl: "git@example.com:repo.git", pushUrl: "git@example.com:repo.git" }],
   workingTree: [],
+  lfsEnabled: false,
 };
 
 describe("BranchesDialog", () => {

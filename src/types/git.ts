@@ -41,6 +41,8 @@ export interface FileStatus {
   path: string;
   indexStatus: string;
   worktreeStatus: string;
+  sizeBytes: number;
+  isLfs: boolean;
 }
 
 export type RepositoryOperationKind = "cherryPick" | "merge" | "rebase";
@@ -57,6 +59,7 @@ export interface RepositoryState {
   branches: BranchInfo[];
   remotes: RemoteInfo[];
   workingTree: FileStatus[];
+  lfsEnabled: boolean;
   operation?: RepositoryOperation | null;
 }
 

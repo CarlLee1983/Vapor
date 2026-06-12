@@ -11,9 +11,10 @@ export const sampleRepositoryState: RepositoryState = {
   ],
   remotes: [{ name: "origin", fetchUrl: "git@example.com:vapor.git", pushUrl: "git@example.com:vapor.git" }],
   workingTree: [
-    { path: "src/App.tsx", indexStatus: ".", worktreeStatus: "M" },
-    { path: "README.md", indexStatus: "?", worktreeStatus: "?" },
+    { path: "src/App.tsx", indexStatus: ".", worktreeStatus: "M", sizeBytes: 4096, isLfs: false },
+    { path: "README.md", indexStatus: "?", worktreeStatus: "?", sizeBytes: 1024, isLfs: false },
   ],
+  lfsEnabled: false,
   operation: null,
 };
 
