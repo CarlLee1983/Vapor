@@ -34,6 +34,7 @@ pub fn run() {
             commands::push_branch,
             commands::preview_clone,
             commands::clone_repository,
+            commands::get_ssh_diagnostics,
             commands::preview_pull,
             commands::pull_branch,
             commands::add_remote,

@@ -586,6 +586,11 @@ pub async fn cleanup_snapshots(request: TimelineRequest) -> Result<(), GitError>
     })?
 }
 
+#[tauri::command]
+pub fn get_ssh_diagnostics() -> crate::git::models::SshDiagnostics {
+    crate::git::ssh_doctor::diagnostics()
+}
+
 /// Open the given repository in a new, independent OS window.
 /// The new window loads `index.html?repo=<encoded>`; the frontend reads that
 /// query param to identify itself as a secondary window and load only that repo.

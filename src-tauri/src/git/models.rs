@@ -600,3 +600,12 @@ pub struct CloneProgress {
 pub struct CloneResponse {
     pub path: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SshDiagnostics {
+    pub agent_running: bool,
+    pub ssh_config_exists: bool,
+    pub key_files: Vec<String>,
+    pub credential_helper: Option<String>,
+}
