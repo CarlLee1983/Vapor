@@ -15,6 +15,7 @@ export type GitErrorCode =
   | "commandFailed"
   | "snapshotFailed"
   | "snapshotTooLarge"
+  | "invalidInput"
   | "undoStale";
 
 export interface GitError {
@@ -334,4 +335,26 @@ export interface DiscardChangesResponse {
   previews: GitCommandPreview[];
   stdout: string;
   stderr: string;
+}
+
+export interface CloneRequest {
+  url: string;
+  targetDir: string;
+}
+
+export interface CloneProgress {
+  phase: string;
+  percent: number | null;
+  objects: string | null;
+}
+
+export interface CloneResponse {
+  path: string;
+}
+
+export interface SshDiagnostics {
+  agentRunning: boolean;
+  sshConfigExists: boolean;
+  keyFiles: string[];
+  credentialHelper: string | null;
 }
