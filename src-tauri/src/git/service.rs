@@ -72,6 +72,56 @@ impl<R: GitRunner> GitService<R> {
         Ok(output.stdout)
     }
 
+    pub fn apply_partial(
+        &self,
+        request: &super::models::PartialApplyRequest,
+    ) -> Result<super::models::PartialApplyResponse, GitError> {
+        use super::models::GitErrorCode;
+
+        if request.hunks.is_empty() {
+            return Err(GitError {
+                code: GitErrorCode::InvalidInput,
+                message: "No changes selected.".to_string(),
+                hint: "Select at least one line or hunk before applying.".to_string(),
+                stderr: String::new(),
+            });
+        }
+
+        // 依 scope 重跑權威 diff,避免 render 之後檔案又被改動。
+        let diff_text = self.diff(
+            &request.repository_path,
+            request.scope.clone(),
+            None,
+            Some(&request.file_path),
+        )?;
+        let file_diff = super::patch::parse_file_diff(&diff_text)?;
+        let patch = super::patch::build_partial_patch(&file_diff, &request.hunks)?;
+
+        let args = super::command_builder::partial_apply_args(request.mode.clone());
+        let output = self
+            .runner
+            .run_with_stdin(&request.repository_path, &args, &patch)
+            .map_err(|error| {
+                // context 不符通常代表 render 後檔案又變;給明確 hint。
+                if error.code == GitErrorCode::CommandFailed {
+                    GitError {
+                        code: GitErrorCode::CommandFailed,
+                        message: "Could not apply the selected changes.".to_string(),
+                        hint: "The file changed since the diff was rendered. Refresh the diff and try again."
+                            .to_string(),
+                        stderr: error.stderr,
+                    }
+                } else {
+                    error
+                }
+            })?;
+
+        Ok(super::models::PartialApplyResponse {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
     pub fn push(&self, request: &super::models::PushRequest) -> Result<super::models::PushResponse, GitError> {
         let preview = super::command_builder::push_preview(request)?;
         let output = self.runner.run(&request.repository_path, &preview.args)?;

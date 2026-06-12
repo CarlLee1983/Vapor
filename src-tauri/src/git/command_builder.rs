@@ -1,9 +1,9 @@
 use super::models::{
-    AddRemoteRequest, CheckoutBranchRequest, CherryPickRequest, CloneRequest, CommitRequest,
-    CreateBranchRequest, CreateStashRequest, DeleteBranchRequest, DiffScope, FetchRequest,
-    GitCommandPreview, GitError, GitErrorCode, MergeBranchRequest, PullRequest, PushRequest,
-    RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind, SetRemoteUrlRequest,
-    StashRefRequest, TagPushMode,
+    AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CherryPickRequest, CloneRequest,
+    CommitRequest, CreateBranchRequest, CreateStashRequest, DeleteBranchRequest, DiffScope,
+    FetchRequest, GitCommandPreview, GitError, GitErrorCode, MergeBranchRequest, PullRequest,
+    PushRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
+    SetRemoteUrlRequest, StashRefRequest, TagPushMode,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -601,11 +601,44 @@ pub fn discard_untracked_preview(paths: &[String]) -> Result<GitCommandPreview, 
     Ok(preview(args))
 }
 
+/// `git apply` 旗標:stage = `--cached`;unstage = `--cached -R`;discard = `-R`。
+/// 一律附 `--recount`,容忍 patch 行數的輕微誤差(我們仍精算 @@)。
+pub fn partial_apply_args(mode: ApplyMode) -> Vec<String> {
+    let mut args = vec!["apply".to_string()];
+    match mode {
+        ApplyMode::Stage => args.push("--cached".to_string()),
+        ApplyMode::Unstage => {
+            args.push("--cached".to_string());
+            args.push("-R".to_string());
+        }
+        ApplyMode::Discard => args.push("-R".to_string()),
+    }
+    args.push("--recount".to_string());
+    args
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::models::ApplyMode;
     use super::super::models::SafetyNetMode;
     use std::path::PathBuf;
+
+    #[test]
+    fn builds_partial_apply_args_for_each_mode() {
+        assert_eq!(
+            partial_apply_args(ApplyMode::Stage),
+            vec!["apply", "--cached", "--recount"]
+        );
+        assert_eq!(
+            partial_apply_args(ApplyMode::Unstage),
+            vec!["apply", "--cached", "-R", "--recount"]
+        );
+        assert_eq!(
+            partial_apply_args(ApplyMode::Discard),
+            vec!["apply", "-R", "--recount"]
+        );
+    }
 
     fn request() -> PushRequest {
         PushRequest {

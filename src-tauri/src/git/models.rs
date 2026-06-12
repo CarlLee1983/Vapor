@@ -620,3 +620,28 @@ pub struct HunkSelection {
     pub index: usize,
     pub selected_lines: Vec<usize>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ApplyMode {
+    Stage,
+    Unstage,
+    Discard,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PartialApplyRequest {
+    pub repository_path: PathBuf,
+    pub file_path: String,
+    pub scope: DiffScope,
+    pub mode: ApplyMode,
+    pub hunks: Vec<HunkSelection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PartialApplyResponse {
+    pub stdout: String,
+    pub stderr: String,
+}
