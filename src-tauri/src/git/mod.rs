@@ -1,3 +1,4 @@
+pub mod clone;
 pub mod command_builder;
 pub mod journal;
 pub mod login_env;
@@ -7,5 +8,4 @@ pub mod parsers;
 pub mod runner;
 pub mod service;
 pub mod snapshot;
-pub mod clone;
 pub mod undo;

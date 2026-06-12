@@ -19,26 +19,19 @@ pub fn parse_clone_progress(line: &str) -> Option<CloneProgress> {
 
 fn extract_percent(line: &str) -> Option<u8> {
     let idx = line.find('%')?;
-    let digits: String = line[..idx]
-        .chars()
-        .rev()
-        .take_while(|c| c.is_ascii_digit())
-        .collect::<String>()
-        .chars()
-        .rev()
-        .collect();
-    digits.parse::<u8>().ok()
+    line[..idx]
+        .split_whitespace()
+        .next_back()?
+        .parse::<u8>()
+        .ok()
 }
 
 fn extract_objects(line: &str) -> Option<String> {
-    let start = line.find('(')?;
-    let end = line[start..].find(')')? + start;
-    let inner = &line[start + 1..end];
-    if inner.contains('/') {
-        Some(inner.to_string())
-    } else {
-        None
-    }
+    let start = line.find('(')? + 1; // byte after '('
+    let rest = &line[start..];
+    let len = rest.find(')')?;
+    let inner = &rest[..len];
+    inner.contains('/').then(|| inner.to_string())
 }
 
 #[cfg(test)]
@@ -75,5 +68,12 @@ mod tests {
         assert!(parse_clone_progress("Cloning into 'bar'...").is_none());
         assert!(parse_clone_progress("").is_none());
         assert!(parse_clone_progress("fatal: repository not found").is_none());
+    }
+
+    #[test]
+    fn counting_without_slash_has_no_objects() {
+        let p = parse_clone_progress("Counting objects: 100% (1234), done.").unwrap();
+        assert_eq!(p.percent, Some(100));
+        assert_eq!(p.objects, None);
     }
 }
