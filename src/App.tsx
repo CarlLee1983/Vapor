@@ -125,6 +125,8 @@ export default function App() {
     setIsStashOpen(false);
     setIsCherryPickOpen(false);
     setIsRemotesOpen(false);
+    setIsCloneOpen(false);
+    setIsSshOpen(false);
     setLastDiscard(null);
   }, [workspace.activePath]);
 
