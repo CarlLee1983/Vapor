@@ -25,7 +25,10 @@ pub fn diagnostics() -> SshDiagnostics {
 
     let config_exists = ssh_dir.as_ref().map(|d| d.join("config").exists());
 
-    let agent_socket = std::env::var("SSH_AUTH_SOCK").ok();
+    // 只有 socket 檔實際存在才算 agent 在運作(避免殘留的 SSH_AUTH_SOCK 誤判)。
+    let agent_socket = std::env::var("SSH_AUTH_SOCK")
+        .ok()
+        .filter(|s| std::path::Path::new(s).exists());
 
     let key_files = ssh_dir
         .as_ref()
