@@ -36,6 +36,8 @@ impl<R: GitRunner> GitService<R> {
 
         let root_path = PathBuf::from(root.stdout.trim());
         let operation = detect_repository_operation(&root_path);
+        let working_tree = super::lfs::enrich_files(&self.runner, &root_path, working_tree)?;
+        let lfs_enabled = super::lfs::detect_lfs_enabled(&root_path, &working_tree);
 
         Ok(RepositoryState {
             root: root_path,
@@ -45,6 +47,7 @@ impl<R: GitRunner> GitService<R> {
             branches: parse_branches(&branches.stdout),
             remotes: parse_remotes(&remotes.stdout),
             working_tree,
+            lfs_enabled,
             operation,
         })
     }

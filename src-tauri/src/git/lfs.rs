@@ -1,4 +1,10 @@
 use std::collections::HashMap;
+use std::path::Path;
+
+use super::models::{FileStatus, GitError};
+use super::runner::GitRunner;
+
+const LFS_FILTER_VALUE: &str = "lfs";
 
 /// Builds `git check-attr -z filter -- <paths>` to learn each path's `filter` attribute.
 /// `-z` makes git emit NUL-separated `<path>\0<attr>\0<value>\0` triples (robust for odd paths).
@@ -24,6 +30,50 @@ pub fn parse_check_attr_filter(stdout: &str) -> HashMap<String, String> {
         }
     }
     map
+}
+
+/// Enriches each FileStatus with on-disk size and whether `filter=lfs` applies.
+/// Runs a single `git check-attr` for all paths (skipped when there are no files).
+pub fn enrich_files<R: GitRunner>(
+    runner: &R,
+    root: &Path,
+    files: Vec<FileStatus>,
+) -> Result<Vec<FileStatus>, GitError> {
+    if files.is_empty() {
+        return Ok(files);
+    }
+    let paths: Vec<String> = files.iter().map(|f| f.path.clone()).collect();
+    let output = runner.run(root, &check_attr_args(&paths))?;
+    let filters = parse_check_attr_filter(&output.stdout);
+
+    Ok(files
+        .into_iter()
+        .map(|file| {
+            let size_bytes = std::fs::metadata(root.join(&file.path))
+                .map(|meta| meta.len())
+                .unwrap_or(0);
+            let is_lfs = filters
+                .get(&file.path)
+                .map(|value| value == LFS_FILTER_VALUE)
+                .unwrap_or(false);
+            FileStatus {
+                size_bytes,
+                is_lfs,
+                ..file
+            }
+        })
+        .collect())
+}
+
+/// True when the repo uses Git LFS: any current file resolves to filter=lfs,
+/// or the root .gitattributes declares an lfs filter.
+pub fn detect_lfs_enabled(root: &Path, files: &[FileStatus]) -> bool {
+    if files.iter().any(|file| file.is_lfs) {
+        return true;
+    }
+    std::fs::read_to_string(root.join(".gitattributes"))
+        .map(|content| content.contains("filter=lfs"))
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
