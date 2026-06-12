@@ -85,7 +85,7 @@ pub fn clone_preview(request: &CloneRequest) -> Result<GitCommandPreview, GitErr
         "clone".to_string(),
         "--progress".to_string(),
         request.url.trim().to_string(),
-        request.target_dir.clone(),
+        request.target_dir.trim().to_string(),
     ]))
 }
 
@@ -1284,6 +1284,13 @@ mod tests {
     #[test]
     fn clone_preview_rejects_empty_target() {
         let request = CloneRequest { url: "https://x/y.git".to_string(), target_dir: "".to_string() };
+        let error = clone_preview(&request).unwrap_err();
+        assert_eq!(error.code, GitErrorCode::InvalidInput);
+    }
+
+    #[test]
+    fn clone_preview_rejects_whitespace_target() {
+        let request = CloneRequest { url: "https://x/y.git".to_string(), target_dir: "   ".to_string() };
         let error = clone_preview(&request).unwrap_err();
         assert_eq!(error.code, GitErrorCode::InvalidInput);
     }
