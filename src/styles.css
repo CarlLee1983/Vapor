@@ -36,7 +36,9 @@
   --accent-orange: #ea580c;
   --accent-orange-bg: #ffedd5;
   --accent-orange-text: #c2410c;
-  
+  --accent-amber-bg: #fef3c7;
+  --accent-amber-text: #92400e;
+
   --bg-badge-head: #dbeafe;
   --text-badge-head: #1d4ed8;
   --bg-badge-branch: #e6e8eb;
@@ -84,7 +86,9 @@
   --accent-orange: #f97316;
   --accent-orange-bg: rgba(249, 115, 22, 0.15);
   --accent-orange-text: #fb923c;
-  
+  --accent-amber-bg: rgba(245, 158, 11, 0.2);
+  --accent-amber-text: #fcd34d;
+
   --bg-badge-head: #1e3a8a;
   --text-badge-head: #93c5fd;
   --bg-badge-branch: #334155;
@@ -1806,5 +1810,73 @@ button.danger:not(:disabled):hover {
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-badge--lfs {
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
+  margin-right: 4px;
+}
+
+.status-badge--large {
+  background-color: var(--accent-amber-bg);
+  color: var(--accent-amber-text);
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+.diff-lfs-card {
+  margin: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-panel);
+}
+
+.diff-lfs-card__title {
+  font-weight: 600;
+  color: var(--accent-blue-text);
+}
+
+.diff-lfs-card__size {
+  font-size: 1.4em;
+  margin: 6px 0;
+  color: var(--text-primary);
+}
+
+.diff-lfs-card__oid {
+  font-family: monospace;
+  opacity: 0.7;
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}
+
+.lfs-track {
+  position: relative;
+  display: inline-flex;
+}
+
+.lfs-track__toggle {
+  font-size: 0.75em;
+  padding: 1px 6px;
+}
+
+.lfs-track__menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  min-width: 140px;
+}
+
+.lfs-track__menu button {
+  text-align: left;
+  padding: 6px 10px;
   white-space: nowrap;
 }

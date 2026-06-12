@@ -41,6 +41,8 @@ export interface FileStatus {
   path: string;
   indexStatus: string;
   worktreeStatus: string;
+  sizeBytes: number;
+  isLfs: boolean;
 }
 
 export type RepositoryOperationKind = "cherryPick" | "merge" | "rebase";
@@ -57,6 +59,7 @@ export interface RepositoryState {
   branches: BranchInfo[];
   remotes: RemoteInfo[];
   workingTree: FileStatus[];
+  lfsEnabled: boolean;
   operation?: RepositoryOperation | null;
 }
 
@@ -377,4 +380,18 @@ export interface SshDiagnostics {
   sshConfigExists: boolean;
   keyFiles: string[];
   credentialHelper: string | null;
+}
+
+export type LfsTrackMode = "pattern" | "fileOnly";
+
+export interface LfsTrackRequest {
+  repositoryPath: string;
+  path: string;
+  mode: LfsTrackMode;
+}
+
+export interface LfsTrackResponse {
+  previews: GitCommandPreview[];
+  stdout: string;
+  stderr: string;
 }

@@ -39,6 +39,7 @@ describe("useRepository", () => {
       branches: [],
       remotes: [],
       workingTree: [],
+      lfsEnabled: false,
     };
   }
 
@@ -54,7 +55,7 @@ describe("useRepository", () => {
   }
 
   it("selects a staged file target and fetches staged diff", async () => {
-    const mockFile = { path: "src/App.tsx", indexStatus: "M", worktreeStatus: "." };
+    const mockFile = { path: "src/App.tsx", indexStatus: "M", worktreeStatus: ".", sizeBytes: 0, isLfs: false };
     const mockRepoPath = "/path/to/repo";
 
     vi.mocked(tauriApi.getRepositoryState).mockResolvedValue({
@@ -65,6 +66,7 @@ describe("useRepository", () => {
       branches: [],
       remotes: [],
       workingTree: [mockFile],
+      lfsEnabled: false,
     });
     vi.mocked(tauriApi.getCommitLog).mockResolvedValue([]);
     vi.mocked(tauriApi.getDiff).mockResolvedValue("mock staged diff");
@@ -237,6 +239,7 @@ const emptyRepo: RepositoryState = {
   branches: [],
   remotes: [],
   workingTree: [],
+  lfsEnabled: false,
 };
 
 describe("useRepository commit actions", () => {
@@ -317,6 +320,7 @@ describe("useRepository commit actions", () => {
       branches: [],
       remotes: [],
       workingTree: [],
+      lfsEnabled: false,
       operation: null,
     });
     vi.mocked(tauriApi.getCommitLog).mockResolvedValue([]);

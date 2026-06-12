@@ -8,6 +8,7 @@ use crate::git::models::{
     FetchRequest, FetchResponse,
     GitCommandPreview, GitError, ListStashesRequest, ListStashesResponse, ListTagsRequest, ListTagsResponse,
     MergeBranchRequest, MergeBranchResponse,
+    LfsTrackRequest, LfsTrackResponse,
     PartialApplyRequest, PartialApplyResponse,
     PullRequest, PullResponse, PushRequest, PushResponse, RemoteMutationResponse, RemoveRemoteRequest,
     RenameBranchRequest, RepositoryRequest, RepositoryState, SetRemoteUrlRequest, StageRequest, StageResponse,
@@ -145,6 +146,18 @@ pub async fn apply_partial(request: PartialApplyRequest) -> Result<PartialApplyR
             code: crate::git::models::GitErrorCode::CommandFailed,
             message: "Apply task failed before Git completed.".to_string(),
             hint: "Try the apply again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub async fn lfs_track(request: LfsTrackRequest) -> Result<LfsTrackResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).lfs_track(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "LFS track task failed before Git completed.".to_string(),
+            hint: "Try again. If it keeps failing, restart Vapor.".to_string(),
             stderr: error.to_string(),
         })?
 }

@@ -38,7 +38,7 @@ pub fn apply(id: CheckId, app_binary: &Path) -> Result<String, GitError> {
     match id {
         CheckId::VaporCli => cli::install_cli(app_binary),
         CheckId::HuskyInit => fix_husky_init(),
-        CheckId::GitAvailable | CheckId::LoginPath => Err(GitError {
+        CheckId::GitAvailable | CheckId::LoginPath | CheckId::GitLfs => Err(GitError {
             code: GitErrorCode::CommandFailed,
             message: "This item cannot be fixed automatically.".to_string(),
             hint: "Follow the instructions shown for the check to fix it manually.".to_string(),

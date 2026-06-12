@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkingTreePanel } from "./WorkingTreePanel";
 import type { RepositoryState, SelectedFileTarget } from "../types/git";
+import { LARGE_FILE_THRESHOLD_BYTES } from "../lib/lfsHints";
 
 const baseRepo: RepositoryState = {
   root: "/repo",
@@ -12,10 +13,11 @@ const baseRepo: RepositoryState = {
   branches: [],
   remotes: [],
   workingTree: [
-    { path: "staged.ts", indexStatus: "M", worktreeStatus: "." },
-    { path: "dirty.ts", indexStatus: ".", worktreeStatus: "M" },
-    { path: "new.ts", indexStatus: "?", worktreeStatus: "?" },
+    { path: "staged.ts", indexStatus: "M", worktreeStatus: ".", sizeBytes: 0, isLfs: false },
+    { path: "dirty.ts", indexStatus: ".", worktreeStatus: "M", sizeBytes: 0, isLfs: false },
+    { path: "new.ts", indexStatus: "?", worktreeStatus: "?", sizeBytes: 0, isLfs: false },
   ],
+  lfsEnabled: false,
 };
 
 function setup(overrides: Partial<React.ComponentProps<typeof WorkingTreePanel>> = {}) {
@@ -58,7 +60,7 @@ describe("WorkingTreePanel", () => {
     const props = setup();
     await user.click(screen.getByRole("button", { name: /^staged\.ts/i }));
     expect(props.onSelectFile).toHaveBeenCalledWith(
-      { path: "staged.ts", indexStatus: "M", worktreeStatus: "." },
+      { path: "staged.ts", indexStatus: "M", worktreeStatus: ".", sizeBytes: 0, isLfs: false },
       "staged",
     );
   });
@@ -68,13 +70,13 @@ describe("WorkingTreePanel", () => {
     const props = setup();
     await user.click(screen.getByRole("button", { name: /^dirty\.ts/i }));
     expect(props.onSelectFile).toHaveBeenCalledWith(
-      { path: "dirty.ts", indexStatus: ".", worktreeStatus: "M" },
+      { path: "dirty.ts", indexStatus: ".", worktreeStatus: "M", sizeBytes: 0, isLfs: false },
       "unstaged",
     );
   });
 
   it("marks only the selected scope active for a partially-staged file", () => {
-    const partial = { path: "partial.ts", indexStatus: "M", worktreeStatus: "M" };
+    const partial = { path: "partial.ts", indexStatus: "M", worktreeStatus: "M", sizeBytes: 0, isLfs: false };
     const selectedFile: SelectedFileTarget = { file: partial, scope: "staged" };
     setup({
       repository: { ...baseRepo, workingTree: [partial] },
@@ -146,8 +148,8 @@ describe("WorkingTreePanel", () => {
       repository: {
         ...baseRepo,
         workingTree: [
-          { path: "conflict.ts", indexStatus: "U", worktreeStatus: "U" },
-          { path: "staged.ts", indexStatus: "M", worktreeStatus: "." },
+          { path: "conflict.ts", indexStatus: "U", worktreeStatus: "U", sizeBytes: 0, isLfs: false },
+          { path: "staged.ts", indexStatus: "M", worktreeStatus: ".", sizeBytes: 0, isLfs: false },
         ],
         operation: { kind: "cherryPick" },
       },
@@ -155,5 +157,60 @@ describe("WorkingTreePanel", () => {
     expect(screen.getByRole("group", { name: /conflicted files/i })).toHaveTextContent("conflict.ts");
     expect(screen.getByRole("group", { name: "Staged changes" })).not.toHaveTextContent("conflict.ts");
     expect(screen.getByText(/finish or abort the in-progress git operation/i)).toBeInTheDocument();
+  });
+
+  it("shows a size badge for large non-LFS files", () => {
+    setup({
+      repository: {
+        ...baseRepo,
+        workingTree: [
+          {
+            path: "assets/video.mp4",
+            indexStatus: ".",
+            worktreeStatus: "M",
+            sizeBytes: LARGE_FILE_THRESHOLD_BYTES + 5 * 1024 * 1024,
+            isLfs: false,
+          },
+        ],
+      },
+    });
+    // 徽章內容是「⬢ 15.0 MB」,用 regex 比子字串。
+    expect(screen.getByText(/15\.0 MB/)).toBeInTheDocument();
+  });
+
+  it("shows an LFS chip for LFS-tracked files", () => {
+    setup({
+      repository: {
+        ...baseRepo,
+        workingTree: [
+          {
+            path: "assets/model.bin",
+            indexStatus: ".",
+            worktreeStatus: "M",
+            sizeBytes: LARGE_FILE_THRESHOLD_BYTES + 1,
+            isLfs: true,
+          },
+        ],
+      },
+    });
+    expect(screen.getByText("LFS")).toBeInTheDocument();
+  });
+
+  it("renders a Track with LFS affordance for large non-LFS files", () => {
+    const repository = {
+      ...baseRepo,
+      workingTree: [
+        {
+          path: "assets/video.mp4",
+          indexStatus: ".",
+          worktreeStatus: "M",
+          sizeBytes: 20 * 1024 * 1024,
+          isLfs: false,
+        },
+      ],
+    };
+    const onTrackLfs = vi.fn();
+    setup({ repository, onTrackLfs });
+    expect(screen.getByRole("button", { name: "Track with LFS" })).toBeInTheDocument();
   });
 });

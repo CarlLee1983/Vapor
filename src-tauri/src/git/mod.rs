@@ -1,6 +1,7 @@
 pub mod clone;
 pub mod command_builder;
 pub mod journal;
+pub mod lfs;
 pub mod login_env;
 pub mod models;
 pub mod operation;

@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import type { RepositoryState } from "../types/git";
+import { isStaged } from "../lib/workingTree";
+import { formatBytes, largeNonLfsFiles } from "../lib/lfsHints";
 
 interface CommitInput {
   message: string;
@@ -56,6 +58,18 @@ export function CommitBox({
   };
 
   const handleCommit = async () => {
+    const stagedLarge = largeNonLfsFiles(repository.workingTree.filter(isStaged));
+    if (stagedLarge.length > 0) {
+      const list = stagedLarge
+        .map((file) => `• ${file.path} (${formatBytes(file.sizeBytes)})`)
+        .join("\n");
+      const ok = window.confirm(
+        `這些大型檔案將以一般 Git 物件提交,永久留在 Git 歷史:\n\n${list}\n\n建議改用 Git LFS。仍要提交嗎?`,
+      );
+      if (!ok) {
+        return;
+      }
+    }
     setIsCommitting(true);
     setError(null);
     try {

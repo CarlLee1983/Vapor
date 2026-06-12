@@ -9,6 +9,7 @@ import {
   stageFiles as stageFilesApi,
   unstageFiles as unstageFilesApi,
   applyPartial as applyPartialApi,
+  lfsTrack as lfsTrackApi,
 } from "../lib/tauriApi";
 import type {
   ApplyMode,
@@ -18,6 +19,7 @@ import type {
   FileStatus,
   GitError,
   HunkSelection,
+  LfsTrackMode,
   RepositoryState,
   SafetyNetMode,
   SelectedFileTarget,
@@ -357,6 +359,22 @@ export function useRepository() {
     return getLastCommitMessage(path);
   }, []);
 
+  const lfsTrack = useCallback(
+    async (path: string, mode: LfsTrackMode) => {
+      const repoPath = repositoryPathRef.current;
+      if (!repoPath || !path) {
+        return;
+      }
+      try {
+        await lfsTrackApi({ repositoryPath: repoPath, path, mode });
+        await refreshRepository();
+      } catch (error) {
+        setState((current) => ({ ...current, error: error as GitError }));
+      }
+    },
+    [refreshRepository],
+  );
+
   return {
     ...state,
     loadRepository,
@@ -370,5 +388,6 @@ export function useRepository() {
     applyPartial,
     commit,
     loadLastCommitMessage,
+    lfsTrack,
   };
 }

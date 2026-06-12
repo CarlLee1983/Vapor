@@ -101,3 +101,24 @@ describe("DiffViewer (interactive)", () => {
     expect(onApplyPartial).not.toHaveBeenCalled();
   });
 });
+
+const LFS_DIFF = `diff --git a/asset.bin b/asset.bin
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/asset.bin
+@@ -0,0 +1,3 @@
++version https://git-lfs.github.com/spec/v1
++oid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393
++size 12582912
+`;
+
+describe("DiffViewer (LFS pointer)", () => {
+  it("renders a friendly card for an LFS pointer diff", () => {
+    render(<DiffViewer diff={LFS_DIFF} scope="unstaged" filePath="asset.bin" />);
+    expect(screen.getByText(/Git LFS object/i)).toBeInTheDocument();
+    expect(screen.getByText(/12\.0 MB/)).toBeInTheDocument();
+    // pointer 原始文字不應整行外露
+    expect(screen.queryByText("oid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393")).toBeNull();
+  });
+});

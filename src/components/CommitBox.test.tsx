@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CommitBox } from "./CommitBox";
 import type { RepositoryState } from "../types/git";
+import { LARGE_FILE_THRESHOLD_BYTES } from "../lib/lfsHints";
 
 const repository: RepositoryState = {
   root: "/repo",
@@ -12,6 +13,7 @@ const repository: RepositoryState = {
   branches: [],
   remotes: [],
   workingTree: [],
+  lfsEnabled: false,
 };
 
 function setup(overrides: Partial<React.ComponentProps<typeof CommitBox>> = {}) {
@@ -75,5 +77,38 @@ describe("CommitBox", () => {
     await user.type(screen.getByLabelText(/commit message/i), "Add thing");
     await user.click(screen.getByRole("button", { name: /^commit$/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent("nothing to commit");
+  });
+
+  it("asks for confirmation when a staged large non-LFS file would be committed", async () => {
+    const onCommit = vi.fn().mockResolvedValue({});
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const repoWithLargeFile: RepositoryState = {
+      ...repository,
+      workingTree: [
+        {
+          path: "big.psd",
+          indexStatus: "A",
+          worktreeStatus: ".",
+          sizeBytes: LARGE_FILE_THRESHOLD_BYTES + 1,
+          isLfs: false,
+        },
+      ],
+    };
+    render(
+      <CommitBox
+        repository={repoWithLargeFile}
+        hasStagedChanges
+        onCommit={onCommit}
+        onPreview={async () => ({ display: "" })}
+        onLoadLastMessage={async () => ""}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/commit message/i), {
+      target: { value: "add asset" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^commit$/i }));
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    expect(onCommit).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 });

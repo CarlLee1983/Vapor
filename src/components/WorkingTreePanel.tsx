@@ -1,6 +1,8 @@
 import { isConflict, isStaged, isUnstaged, isUntracked } from "../lib/workingTree";
-import type { DiffScope, FileStatus, RepositoryState, SelectedFileTarget } from "../types/git";
+import { formatBytes, isLargeNonLfs } from "../lib/lfsHints";
+import type { DiffScope, FileStatus, LfsTrackMode, RepositoryState, SelectedFileTarget } from "../types/git";
 import { CommitBox } from "./CommitBox";
+import { LfsTrackMenu } from "./LfsTrackMenu";
 
 interface Props {
   repository: RepositoryState | null;
@@ -9,6 +11,7 @@ interface Props {
   onStage: (paths: string[]) => void;
   onUnstage: (paths: string[]) => void;
   onDiscard: (trackedPaths: string[], untrackedPaths: string[]) => void;
+  onTrackLfs?: (file: FileStatus, mode: LfsTrackMode) => void;
   onCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<unknown>;
   onPreviewCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<{ display: string }>;
   onLoadLastMessage: () => Promise<string>;
@@ -132,9 +135,10 @@ interface FileRowProps {
   onSelect: (file: FileStatus, scope: Extract<DiffScope, "unstaged" | "staged">) => void;
   onAction: (path: string) => void;
   onDiscard?: (file: FileStatus) => void;
+  onTrackLfs?: (file: FileStatus, mode: LfsTrackMode) => void;
 }
 
-function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, onAction, onDiscard }: FileRowProps) {
+function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, onAction, onDiscard, onTrackLfs }: FileRowProps) {
   const status = getStatusInfo(file.indexStatus, file.worktreeStatus);
   return (
     <div className={`file-row${isActive ? " active" : ""}`}>
@@ -143,8 +147,24 @@ function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, on
           {getFileIcon(file.path)}
           <span>{file.path}</span>
         </span>
+        {file.isLfs && (
+          <span className="status-badge status-badge--lfs" title="Tracked by Git LFS">
+            LFS
+          </span>
+        )}
+        {isLargeNonLfs(file) && (
+          <span
+            className="status-badge status-badge--large"
+            title="大型二進位檔將進入 Git 歷史;考慮改用 Git LFS"
+          >
+            ⬢ {formatBytes(file.sizeBytes)}
+          </span>
+        )}
         <span className={status.className}>{status.label}</span>
       </button>
+      {isLargeNonLfs(file) && onTrackLfs ? (
+        <LfsTrackMenu file={file} onTrack={onTrackLfs} />
+      ) : null}
       {onDiscard ? (
         <button
           type="button"
@@ -175,6 +195,7 @@ export function WorkingTreePanel({
   onStage,
   onUnstage,
   onDiscard,
+  onTrackLfs,
   onCommit,
   onPreviewCommit,
   onLoadLastMessage,
@@ -250,6 +271,7 @@ export function WorkingTreePanel({
                 <p className="muted">Nothing staged</p>
               ) : (
                 staged.map((file) => (
+                  /* onTrackLfs is offered on staged rows too: lfs_track re-adds the path through the LFS clean filter. */
                   <FileRow
                     key={`staged-${file.path}`}
                     file={file}
@@ -259,6 +281,7 @@ export function WorkingTreePanel({
                     actionGlyph="−"
                     onSelect={onSelectFile}
                     onAction={(path) => onUnstage([path])}
+                    onTrackLfs={onTrackLfs}
                   />
                 ))
               )}
@@ -289,6 +312,7 @@ export function WorkingTreePanel({
                     onSelect={onSelectFile}
                     onAction={(path) => onStage([path])}
                     onDiscard={requestDiscard}
+                    onTrackLfs={onTrackLfs}
                   />
                 ))
               )}

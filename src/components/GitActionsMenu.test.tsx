@@ -12,6 +12,7 @@ const repository: RepositoryState = {
   branches: [],
   remotes: [],
   workingTree: [],
+  lfsEnabled: false,
 };
 
 const commit: CommitSummary = {

@@ -6,6 +6,8 @@ const file = (indexStatus: string, worktreeStatus: string): FileStatus => ({
   path: "x",
   indexStatus,
   worktreeStatus,
+  sizeBytes: 0,
+  isLfs: false,
 });
 
 describe("workingTree grouping", () => {

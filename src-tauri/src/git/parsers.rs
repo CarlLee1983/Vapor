@@ -110,11 +110,11 @@ pub fn parse_porcelain_status(stdout: &str) -> (Option<String>, u32, u32, Vec<Fi
             let fields: Vec<&str> = rest.splitn(8, ' ').collect();
             if fields.len() == 8 {
                 let xy = fields[0];
-                files.push(FileStatus {
-                    path: fields[7].to_string(),
-                    index_status: xy.chars().next().unwrap_or('.').to_string(),
-                    worktree_status: xy.chars().nth(1).unwrap_or('.').to_string(),
-                });
+                files.push(FileStatus::new(
+                    fields[7].to_string(),
+                    xy.chars().next().unwrap_or('.').to_string(),
+                    xy.chars().nth(1).unwrap_or('.').to_string(),
+                ));
             }
         } else if let Some(rest) = line.strip_prefix("2 ") {
             // Rename/copy: "... <Xscore> <path>\t<origPath>" — new path precedes the tab.
@@ -122,29 +122,29 @@ pub fn parse_porcelain_status(stdout: &str) -> (Option<String>, u32, u32, Vec<Fi
             if fields.len() == 9 {
                 let xy = fields[0];
                 let path = fields[8].split('\t').next().unwrap_or(fields[8]);
-                files.push(FileStatus {
-                    path: path.to_string(),
-                    index_status: xy.chars().next().unwrap_or('.').to_string(),
-                    worktree_status: xy.chars().nth(1).unwrap_or('.').to_string(),
-                });
+                files.push(FileStatus::new(
+                    path.to_string(),
+                    xy.chars().next().unwrap_or('.').to_string(),
+                    xy.chars().nth(1).unwrap_or('.').to_string(),
+                ));
             }
         } else if let Some(rest) = line.strip_prefix("u ") {
             // Unmerged: "<XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>"
             let fields: Vec<&str> = rest.splitn(10, ' ').collect();
             if fields.len() == 10 {
                 let xy = fields[0];
-                files.push(FileStatus {
-                    path: fields[9].to_string(),
-                    index_status: xy.chars().next().unwrap_or('U').to_string(),
-                    worktree_status: xy.chars().nth(1).unwrap_or('U').to_string(),
-                });
+                files.push(FileStatus::new(
+                    fields[9].to_string(),
+                    xy.chars().next().unwrap_or('U').to_string(),
+                    xy.chars().nth(1).unwrap_or('U').to_string(),
+                ));
             }
         } else if let Some(path) = line.strip_prefix("? ") {
-            files.push(FileStatus {
-                path: path.to_string(),
-                index_status: "?".to_string(),
-                worktree_status: "?".to_string(),
-            });
+            files.push(FileStatus::new(
+                path.to_string(),
+                "?".to_string(),
+                "?".to_string(),
+            ));
         }
     }
 

@@ -1,4 +1,4 @@
-export type CheckId = "gitAvailable" | "loginPath" | "vaporCli" | "huskyInit";
+export type CheckId = "gitAvailable" | "loginPath" | "vaporCli" | "huskyInit" | "gitLfs";
 
 export type CheckStatus = "ok" | "warn" | "fail";
 

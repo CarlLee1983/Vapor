@@ -87,6 +87,7 @@ pub struct RepositoryState {
     pub branches: Vec<BranchInfo>,
     pub remotes: Vec<RemoteInfo>,
     pub working_tree: Vec<FileStatus>,
+    pub lfs_enabled: bool,
     pub operation: Option<RepositoryOperation>,
 }
 
@@ -129,6 +130,21 @@ pub struct FileStatus {
     pub path: String,
     pub index_status: String,
     pub worktree_status: String,
+    pub size_bytes: u64,
+    pub is_lfs: bool,
+}
+
+impl FileStatus {
+    /// Build a status with default LFS facts; the service enriches size/is_lfs afterward.
+    pub fn new(path: String, index_status: String, worktree_status: String) -> Self {
+        Self {
+            path,
+            index_status,
+            worktree_status,
+            size_bytes: 0,
+            is_lfs: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -642,6 +658,29 @@ pub struct PartialApplyRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PartialApplyResponse {
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LfsTrackMode {
+    Pattern,
+    FileOnly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LfsTrackRequest {
+    pub repository_path: PathBuf,
+    pub path: String,
+    pub mode: LfsTrackMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LfsTrackResponse {
+    pub previews: Vec<GitCommandPreview>,
     pub stdout: String,
     pub stderr: String,
 }

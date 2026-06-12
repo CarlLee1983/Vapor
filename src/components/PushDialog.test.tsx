@@ -13,6 +13,7 @@ const repository: RepositoryState = {
   branches: [{ name: "main", isCurrent: true, upstream: "origin/main" }],
   remotes: [{ name: "origin", fetchUrl: "git@example.com:vapor.git", pushUrl: "git@example.com:vapor.git" }],
   workingTree: [],
+  lfsEnabled: false,
 };
 
 vi.mock("../lib/tauriApi", () => ({

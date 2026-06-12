@@ -20,7 +20,8 @@ const repository: RepositoryState = {
   behind: 0,
   branches: [{ name: "main", isCurrent: true, upstream: null }],
   remotes: [],
-  workingTree: [{ path: "dirty.ts", indexStatus: ".", worktreeStatus: "M" }],
+  workingTree: [{ path: "dirty.ts", indexStatus: ".", worktreeStatus: "M", sizeBytes: 0, isLfs: false }],
+  lfsEnabled: false,
 };
 
 describe("StashDialog", () => {

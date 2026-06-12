@@ -7,6 +7,7 @@ pub enum CheckId {
     LoginPath,
     VaporCli,
     HuskyInit,
+    GitLfs,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +53,7 @@ pub struct Facts {
     pub cli_installed: bool,
     pub husky_init_present: bool,
     pub husky_init_has_path: bool,
+    pub git_lfs_version: Option<String>,
 }
 
 #[cfg(test)]

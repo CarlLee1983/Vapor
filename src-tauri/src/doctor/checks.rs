@@ -107,6 +107,28 @@ pub fn evaluate_husky_init(facts: &Facts) -> Check {
     }
 }
 
+pub fn evaluate_git_lfs(facts: &Facts) -> Check {
+    match &facts.git_lfs_version {
+        Some(version) => Check {
+            id: CheckId::GitLfs,
+            title: "Git LFS available".to_string(),
+            status: CheckStatus::Ok,
+            detail: version.clone(),
+            fix: Fix::None,
+        },
+        None => Check {
+            id: CheckId::GitLfs,
+            title: "Git LFS available".to_string(),
+            status: CheckStatus::Warn,
+            detail: "git-lfs not found; repositories that use Git LFS won't check out binary content."
+                .to_string(),
+            fix: Fix::Manual {
+                instructions: "brew install git-lfs && git lfs install".to_string(),
+            },
+        },
+    }
+}
+
 pub fn evaluate(facts: &Facts) -> DoctorReport {
     DoctorReport {
         checks: vec![
@@ -114,6 +136,7 @@ pub fn evaluate(facts: &Facts) -> DoctorReport {
             evaluate_login_path(facts),
             evaluate_vapor_cli(facts),
             evaluate_husky_init(facts),
+            evaluate_git_lfs(facts),
         ],
     }
 }
@@ -130,6 +153,20 @@ const KNOWN_TOOLS: &[(&str, &str)] = &[
 fn probe_git_version() -> Option<String> {
     let output = Command::new("git")
         .arg("--version")
+        .env("PATH", login_env::effective_path())
+        .output()
+        .ok()?;
+    if output.status.success() {
+        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        None
+    }
+}
+
+/// Runs `git lfs version` with the login PATH; returns None when git-lfs is absent.
+fn probe_git_lfs_version() -> Option<String> {
+    let output = Command::new("git")
+        .args(["lfs", "version"])
         .env("PATH", login_env::effective_path())
         .output()
         .ok()?;
@@ -165,6 +202,7 @@ pub fn gather_facts(app_binary: &Path) -> Facts {
         cli_installed: cli::cli_installed(app_binary),
         husky_init_present,
         husky_init_has_path,
+        git_lfs_version: probe_git_lfs_version(),
     }
 }
 
@@ -186,6 +224,7 @@ mod tests {
             cli_installed: true,
             husky_init_present: true,
             husky_init_has_path: true,
+            git_lfs_version: Some("git-lfs/3.4.0".to_string()),
         }
     }
 
@@ -241,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_returns_four_checks_in_order() {
+    fn evaluate_returns_five_checks_in_order() {
         let report = evaluate(&facts());
         let ids: Vec<CheckId> = report.checks.iter().map(|c| c.id).collect();
         assert_eq!(
@@ -250,15 +289,32 @@ mod tests {
                 CheckId::GitAvailable,
                 CheckId::LoginPath,
                 CheckId::VaporCli,
-                CheckId::HuskyInit
+                CheckId::HuskyInit,
+                CheckId::GitLfs,
             ]
         );
     }
 
     #[test]
-    fn run_produces_four_checks_for_a_nonexistent_binary() {
+    fn run_produces_five_checks_for_a_nonexistent_binary() {
         let report = run(std::path::Path::new("/nonexistent/vapor"));
-        assert_eq!(report.checks.len(), 4);
+        assert_eq!(report.checks.len(), 5);
+    }
+
+    #[test]
+    fn git_lfs_ok_when_version_present() {
+        let check = evaluate_git_lfs(&facts());
+        assert_eq!(check.status, CheckStatus::Ok);
+        assert_eq!(check.fix, Fix::None);
+    }
+
+    #[test]
+    fn git_lfs_warn_with_manual_fix_when_missing() {
+        let mut f = facts();
+        f.git_lfs_version = None;
+        let check = evaluate_git_lfs(&f);
+        assert_eq!(check.status, CheckStatus::Warn);
+        assert!(matches!(check.fix, Fix::Manual { .. }));
     }
 
     #[test]

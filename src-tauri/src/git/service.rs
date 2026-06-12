@@ -36,6 +36,8 @@ impl<R: GitRunner> GitService<R> {
 
         let root_path = PathBuf::from(root.stdout.trim());
         let operation = detect_repository_operation(&root_path);
+        let working_tree = super::lfs::enrich_files(&self.runner, &root_path, working_tree)?;
+        let lfs_enabled = super::lfs::detect_lfs_enabled(&root_path, &working_tree);
 
         Ok(RepositoryState {
             root: root_path,
@@ -45,6 +47,7 @@ impl<R: GitRunner> GitService<R> {
             branches: parse_branches(&branches.stdout),
             remotes: parse_remotes(&remotes.stdout),
             working_tree,
+            lfs_enabled,
             operation,
         })
     }
@@ -119,6 +122,50 @@ impl<R: GitRunner> GitService<R> {
         Ok(super::models::PartialApplyResponse {
             stdout: output.stdout,
             stderr: output.stderr,
+        })
+    }
+
+    pub fn lfs_track(
+        &self,
+        request: &super::models::LfsTrackRequest,
+    ) -> Result<super::models::LfsTrackResponse, GitError> {
+        use super::models::GitErrorCode;
+
+        // git-lfs must be installed to register tracking and run the clean filter.
+        if let Err(probe_err) = self.runner.run(
+            &request.repository_path,
+            &["lfs".to_string(), "version".to_string()],
+        ) {
+            return Err(GitError {
+                code: GitErrorCode::CommandFailed,
+                message: "Git LFS is not installed or not functional.".to_string(),
+                hint: "Install git-lfs (brew install git-lfs && git lfs install), then try again. See ⚙ → Doctor."
+                    .to_string(),
+                stderr: probe_err.stderr,
+            });
+        }
+
+        let pattern = super::lfs::track_pattern(&request.path, &request.mode);
+        let steps = [
+            super::command_builder::lfs_track_args(&pattern)?,
+            super::command_builder::stage_args(&[".gitattributes".to_string()])?,
+            super::command_builder::stage_args(std::slice::from_ref(&request.path))?,
+        ];
+
+        let mut previews = Vec::new();
+        let mut stdout = String::new();
+        let mut stderr = String::new();
+        for args in steps {
+            let output = self.runner.run(&request.repository_path, &args)?;
+            stdout.push_str(&output.stdout);
+            stderr.push_str(&output.stderr);
+            previews.push(super::command_builder::preview_from_args(&args));
+        }
+
+        Ok(super::models::LfsTrackResponse {
+            previews,
+            stdout,
+            stderr,
         })
     }
 

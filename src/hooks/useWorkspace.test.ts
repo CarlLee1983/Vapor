@@ -23,6 +23,7 @@ function repoState(root: string, branch: string): RepositoryState {
     branches: [],
     remotes: [],
     workingTree: [],
+    lfsEnabled: false,
   };
 }
 
