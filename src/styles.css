@@ -1500,11 +1500,31 @@ button:not(.commit-row):disabled {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin-bottom: 10px;
 }
 
+/* The header owns the spacing below it, so the heading shouldn't add its own. */
+.sidebar-section__header h2 {
+  margin: 0;
+}
+
+/* Quiet ghost button: a secondary action that doesn't compete with the heading
+   or crowd the search box below. Only gains a subtle chip on hover. */
 .sidebar-section__action {
   font-size: 11px;
-  padding: 2px 8px;
+  font-weight: 500;
+  padding: 3px 8px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.sidebar-section__action:hover:not(:disabled) {
+  background: var(--bg-active);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+  transform: none;
+  box-shadow: none;
 }
 
 .branch-row {
