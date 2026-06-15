@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkingTreePanel } from "./WorkingTreePanel";
 import type { RepositoryState, SelectedFileTarget } from "../types/git";
@@ -212,5 +212,51 @@ describe("WorkingTreePanel", () => {
     const onTrackLfs = vi.fn();
     setup({ repository, onTrackLfs });
     expect(screen.getByRole("button", { name: "Track with LFS" })).toBeInTheDocument();
+  });
+});
+
+const filterRepo: RepositoryState = {
+  root: "/repo",
+  currentBranch: "main",
+  ahead: 0,
+  behind: 0,
+  remotes: [],
+  branches: [],
+  lfsEnabled: false,
+  workingTree: [
+    { path: "src/App.tsx", indexStatus: ".", worktreeStatus: "M", sizeBytes: 1, isLfs: false },
+    { path: "README.md", indexStatus: ".", worktreeStatus: "M", sizeBytes: 1, isLfs: false },
+  ],
+  operation: null,
+};
+
+function renderPanel() {
+  return render(
+    <WorkingTreePanel
+      repository={filterRepo}
+      selectedFile={null}
+      onSelectFile={vi.fn()}
+      onStage={vi.fn()}
+      onUnstage={vi.fn()}
+      onDiscard={vi.fn()}
+      onCommit={vi.fn().mockResolvedValue(undefined)}
+      onPreviewCommit={vi.fn().mockResolvedValue({ display: "" })}
+      onLoadLastMessage={vi.fn().mockResolvedValue("")}
+    />,
+  );
+}
+
+describe("WorkingTreePanel filtering", () => {
+  it("filters the file list by the search query", () => {
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Search files"), { target: { value: "App" } });
+    expect(screen.getByText("src/App.tsx")).toBeInTheDocument();
+    expect(screen.queryByText("README.md")).not.toBeInTheDocument();
+  });
+
+  it("shows an empty-state hint when no file matches", () => {
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Search files"), { target: { value: "zzz" } });
+    expect(screen.getByText("沒有符合的檔案")).toBeInTheDocument();
   });
 });

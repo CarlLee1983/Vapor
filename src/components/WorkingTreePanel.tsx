@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { isConflict, isStaged, isUnstaged, isUntracked } from "../lib/workingTree";
 import { formatBytes, isLargeNonLfs } from "../lib/lfsHints";
+import { filterFiles } from "../lib/fileFilter";
 import type { DiffScope, FileStatus, LfsTrackMode, RepositoryState, SelectedFileTarget } from "../types/git";
 import { CommitBox } from "./CommitBox";
 import { LfsTrackMenu } from "./LfsTrackMenu";
+import { SearchInput } from "./SearchInput";
 
 interface Props {
   repository: RepositoryState | null;
@@ -200,7 +203,9 @@ export function WorkingTreePanel({
   onPreviewCommit,
   onLoadLastMessage,
 }: Props) {
-  const files = repository?.workingTree ?? [];
+  const [query, setQuery] = useState("");
+  const allFiles = repository?.workingTree ?? [];
+  const files = filterFiles(allFiles, query);
   const conflicts = files.filter(isConflict);
   const staged = files.filter(isStaged);
   const unstaged = files.filter(isUnstaged);
@@ -223,11 +228,23 @@ export function WorkingTreePanel({
 
   return (
     <section className="panel working-tree" aria-label="Working tree">
-      <h2>Working Tree</h2>
+      <div className="panel__header">
+        <h2>Working Tree</h2>
+        {allFiles.length > 0 ? (
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="搜尋檔案路徑"
+            ariaLabel="Search files"
+          />
+        ) : null}
+      </div>
 
       <div className="working-tree__files">
-        {files.length === 0 ? (
+        {allFiles.length === 0 ? (
           <p className="muted">No local changes</p>
+        ) : files.length === 0 ? (
+          <p className="muted">沒有符合的檔案</p>
         ) : (
           <>
             {conflicts.length > 0 ? (
