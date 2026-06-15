@@ -1,6 +1,7 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
     AddRemoteRequest, BranchMutationResponse, CheckoutBranchRequest, CherryPickRequest, CherryPickResponse,
+    RevertRequest, RevertResponse, ResetRequest, ResetResponse,
     CloneRequest, CloneResponse,
     CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, CreateBranchRequest, CreateStashRequest,
     CreateTagRequest, CreateTagResponse, DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest,
@@ -383,6 +384,40 @@ pub async fn cherry_pick_commit(request: CherryPickRequest) -> Result<CherryPick
         .map_err(|error| GitError {
             code: crate::git::models::GitErrorCode::CommandFailed,
             message: "Cherry-pick task failed before Git completed.".to_string(),
+            hint: "Try again after refreshing the repository.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub fn preview_revert(request: RevertRequest) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::revert_preview(&request)
+}
+
+#[tauri::command]
+pub async fn revert_commit(request: RevertRequest) -> Result<RevertResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).revert(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Revert task failed before Git completed.".to_string(),
+            hint: "Try again after refreshing the repository.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub fn preview_reset(request: ResetRequest) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::reset_preview(&request)
+}
+
+#[tauri::command]
+pub async fn reset_to_commit(request: ResetRequest) -> Result<ResetResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).reset(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Reset task failed before Git completed.".to_string(),
             hint: "Try again after refreshing the repository.".to_string(),
             stderr: error.to_string(),
         })?
