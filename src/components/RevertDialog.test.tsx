@@ -42,4 +42,20 @@ describe("RevertDialog", () => {
     expect(onCompleted).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
+
+  it("shows the error banner and keeps the dialog open when revert fails", async () => {
+    const onCompleted = vi.fn();
+    const onClose = vi.fn();
+    vi.mocked(revertCommit).mockRejectedValueOnce({
+      code: "mergeConflict",
+      message: "Revert produced conflicts",
+      hint: "Resolve conflicts and continue",
+      stderr: "CONFLICT (content): Merge conflict in file.txt",
+    });
+    render(<RevertDialog repositoryPath="/repo" commit={commit} onClose={onClose} onCompleted={onCompleted} />);
+    await userEvent.click(screen.getByRole("button", { name: "Revert" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Revert produced conflicts"));
+    expect(onCompleted).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
