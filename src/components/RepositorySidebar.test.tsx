@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RepositorySidebar } from "./RepositorySidebar";
 import type { RepositoryState } from "../types/git";
@@ -175,5 +175,37 @@ describe("RepositorySidebar", () => {
       />,
     );
     expect(container.querySelector(".sidebar__scroll")).not.toBeNull();
+  });
+
+  it("forwards branch action props to BranchTree (merge fires for a non-current branch)", async () => {
+    const user = userEvent.setup();
+    const onMergeBranch = vi.fn();
+    const repository: RepositoryState = {
+      ...mockRepo,
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, upstream: null },
+        { name: "feature", isCurrent: false, upstream: null },
+      ],
+    };
+    render(
+      <RepositorySidebar
+        repository={repository}
+        openRepos={[]}
+        activePath="/repo"
+        viewMode="history"
+        onViewModeChange={vi.fn()}
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+        onOpen={vi.fn()}
+        onCheckoutBranch={vi.fn()}
+        onMergeBranch={onMergeBranch}
+      />,
+    );
+
+    const row = screen.getByText("feature").closest(".sidebar-row")!;
+    fireEvent.contextMenu(row);
+    await user.click(screen.getByRole("menuitem", { name: "Merge into current branch" }));
+    expect(onMergeBranch).toHaveBeenCalledWith(repository.branches[1]);
   });
 });

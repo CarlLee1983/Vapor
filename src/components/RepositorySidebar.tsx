@@ -15,6 +15,9 @@ interface Props {
   onClose: (path: string) => void;
   onOpen: () => void;
   onCheckoutBranch?: (branch: BranchInfo) => void;
+  onRenameBranch?: (branch: BranchInfo) => void;
+  onDeleteBranch?: (branch: BranchInfo) => void;
+  onMergeBranch?: (branch: BranchInfo) => void;
   onOpenBranches?: () => void;
 }
 
@@ -48,6 +51,9 @@ export function RepositorySidebar({
   onClose,
   onOpen,
   onCheckoutBranch,
+  onRenameBranch,
+  onDeleteBranch,
+  onMergeBranch,
   onOpenBranches,
 }: Props) {
   const [branchQuery, setBranchQuery] = useState("");
@@ -175,6 +181,9 @@ export function RepositorySidebar({
                 branches={visibleBranches}
                 currentBranchName={repository.currentBranch}
                 onCheckout={onCheckoutBranch}
+                onRename={onRenameBranch}
+                onDelete={onDeleteBranch}
+                onMerge={onMergeBranch}
                 forceExpandAll={branchQuery.trim().length > 0}
               />
               {branchQuery.trim().length > 0 && visibleBranches.length === 0 ? (
