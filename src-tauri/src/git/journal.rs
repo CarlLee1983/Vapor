@@ -19,6 +19,8 @@ pub enum SafetyOpType {
     CherryPick,
     DeleteBranch,
     Undo,
+    Revert,
+    Reset,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

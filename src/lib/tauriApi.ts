@@ -29,6 +29,10 @@ import type {
   PartialApplyResponse,
   CherryPickRequest,
   CherryPickResponse,
+  RevertRequest,
+  RevertResponse,
+  ResetRequest,
+  ResetResponse,
   CreateStashRequest,
   DiscardChangesRequest,
   DiscardChangesResponse,
@@ -232,6 +236,22 @@ export async function previewCherryPick(request: CherryPickRequest): Promise<Git
 
 export async function cherryPickCommit(request: CherryPickRequest): Promise<CherryPickResponse> {
   return invoke<CherryPickResponse>("cherry_pick_commit", { request });
+}
+
+export async function previewRevert(request: RevertRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_revert", { request });
+}
+
+export async function revertCommit(request: RevertRequest): Promise<RevertResponse> {
+  return invoke<RevertResponse>("revert_commit", { request });
+}
+
+export async function previewReset(request: ResetRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_reset", { request });
+}
+
+export async function resetToCommit(request: ResetRequest): Promise<ResetResponse> {
+  return invoke<ResetResponse>("reset_to_commit", { request });
 }
 
 export async function abortGitOperation(repositoryPath: string): Promise<CherryPickResponse> {

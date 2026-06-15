@@ -45,7 +45,7 @@ export interface FileStatus {
   isLfs: boolean;
 }
 
-export type RepositoryOperationKind = "cherryPick" | "merge" | "rebase";
+export type RepositoryOperationKind = "cherryPick" | "merge" | "rebase" | "revert";
 
 export interface RepositoryOperation {
   kind: RepositoryOperationKind;
@@ -238,6 +238,33 @@ export interface CherryPickResponse {
   stderr: string;
 }
 
+export type ResetMode = "soft" | "mixed" | "hard";
+
+export interface RevertRequest {
+  repositoryPath: string;
+  commitHash: string;
+  safetyNet?: SafetyNetMode;
+}
+
+export interface RevertResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
+export interface ResetRequest {
+  repositoryPath: string;
+  commitHash: string;
+  mode: ResetMode;
+  safetyNet?: SafetyNetMode;
+}
+
+export interface ResetResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
 export interface StageRequest {
   repositoryPath: string;
   paths: string[];
@@ -301,7 +328,9 @@ export type SafetyOpType =
   | "stashPop"
   | "cherryPick"
   | "deleteBranch"
-  | "undo";
+  | "undo"
+  | "revert"
+  | "reset";
 
 export type SafetyNetMode = "auto" | "force" | "skip";
 

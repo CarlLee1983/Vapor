@@ -16,6 +16,8 @@ function label(kind: RepositoryOperation["kind"]): string {
       return "Merge";
     case "rebase":
       return "Rebase";
+    case "revert":
+      return "Revert";
   }
 }
 
@@ -40,7 +42,7 @@ export function OperationBanner({ repositoryPath, operation, onChanged }: Props)
     }
   }
 
-  const showContinue = operation.kind === "cherryPick" || operation.kind === "rebase";
+  const showContinue = operation.kind === "cherryPick" || operation.kind === "rebase" || operation.kind === "revert";
 
   return (
     <div className="operation-banner" role="status">

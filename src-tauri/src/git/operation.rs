@@ -3,6 +3,11 @@ use std::path::Path;
 
 pub fn detect_repository_operation(repo_root: &Path) -> Option<RepositoryOperation> {
     let git_dir = repo_root.join(".git");
+    if git_dir.join("REVERT_HEAD").exists() {
+        return Some(RepositoryOperation {
+            kind: RepositoryOperationKind::Revert,
+        });
+    }
     if git_dir.join("CHERRY_PICK_HEAD").exists() {
         return Some(RepositoryOperation {
             kind: RepositoryOperationKind::CherryPick,
@@ -33,6 +38,15 @@ mod tests {
         std::fs::write(work.path().join(".git/CHERRY_PICK_HEAD"), "abc\n").expect("head");
         let op = detect_repository_operation(work.path()).expect("operation");
         assert_eq!(op.kind, RepositoryOperationKind::CherryPick);
+    }
+
+    #[test]
+    fn detects_revert_head_file() {
+        let work = TempDir::new().expect("temp");
+        std::fs::create_dir_all(work.path().join(".git")).expect("git dir");
+        std::fs::write(work.path().join(".git/REVERT_HEAD"), "def\n").expect("head");
+        let op = detect_repository_operation(work.path()).expect("operation");
+        assert_eq!(op.kind, RepositoryOperationKind::Revert);
     }
 
     #[test]

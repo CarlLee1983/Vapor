@@ -25,6 +25,8 @@ interface Props {
   /** Invoked when the uncommitted row is clicked (e.g. switch to the status view). */
   onSelectUncommitted?: () => void;
   onCherryPick?: (commit: CommitSummary) => void;
+  onRevert?: (commit: CommitSummary) => void;
+  onReset?: (commit: CommitSummary) => void;
 }
 
 export function getInitials(name: string): string {
@@ -66,6 +68,8 @@ export function CommitList({
   uncommittedCount = 0,
   onSelectUncommitted,
   onCherryPick,
+  onRevert,
+  onReset,
 }: Props) {
   const hasUncommittedChanges = uncommittedCount > 0;
   const menu = useContextMenu<CommitSummary>();
@@ -249,6 +253,17 @@ export function CommitList({
                     label: "Cherry-pick…",
                     disabled: !onCherryPick,
                     onSelect: () => onCherryPick?.(commit),
+                  },
+                  {
+                    label: "Revert…",
+                    disabled: !onRevert,
+                    onSelect: () => onRevert?.(commit),
+                  },
+                  {
+                    label: "Reset current branch to here…",
+                    disabled: !onReset,
+                    danger: true,
+                    onSelect: () => onReset?.(commit),
                   },
                   {
                     label: "Copy SHA",

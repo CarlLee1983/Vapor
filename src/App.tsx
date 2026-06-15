@@ -3,6 +3,8 @@ import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
 import { BranchesDialog } from "./components/BranchesDialog";
 import { CherryPickDialog } from "./components/CherryPickDialog";
+import { RevertDialog } from "./components/RevertDialog";
+import { ResetDialog } from "./components/ResetDialog";
 import { OperationBanner } from "./components/OperationBanner";
 import { StashDialog } from "./components/StashDialog";
 import { TagsDialog } from "./components/TagsDialog";
@@ -51,6 +53,8 @@ export default function App() {
   const [isBranchesOpen, setIsBranchesOpen] = useState(false);
   const [isStashOpen, setIsStashOpen] = useState(false);
   const [isCherryPickOpen, setIsCherryPickOpen] = useState(false);
+  const [isRevertOpen, setIsRevertOpen] = useState(false);
+  const [isResetOpen, setIsResetOpen] = useState(false);
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDoctorOpen, setIsDoctorOpen] = useState(false);
@@ -124,6 +128,8 @@ export default function App() {
     setIsBranchesOpen(false);
     setIsStashOpen(false);
     setIsCherryPickOpen(false);
+    setIsRevertOpen(false);
+    setIsResetOpen(false);
     setIsRemotesOpen(false);
     setIsCloneOpen(false);
     setIsSshOpen(false);
@@ -196,6 +202,16 @@ export default function App() {
   const handleCherryPickCommit = (commit: CommitSummary) => {
     repoView.selectCommit(commit);
     setIsCherryPickOpen(true);
+  };
+
+  const handleRevertCommit = (commit: CommitSummary) => {
+    repoView.selectCommit(commit);
+    setIsRevertOpen(true);
+  };
+
+  const handleResetCommit = (commit: CommitSummary) => {
+    repoView.selectCommit(commit);
+    setIsResetOpen(true);
   };
 
   useEffect(() => {
@@ -364,6 +380,8 @@ export default function App() {
               uncommittedCount={repoView.repository?.workingTree.length ?? 0}
               onSelectUncommitted={() => setViewMode("status")}
               onCherryPick={handleCherryPickCommit}
+              onRevert={handleRevertCommit}
+              onReset={handleResetCommit}
             />
           ) : (
             <WorkingTreePanel
@@ -456,6 +474,22 @@ export default function App() {
           repositoryPath={repoView.repository.root}
           commit={repoView.selectedCommit}
           onClose={() => setIsCherryPickOpen(false)}
+          onCompleted={refreshActiveRepository}
+        />
+      ) : null}
+      {isRevertOpen && repoView.repository && repoView.selectedCommit ? (
+        <RevertDialog
+          repositoryPath={repoView.repository.root}
+          commit={repoView.selectedCommit}
+          onClose={() => setIsRevertOpen(false)}
+          onCompleted={refreshActiveRepository}
+        />
+      ) : null}
+      {isResetOpen && repoView.repository && repoView.selectedCommit ? (
+        <ResetDialog
+          repositoryPath={repoView.repository.root}
+          commit={repoView.selectedCommit}
+          onClose={() => setIsResetOpen(false)}
           onCompleted={refreshActiveRepository}
         />
       ) : null}

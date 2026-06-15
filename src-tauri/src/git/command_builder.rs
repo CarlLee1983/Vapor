@@ -3,7 +3,7 @@ use super::models::{
     CommitRequest, CreateBranchRequest, CreateStashRequest, DeleteBranchRequest, DiffScope,
     FetchRequest, GitCommandPreview, GitError, GitErrorCode, MergeBranchRequest, PullRequest,
     PushRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
-    SetRemoteUrlRequest, StashRefRequest, TagPushMode,
+    SetRemoteUrlRequest, StashRefRequest, TagPushMode, RevertRequest, ResetRequest, ResetMode,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -560,11 +560,39 @@ pub fn cherry_pick_preview(request: &CherryPickRequest) -> Result<GitCommandPrev
     ]))
 }
 
+/// `git revert --no-edit <hash>` — `--no-edit` keeps git from launching an editor
+/// (the same hazard handled in `commit_preview` for `--amend`).
+pub fn revert_preview(request: &RevertRequest) -> Result<GitCommandPreview, GitError> {
+    validate_commit_hash(&request.commit_hash)?;
+    Ok(preview(vec![
+        "revert".to_string(),
+        "--no-edit".to_string(),
+        request.commit_hash.clone(),
+    ]))
+}
+
+/// `git reset --<soft|mixed|hard> <hash>`. All three modes go through the safety net
+/// so even a `--hard` (which discards the working tree) is undoable from the Time Machine.
+pub fn reset_preview(request: &ResetRequest) -> Result<GitCommandPreview, GitError> {
+    validate_commit_hash(&request.commit_hash)?;
+    let flag = match request.mode {
+        ResetMode::Soft => "--soft",
+        ResetMode::Mixed => "--mixed",
+        ResetMode::Hard => "--hard",
+    };
+    Ok(preview(vec![
+        "reset".to_string(),
+        flag.to_string(),
+        request.commit_hash.clone(),
+    ]))
+}
+
 pub fn abort_operation_preview(kind: RepositoryOperationKind) -> Result<GitCommandPreview, GitError> {
     let args = match kind {
         RepositoryOperationKind::CherryPick => vec!["cherry-pick".to_string(), "--abort".to_string()],
         RepositoryOperationKind::Merge => vec!["merge".to_string(), "--abort".to_string()],
         RepositoryOperationKind::Rebase => vec!["rebase".to_string(), "--abort".to_string()],
+        RepositoryOperationKind::Revert => vec!["revert".to_string(), "--abort".to_string()],
     };
     Ok(preview(args))
 }
@@ -573,6 +601,7 @@ pub fn continue_operation_preview(kind: RepositoryOperationKind) -> Result<GitCo
     let args = match kind {
         RepositoryOperationKind::CherryPick => vec!["cherry-pick".to_string(), "--continue".to_string()],
         RepositoryOperationKind::Rebase => vec!["rebase".to_string(), "--continue".to_string()],
+        RepositoryOperationKind::Revert => vec!["revert".to_string(), "--continue".to_string()],
         RepositoryOperationKind::Merge => {
             return Err(GitError {
                 code: GitErrorCode::CommandFailed,
@@ -1227,6 +1256,18 @@ mod tests {
     }
 
     #[test]
+    fn builds_abort_revert_args() {
+        let preview = abort_operation_preview(RepositoryOperationKind::Revert).expect("preview");
+        assert_eq!(preview.args, vec!["revert", "--abort"]);
+    }
+
+    #[test]
+    fn builds_continue_revert_args() {
+        let preview = continue_operation_preview(RepositoryOperationKind::Revert).expect("preview");
+        assert_eq!(preview.args, vec!["revert", "--continue"]);
+    }
+
+    #[test]
     fn builds_fetch_remote_args() {
         let request = FetchRequest {
             repository_path: PathBuf::from("/tmp/repo"),
@@ -1377,5 +1418,63 @@ mod tests {
             lfs_track_args("-rf").unwrap_err().code,
             GitErrorCode::InvalidInput
         );
+    }
+
+    #[test]
+    fn builds_revert_args_with_no_edit() {
+        let request = super::super::models::RevertRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            commit_hash: "abc1234".to_string(),
+            safety_net: SafetyNetMode::Auto,
+        };
+        let preview = revert_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["revert", "--no-edit", "abc1234"]);
+        assert_eq!(preview.display, "git revert --no-edit abc1234");
+    }
+
+    #[test]
+    fn rejects_revert_hash_injection() {
+        let request = super::super::models::RevertRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            commit_hash: "abc1234 --no-commit".to_string(),
+            safety_net: SafetyNetMode::Auto,
+        };
+        let error = revert_preview(&request).expect_err("invalid hash");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    fn reset_request(mode: super::super::models::ResetMode) -> super::super::models::ResetRequest {
+        super::super::models::ResetRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            commit_hash: "abc1234".to_string(),
+            mode,
+            safety_net: SafetyNetMode::Auto,
+        }
+    }
+
+    #[test]
+    fn builds_reset_args_for_each_mode() {
+        use super::super::models::ResetMode;
+        assert_eq!(
+            reset_preview(&reset_request(ResetMode::Soft)).expect("preview").args,
+            vec!["reset", "--soft", "abc1234"]
+        );
+        assert_eq!(
+            reset_preview(&reset_request(ResetMode::Mixed)).expect("preview").args,
+            vec!["reset", "--mixed", "abc1234"]
+        );
+        assert_eq!(
+            reset_preview(&reset_request(ResetMode::Hard)).expect("preview").args,
+            vec!["reset", "--hard", "abc1234"]
+        );
+    }
+
+    #[test]
+    fn rejects_reset_hash_injection() {
+        use super::super::models::ResetMode;
+        let mut request = reset_request(ResetMode::Hard);
+        request.commit_hash = "abc1234 --hard".to_string();
+        let error = reset_preview(&request).expect_err("invalid hash");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
     }
 }
