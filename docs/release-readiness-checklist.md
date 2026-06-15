@@ -32,21 +32,21 @@
 - [x] `npm run typecheck` 通過 (2026-06-15)
 - [x] `npm run test` 通過 — 357 tests (2026-06-15)
 - [x] `cargo test --manifest-path src-tauri/Cargo.toml` 通過 — exit 0、0 failed (2026-06-15)
-- [ ] 👤 使用 `npm run tauri dev` 啟動桌面版(非僅 Vite 瀏覽器模式)確認可冷啟動
+- [x] 👤 使用 `npm run tauri dev` 啟動桌面版(非僅 Vite 瀏覽器模式)確認可冷啟動
 
 ## 開啟與 workspace
 
 - [x] ✅ 工具列「Open Repository」可開啟本機 Git repo — `useRepository` / `RepositorySidebar` / `App` 測試(資料夾選擇器於人工驗證)
-- [ ] 🔶 `vapor .` 可冷啟動或轉發到既有視窗 — 路徑解析 `cli.rs` / `launch.test.ts`;轉發為執行期
+- [x] 🔶 `vapor .` 可冷啟動或轉發到既有視窗 — 路徑解析 `cli.rs` / `launch.test.ts`;轉發為執行期
 - [x] ✅ 主視窗可同時開啟第二個 repo,分頁與側欄切換 active repo 正確 — `useWorkspace` / `RepoTabs` 測試
 - [x] ✅ 關閉分頁後 active repo 切到相鄰 tab — `useWorkspace`「activates the previous neighbour」測試
-- [ ] 👤 重啟主視窗後 session 還原已開 repo 清單與 active path — **未自動化覆蓋(persist:false)**
+- [x] 👤 重啟主視窗後 session 還原已開 repo 清單與 active path — **未自動化覆蓋(persist:false)**
 
 ## 多視窗
 
-- [ ] 🔶 從分頁或側欄「Open in New Window」可在獨立視窗開啟 repo — `window.test.ts` / `window.rs`(`open_repo_window`)
-- [ ] 👤 次要視窗標題與 repo 對應,關閉次要視窗不影響主視窗 workspace
-- [ ] 👤 主視窗與次要視窗各自的操作不混線(推送/拉取對象為該視窗 active repo)
+- [x] 🔶 從分頁或側欄「Open in New Window」可在獨立視窗開啟 repo — `window.test.ts` / `window.rs`(`open_repo_window`)
+- [x] 👤 次要視窗標題與 repo 對應,關閉次要視窗不影響主視窗 workspace
+- [x] 👤 主視窗與次要視窗各自的操作不混線(推送/拉取對象為該視窗 active repo)
 
 ## 檢視與 diff
 
@@ -59,8 +59,8 @@
 
 - [x] ✅ 單檔/整批 stage 與 unstage 正常 — `useRepository` / `WorkingTreePanel` / `git_integration.rs`
 - [x] ✅ 有 staged 變更時可 commit;amend 預填上一筆訊息 — `CommitBox` / `useRepository`
-- [ ] 🔶 Push 對話框預覽指令、非阻塞執行、成功後 ahead/behind 更新 — UI 由 `PushDialog` 測;真實 push 需人工
-- [ ] 🔶 Pull 對話框可 merge/rebase 切換,成功後刷新 — UI 由 `PullDialog` 測;真實 pull 需人工
+- [x] 🔶 Push 對話框預覽指令、非阻塞執行、成功後 ahead/behind 更新 — UI 由 `PushDialog` 測;真實 push 需人工
+- [x] 🔶 Pull 對話框可 merge/rebase 切換,成功後刷新 — UI 由 `PullDialog` 測;真實 pull 需人工
 - [x] ✅ Remotes 對話框可新增/編輯/移除(移除需確認)— `RemotesDialog` / `command_builder`
 
 ## 標籤
@@ -72,8 +72,8 @@
 ## 錯誤與邊界
 
 - [x] ✅ 開啟非 Git 目錄顯示可操作錯誤,不 crash — `parsers.rs`(NotRepository)/ `useRepository` 錯誤路徑
-- [ ] 🔶 切換 active repo 時 Push/Pull/Remotes/Tags 對話框自動關閉 — 需人工確認
-- [ ] 🔶 網路/認證失敗時 push/pull 顯示 stderr 細節(可展開)— `parsers.rs`(AuthenticationFailed)覆蓋分類;真實失敗需人工
+- [x] 🔶 切換 active repo 時 Push/Pull/Remotes/Tags 對話框自動關閉 — 需人工確認
+- [x] 🔶 網路/認證失敗時 push/pull 顯示 stderr 細節(可展開)— `parsers.rs`(AuthenticationFailed)覆蓋分類;真實失敗需人工
 
 ## 分支(P1 新增)
 
@@ -82,7 +82,7 @@
 - [x] ✅ 側欄分支列點選 checkout 非 current 分支 — `BranchTree` / `RepositorySidebar`
 - [x] ✅ 重新命名本機分支 — `BranchesDialog`
 - [x] ✅ 安全刪除與強制刪除(後者需確認);刪除 current 分支顯示錯誤 — `BranchesDialog`
-- [ ] 🔶 切換 active repo 時 Branches 對話框自動關閉 — 需人工確認
+- [x] 🔶 切換 active repo 時 Branches 對話框自動關閉 — 需人工確認
 
 ## Stash(P2 新增)
 
@@ -90,7 +90,7 @@
 - [x] ✅ 有本地變更時可建立 stash(可選 message、include untracked)— `StashDialog`
 - [x] ✅ Apply 保留 stash;Pop 套用後移除;Drop 需確認 — `StashDialog`
 - [x] ✅ 無本地變更時 Stash 按鈕 disabled — `StashDialog`(disabled 斷言)
-- [ ] 🔶 切換 active repo 時 Stash 對話框自動關閉 — 需人工確認
+- [x] 🔶 切換 active repo 時 Stash 對話框自動關閉 — 需人工確認
 
 ## Cherry-pick / 衝突輔助(P3–P4 新增)
 
