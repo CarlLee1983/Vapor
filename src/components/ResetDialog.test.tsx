@@ -54,4 +54,20 @@ describe("ResetDialog", () => {
     expect(onCompleted).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
+
+  it("shows the error banner and keeps the dialog open when reset fails", async () => {
+    const onCompleted = vi.fn();
+    const onClose = vi.fn();
+    vi.mocked(resetToCommit).mockRejectedValueOnce({
+      code: "detachedHead",
+      message: "Cannot reset: not on a branch",
+      hint: "Check out a branch first",
+      stderr: "",
+    });
+    render(<ResetDialog repositoryPath="/repo" commit={commit} onClose={onClose} onCompleted={onCompleted} />);
+    await userEvent.click(screen.getByRole("button", { name: "Reset" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Cannot reset: not on a branch"));
+    expect(onCompleted).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
