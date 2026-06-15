@@ -75,6 +75,22 @@ describe("BranchTree", () => {
     });
   });
 
+  it("hides nested branches inside collapsed folders by default", () => {
+    render(<BranchTree branches={[b("main", true), b("feature/login")]} currentBranchName="main" />);
+    expect(screen.queryByText("login")).not.toBeInTheDocument();
+  });
+
+  it("reveals nested branches when forceExpandAll is set", () => {
+    render(
+      <BranchTree
+        branches={[b("main", true), b("feature/login")]}
+        currentBranchName="main"
+        forceExpandAll
+      />,
+    );
+    expect(screen.getByText("login")).toBeInTheDocument();
+  });
+
   it("auto-expands the new current-branch path when it changes after mount", () => {
     const { rerender } = render(
       <BranchTree branches={[b("feat/login", true)]} currentBranchName={null} />,
