@@ -1,6 +1,6 @@
 // Task 5: auto-expand current-branch path is covered in the third test case below.
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BranchTree } from "./BranchTree";
 import type { BranchInfo } from "../types/git";
@@ -100,5 +100,67 @@ describe("BranchTree", () => {
       <BranchTree branches={[b("feat/login", true)]} currentBranchName="feat/login" />,
     );
     expect(screen.getByText("login")).toBeInTheDocument();
+  });
+
+  it("opens a branch context menu and fires merge for a non-current branch", async () => {
+    const user = userEvent.setup();
+    const onMerge = vi.fn();
+    const branches = [
+      { name: "main", isCurrent: true, upstream: null },
+      { name: "feature", isCurrent: false, upstream: null },
+    ];
+    render(
+      <BranchTree
+        branches={branches}
+        currentBranchName="main"
+        onCheckout={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onMerge={onMerge}
+      />,
+    );
+
+    const row = screen.getByText("feature").closest(".sidebar-row")!;
+    fireEvent.contextMenu(row);
+
+    await user.click(screen.getByRole("menuitem", { name: "Merge into current branch" }));
+    expect(onMerge).toHaveBeenCalledWith(branches[1]);
+  });
+
+  it("disables delete and merge on the current branch", () => {
+    const branches = [{ name: "main", isCurrent: true, upstream: null }];
+    render(
+      <BranchTree
+        branches={branches}
+        currentBranchName="main"
+        onCheckout={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onMerge={vi.fn()}
+      />,
+    );
+    const row = screen.getByText("main").closest(".sidebar-row")!;
+    fireEvent.contextMenu(row);
+    expect(screen.getByRole("menuitem", { name: "Delete branch" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Merge into current branch" })).toBeDisabled();
+  });
+
+  it("context menu works on a nested branch leaf", async () => {
+    const user = userEvent.setup();
+    const onMerge = vi.fn();
+    render(
+      <BranchTree
+        branches={[{ name: "feat/login", isCurrent: false, upstream: null }]}
+        currentBranchName="main"
+        onCheckout={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onMerge={onMerge}
+      />,
+    );
+    await user.click(screen.getByText("feat")); // expand the folder
+    fireEvent.contextMenu(screen.getByText("login").closest(".sidebar-row")!);
+    await user.click(screen.getByRole("menuitem", { name: "Merge into current branch" }));
+    expect(onMerge).toHaveBeenCalled();
   });
 });

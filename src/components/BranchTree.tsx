@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BranchInfo } from "../types/git";
 import { buildBranchTree, type BranchTreeNode } from "../lib/branchTree";
 import { FolderIcon, BranchIcon } from "./sidebarIcons";
+import { ContextMenu } from "./ContextMenu";
+import { useContextMenu } from "../hooks/useContextMenu";
 
 const INDENT_PX = 14;
 
@@ -9,6 +11,9 @@ interface Props {
   branches: BranchInfo[];
   currentBranchName: string | null;
   onCheckout?: (branch: BranchInfo) => void;
+  onRename?: (branch: BranchInfo) => void;
+  onDelete?: (branch: BranchInfo) => void;
+  onMerge?: (branch: BranchInfo) => void;
   /** When true, render every folder expanded (used while filtering). */
   forceExpandAll?: boolean;
 }
@@ -25,8 +30,17 @@ function expandedPathsFor(current: string | null): Set<string> {
   return paths;
 }
 
-export function BranchTree({ branches, currentBranchName, onCheckout, forceExpandAll = false }: Props) {
+export function BranchTree({
+  branches,
+  currentBranchName,
+  onCheckout,
+  onRename,
+  onDelete,
+  onMerge,
+  forceExpandAll = false,
+}: Props) {
   const tree = useMemo(() => buildBranchTree(branches), [branches]);
+  const menu = useContextMenu<BranchInfo>();
   const [expanded, setExpanded] = useState<Set<string>>(() =>
     expandedPathsFor(currentBranchName),
   );
@@ -48,7 +62,48 @@ export function BranchTree({ branches, currentBranchName, onCheckout, forceExpan
 
   return (
     <>
-      {tree.map((node) => renderNode(node, 0, expanded, toggle, onCheckout, forceExpandAll))}
+      {tree.map((node) =>
+        renderNode(node, 0, expanded, toggle, onCheckout, forceExpandAll, menu.open),
+      )}
+      {menu.state
+        ? (() => {
+            const branch = menu.state.target;
+            return (
+              <ContextMenu
+                x={menu.state.x}
+                y={menu.state.y}
+                onClose={menu.close}
+                items={[
+                  {
+                    label: "Checkout",
+                    disabled: !onCheckout || branch.isCurrent,
+                    onSelect: () => onCheckout?.(branch),
+                  },
+                  {
+                    label: "Merge into current branch",
+                    disabled: !onMerge || branch.isCurrent,
+                    onSelect: () => onMerge?.(branch),
+                  },
+                  {
+                    label: "Rename branch…",
+                    disabled: !onRename,
+                    onSelect: () => onRename?.(branch),
+                  },
+                  {
+                    label: "Copy branch name",
+                    onSelect: () => void navigator.clipboard?.writeText(branch.name),
+                  },
+                  {
+                    label: "Delete branch",
+                    danger: true,
+                    disabled: !onDelete || branch.isCurrent,
+                    onSelect: () => onDelete?.(branch),
+                  },
+                ]}
+              />
+            );
+          })()
+        : null}
     </>
   );
 }
@@ -60,6 +115,7 @@ function renderNode(
   toggle: (path: string) => void,
   onCheckout?: (branch: BranchInfo) => void,
   forceExpandAll = false,
+  onContextMenu?: (event: React.MouseEvent, branch: BranchInfo) => void,
 ): React.JSX.Element {
   const indent = { paddingLeft: `${depth * INDENT_PX}px` };
 
@@ -91,7 +147,7 @@ function renderNode(
         </div>
         {isOpen &&
           node.children.map((child) =>
-            renderNode(child, depth + 1, expanded, toggle, onCheckout, forceExpandAll),
+            renderNode(child, depth + 1, expanded, toggle, onCheckout, forceExpandAll, onContextMenu),
           )}
       </div>
     );
@@ -107,6 +163,7 @@ function renderNode(
       className={`sidebar-row ${node.branch.isCurrent ? "active" : ""}`}
       style={indent}
       onClick={canCheckout ? () => onCheckout(node.branch) : undefined}
+      onContextMenu={onContextMenu ? (event) => onContextMenu(event, node.branch) : undefined}
       onKeyDown={
         canCheckout
           ? (event) => {
