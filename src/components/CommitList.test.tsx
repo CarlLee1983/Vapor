@@ -333,3 +333,38 @@ describe("CommitList helpers", () => {
     });
   });
 });
+
+const menuCommit: CommitSummary = {
+  hash: "abc1234def5678",
+  parents: [],
+  author: "Carl",
+  date: "2026-06-15T00:00:00Z",
+  subject: "Revert menu fixture",
+  refs: [],
+};
+
+describe("CommitList revert/reset menu", () => {
+  it("fires onRevert and onReset from the context menu", async () => {
+    const user = userEvent.setup();
+    const onRevert = vi.fn();
+    const onReset = vi.fn();
+    render(
+      <CommitList
+        commits={[menuCommit]}
+        selectedCommit={null}
+        onSelectCommit={() => {}}
+        onRevert={onRevert}
+        onReset={onReset}
+      />,
+    );
+
+    const row = screen.getByText("Revert menu fixture").closest(".commit-row")!;
+    fireEvent.contextMenu(row);
+    await user.click(screen.getByRole("menuitem", { name: "Revert…" }));
+    expect(onRevert).toHaveBeenCalledWith(menuCommit);
+
+    fireEvent.contextMenu(row);
+    await user.click(screen.getByRole("menuitem", { name: "Reset current branch to here…" }));
+    expect(onReset).toHaveBeenCalledWith(menuCommit);
+  });
+});
