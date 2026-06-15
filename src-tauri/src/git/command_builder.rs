@@ -3,7 +3,7 @@ use super::models::{
     CommitRequest, CreateBranchRequest, CreateStashRequest, DeleteBranchRequest, DiffScope,
     FetchRequest, GitCommandPreview, GitError, GitErrorCode, MergeBranchRequest, PullRequest,
     PushRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
-    SetRemoteUrlRequest, StashRefRequest, TagPushMode,
+    SetRemoteUrlRequest, StashRefRequest, TagPushMode, RevertRequest,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -556,6 +556,17 @@ pub fn cherry_pick_preview(request: &CherryPickRequest) -> Result<GitCommandPrev
     validate_commit_hash(&request.commit_hash)?;
     Ok(preview(vec![
         "cherry-pick".to_string(),
+        request.commit_hash.clone(),
+    ]))
+}
+
+/// `git revert --no-edit <hash>` — `--no-edit` keeps git from launching an editor
+/// (the same hazard handled in `commit_preview` for `--amend`).
+pub fn revert_preview(request: &RevertRequest) -> Result<GitCommandPreview, GitError> {
+    validate_commit_hash(&request.commit_hash)?;
+    Ok(preview(vec![
+        "revert".to_string(),
+        "--no-edit".to_string(),
         request.commit_hash.clone(),
     ]))
 }
@@ -1377,5 +1388,28 @@ mod tests {
             lfs_track_args("-rf").unwrap_err().code,
             GitErrorCode::InvalidInput
         );
+    }
+
+    #[test]
+    fn builds_revert_args_with_no_edit() {
+        let request = super::super::models::RevertRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            commit_hash: "abc1234".to_string(),
+            safety_net: SafetyNetMode::Auto,
+        };
+        let preview = revert_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["revert", "--no-edit", "abc1234"]);
+        assert_eq!(preview.display, "git revert --no-edit abc1234");
+    }
+
+    #[test]
+    fn rejects_revert_hash_injection() {
+        let request = super::super::models::RevertRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            commit_hash: "abc1234 --no-commit".to_string(),
+            safety_net: SafetyNetMode::Auto,
+        };
+        let error = revert_preview(&request).expect_err("invalid hash");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
     }
 }
