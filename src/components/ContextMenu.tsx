@@ -16,6 +16,8 @@ interface Props {
 }
 
 const MENU_WIDTH = 200;
+// Conservative upper bound used only to keep the menu inside the viewport.
+const MENU_MAX_HEIGHT = 320;
 
 export function ContextMenu({ x, y, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -37,11 +39,12 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
     };
   }, [onClose]);
 
-  // Clamp horizontally so the menu never spills past the right edge.
+  // Clamp so the menu never spills past the right or bottom edge of the viewport.
   const left = Math.max(0, Math.min(x, window.innerWidth - MENU_WIDTH));
+  const top = Math.max(0, Math.min(y, window.innerHeight - MENU_MAX_HEIGHT));
 
   return (
-    <div ref={ref} className="context-menu" role="menu" aria-label="Context menu" style={{ left, top: y }}>
+    <div ref={ref} className="context-menu" role="menu" aria-label="Context menu" style={{ left, top }}>
       {items.map((item, index) => (
         <button
           key={index}

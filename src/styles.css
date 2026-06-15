@@ -1941,7 +1941,7 @@ button.danger:not(:disabled):hover {
 
 .context-menu {
   position: fixed;
-  z-index: 60;
+  z-index: 110;
   min-width: 180px;
   padding: 6px;
   border: 1px solid var(--border-color);

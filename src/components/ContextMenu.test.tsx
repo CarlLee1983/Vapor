@@ -47,4 +47,20 @@ describe("ContextMenu", () => {
     fireEvent(window, new Event("resize"));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("clamps position so the menu stays inside the viewport", () => {
+    // jsdom defaults: window.innerWidth = 1024, innerHeight = 768.
+    render(
+      <ContextMenu
+        x={5000}
+        y={5000}
+        onClose={vi.fn()}
+        items={[{ label: "A", onSelect: vi.fn() }]}
+      />,
+    );
+    const menu = screen.getByRole("menu");
+    // Far-corner click is clamped back: left = 1024 - 200, top = 768 - 320.
+    expect(menu.style.left).toBe(`${window.innerWidth - 200}px`);
+    expect(menu.style.top).toBe(`${window.innerHeight - 320}px`);
+  });
 });
