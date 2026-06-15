@@ -34,9 +34,15 @@ Vapor 用 [Tauri](https://tauri.app/) 打造，以較低的記憶體佔用提供
 - **Fetch**——工具列 Fetch 對話框,可選單一遠端或全部遠端、預設 prune 已刪除的遠端分支,執行前預覽 `git fetch` 指令;只更新遠端追蹤分支,不動工作樹。
 - **Merge**——Branches 對話框中可將任一本機分支合併進目前分支(執行前需確認);衝突時沿用 operation banner 提供 abort 與解衝突指引。
 - **Discard(捨棄變更)**——工作樹 Unstaged 列提供逐檔捨棄:已追蹤檔以 `git restore` 還原、未追蹤檔刪除;皆需明確確認且不可復原提示清楚。
+- **Clone**——工具列可開啟 Clone 對話框,輸入 URL 與目標資料夾後串流顯示 `git clone` 進度,完成後自動開啟新分頁;另附唯讀 SSH/憑證診斷面板。
+- **互動式逐行(hunk/line)暫存**——DiffViewer 中可摺疊展開 hunk、以行粒度勾選(支援 Shift 範圍選取),逐塊/逐行 stage、unstage 或 discard。
+- **Git LFS 與大型資產提示**——工作樹大檔徽章與軟確認、DiffViewer LFS pointer 友善卡片、一鍵 `git lfs track`,Doctor 內含 git-lfs 環境健檢。
+- **時光機(Undo 安全網)**——合併/拉取/捨棄/cherry-pick 等危險操作前自動拍 git 物件快照並記錄 journal,可從時光機面板語意化 Undo、檢視快照 diff 或還原單一檔案。
+- **彈性版面與主題**——清單/Diff 面板可水平或垂直切換、可調整比例與單面板 focus;支援 light/dark/system 主題,偏好持久化於本機。
+- **Doctor 環境健檢**——一鍵檢查 git、登入 PATH、`vapor` CLI、husky 與 git-lfs 等環境項目,部分問題可一鍵修復。
 
-> 目前**尚未提供**:合併衝突三方編輯器、rebase 操作輔助、互動式逐行(hunk)暫存與 clone UI。詳見
-> [`docs/superpowers/specs`](docs/superpowers/specs) 與
+> 目前**尚未提供**:合併衝突三方編輯器、互動式 rebase 操作輔助(squash/reorder),以及 commit/分支搜尋過濾。詳見
+> [`docs/superpowers/specs`](docs/superpowers/specs)(含 [`2026-06-15-enhancement-analysis.md`](docs/superpowers/specs/2026-06-15-enhancement-analysis.md))與
 > [`docs/superpowers/plans/2026-06-11-vapor-feature-completion-roadmap.md`](docs/superpowers/plans/2026-06-11-vapor-feature-completion-roadmap.md)。
 
 ## 下載與安裝(macOS)

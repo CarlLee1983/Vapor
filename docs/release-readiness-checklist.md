@@ -1,79 +1,108 @@
 # Vapor Release Readiness Checklist
 
-簡短的人工 GUI smoke 路徑,用於發版前確認核心日常流程。每項通過打勾;失敗記錄 repo 與步驟。
+發版前確認核心日常流程。本清單已於 2026-06-15 與自動化測試交叉比對:多數項目的**邏輯**已由
+元件 / hook / Rust 整合測試覆蓋,殘留需人工的是「真實 git + 真實網路 + OS 執行期(多視窗/重啟)」這一層。
+
+## 覆蓋圖例
+
+- ✅ **邏輯已自動化覆蓋** — 已有元件 / hook / 整合測試;人工只需確認最終接線在桌面版可運作。
+- 🔶 **部分覆蓋** — 核心邏輯有測試,但關鍵行為(真實網路、對話框自動關閉、重啟還原等)仍需人工。
+- 👤 **僅能人工** — 無有意義的自動化背書,屬 OS 執行期行為,務必手動驗證。
+
+> 自動化現況:前端 357 tests(52 files)、Rust 整合測試(`git_integration` / `clone` / `lfs_status` /
+> `safety_net_integration`)。執行:`npm run test` 與 `cargo test --manifest-path src-tauri/Cargo.toml`。
+
+---
+
+## 🎯 殘留必驗(僅人工 / 部分覆蓋,發版前務必走一次)
+
+這些是自動化測試碰不到的真實執行期行為:
+
+- 👤 **重啟主視窗還原 session**(已開 repo 清單 + active path)— `useWorkspace` 測試以 `persist: false` 跑,localStorage 還原路徑未被自動化覆蓋。
+- 👤 **多視窗隔離**:次要視窗標題對應 repo、關閉次要視窗不影響主視窗 workspace;主/次視窗操作不混線(推送/拉取對象為各自 active repo)。
+- 🔶 **真實 Push / Pull**:對真實遠端執行,確認非阻塞、成功後 ahead/behind 更新、merge/rebase 切換刷新、認證/網路失敗顯示可展開 stderr。
+- 🔶 **切換 active repo 時對話框自動關閉**(Push/Pull/Remotes/Tags/Branches/Stash)— 元件層未明確斷言,需人工確認。
+- 🔶 **`vapor .` 轉發既有視窗**:single-instance 外掛的執行期轉發(路徑解析已由 `cli.rs` / `launch.test.ts` 覆蓋)。
+- 🔶 **Open in New Window**:`open_repo_window` invoke 已測,實際開窗為執行期行為。
+
+---
 
 ## 前置
 
-- [x] `npm run typecheck` 通過 (2026-06-11 smoke)
-- [x] `npm run test` 通過 — 251 tests (2026-06-11 smoke)
-- [x] `cargo test --manifest-path src-tauri/Cargo.toml` 通過 — 110 tests (2026-06-11 smoke)
-- [x] 使用 `npm run tauri dev` 啟動桌面版(非僅 Vite 瀏覽器模式) — 已以 `/tmp/vapor-smoke-*` 冷啟動,process 存活
+- [x] `npm run typecheck` 通過 (2026-06-15)
+- [x] `npm run test` 通過 — 357 tests (2026-06-15)
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml` 通過 — exit 0、0 failed (2026-06-15)
+- [ ] 👤 使用 `npm run tauri dev` 啟動桌面版(非僅 Vite 瀏覽器模式)確認可冷啟動
 
 ## 開啟與 workspace
 
-- [ ] 工具列「Open Repository」可開啟本機 Git repo
-- [ ] `vapor .` 可冷啟動或轉發到既有視窗
-- [ ] 主視窗可同時開啟第二個 repo,分頁與側欄切換 active repo 正確
-- [ ] 關閉分頁後 active repo 切到相鄰 tab
-- [ ] 重啟主視窗後 session 還原已開 repo 清單與 active path
+- [ ] ✅ 工具列「Open Repository」可開啟本機 Git repo — `useRepository` / `RepositorySidebar` / `App` 測試(資料夾選擇器於人工驗證)
+- [ ] 🔶 `vapor .` 可冷啟動或轉發到既有視窗 — 路徑解析 `cli.rs` / `launch.test.ts`;轉發為執行期
+- [ ] ✅ 主視窗可同時開啟第二個 repo,分頁與側欄切換 active repo 正確 — `useWorkspace` / `RepoTabs` 測試
+- [ ] ✅ 關閉分頁後 active repo 切到相鄰 tab — `useWorkspace`「activates the previous neighbour」測試
+- [ ] 👤 重啟主視窗後 session 還原已開 repo 清單與 active path — **未自動化覆蓋(persist:false)**
 
 ## 多視窗
 
-- [ ] 從分頁或側欄「Open in New Window」可在獨立視窗開啟 repo
-- [ ] 次要視窗標題與 repo 對應,關閉次要視窗不影響主視窗 workspace
-- [ ] 主視窗與次要視窗各自的操作不混線(推送/拉取對象為該視窗 active repo)
+- [ ] 🔶 從分頁或側欄「Open in New Window」可在獨立視窗開啟 repo — `window.test.ts` / `window.rs`(`open_repo_window`)
+- [ ] 👤 次要視窗標題與 repo 對應,關閉次要視窗不影響主視窗 workspace
+- [ ] 👤 主視窗與次要視窗各自的操作不混線(推送/拉取對象為該視窗 active repo)
 
 ## 檢視與 diff
 
-- [ ] 提交歷史可選取 commit 並顯示 diff
-- [ ] 工作樹 Unstaged 列顯示 unstaged diff
-- [ ] 工作樹 Staged 列顯示 staged diff(`--cached`)
-- [ ] 同一檔案同時在 Staged/Unstaged 時,兩列可獨立選取且標題正確
+- [ ] ✅ 提交歷史可選取 commit 並顯示 diff — `useRepository` / `DiffViewer` / `git_integration.rs`
+- [ ] ✅ 工作樹 Unstaged 列顯示 unstaged diff — 同上
+- [ ] ✅ 工作樹 Staged 列顯示 staged diff(`--cached`)— `useRepository`(DiffScope)/ `git_integration.rs`
+- [ ] ✅ 同一檔案同時在 Staged/Unstaged 時,兩列可獨立選取且標題正確 — `useRepository` / `DiffViewer`
 
 ## 提交與遠端
 
-- [ ] 單檔/整批 stage 與 unstage 正常
-- [ ] 有 staged 變更時可 commit;amend 預填上一筆訊息
-- [ ] Push 對話框預覽指令、非阻塞執行、成功後 ahead/behind 更新
-- [ ] Pull 對話框可 merge/rebase 切換,成功後刷新
-- [ ] Remotes 對話框可新增/編輯/移除(移除需確認)
+- [ ] ✅ 單檔/整批 stage 與 unstage 正常 — `useRepository` / `WorkingTreePanel` / `git_integration.rs`
+- [ ] ✅ 有 staged 變更時可 commit;amend 預填上一筆訊息 — `CommitBox` / `useRepository`
+- [ ] 🔶 Push 對話框預覽指令、非阻塞執行、成功後 ahead/behind 更新 — UI 由 `PushDialog` 測;真實 push 需人工
+- [ ] 🔶 Pull 對話框可 merge/rebase 切換,成功後刷新 — UI 由 `PullDialog` 測;真實 pull 需人工
+- [ ] ✅ Remotes 對話框可新增/編輯/移除(移除需確認)— `RemotesDialog` / `command_builder`
 
 ## 標籤
 
-- [ ] Tags 對話框列出現有標籤
-- [ ] 可建立新標籤
-- [ ] 刪除標籤需確認且成功後列表更新
+- [ ] ✅ Tags 對話框列出現有標籤 — `TagsDialog`
+- [ ] ✅ 可建立新標籤 — `TagsDialog`
+- [ ] ✅ 刪除標籤需確認且成功後列表更新 — `TagsDialog`
 
 ## 錯誤與邊界
 
-- [ ] 開啟非 Git 目錄顯示可操作錯誤,不 crash
-- [ ] 切換 active repo 時 Push/Pull/Remotes/Tags 對話框自動關閉
-- [ ] 網路/認證失敗時 push/pull 顯示 stderr 細節(可展開)
+- [ ] ✅ 開啟非 Git 目錄顯示可操作錯誤,不 crash — `parsers.rs`(NotRepository)/ `useRepository` 錯誤路徑
+- [ ] 🔶 切換 active repo 時 Push/Pull/Remotes/Tags 對話框自動關閉 — 需人工確認
+- [ ] 🔶 網路/認證失敗時 push/pull 顯示 stderr 細節(可展開)— `parsers.rs`(AuthenticationFailed)覆蓋分類;真實失敗需人工
 
 ## 分支(P1 新增)
 
-- [ ] 工具列「Branches」開啟 Manage branches 對話框
-- [ ] 建立分支(可選 start point `origin/main`)並 checkout
-- [ ] 側欄分支列點選 checkout 非 current 分支
-- [ ] 重新命名本機分支
-- [ ] 安全刪除與強制刪除(後者需確認);刪除 current 分支顯示錯誤
-- [ ] 切換 active repo 時 Branches 對話框自動關閉
+- [ ] ✅ 工具列「Branches」開啟 Manage branches 對話框 — `BranchesDialog`
+- [ ] ✅ 建立分支(可選 start point `origin/main`)並 checkout — `BranchesDialog` / `git_integration.rs`
+- [ ] ✅ 側欄分支列點選 checkout 非 current 分支 — `BranchTree` / `RepositorySidebar`
+- [ ] ✅ 重新命名本機分支 — `BranchesDialog`
+- [ ] ✅ 安全刪除與強制刪除(後者需確認);刪除 current 分支顯示錯誤 — `BranchesDialog`
+- [ ] 🔶 切換 active repo 時 Branches 對話框自動關閉 — 需人工確認
 
 ## Stash(P2 新增)
 
-- [ ] 工具列「Stash」開啟對話框並列出既有 stash
-- [ ] 有本地變更時可建立 stash(可選 message、include untracked)
-- [ ] Apply 保留 stash;Pop 套用後移除;Drop 需確認
-- [ ] 無本地變更時 Stash 按鈕 disabled
-- [ ] 切換 active repo 時 Stash 對話框自動關閉
+- [ ] ✅ 工具列「Stash」開啟對話框並列出既有 stash — `StashDialog`
+- [ ] ✅ 有本地變更時可建立 stash(可選 message、include untracked)— `StashDialog`
+- [ ] ✅ Apply 保留 stash;Pop 套用後移除;Drop 需確認 — `StashDialog`
+- [ ] ✅ 無本地變更時 Stash 按鈕 disabled — `StashDialog`(disabled 斷言)
+- [ ] 🔶 切換 active repo 時 Stash 對話框自動關閉 — 需人工確認
 
 ## Cherry-pick / 衝突輔助(P3–P4 新增)
 
-- [ ] History 選取 commit 後 Cherry-pick 顯示 preview 並執行
-- [ ] cherry-pick 衝突時顯示 operation banner 與 Conflicts 分組
-- [ ] Continue / Abort 僅在 operation 進行中可用;Abort 需確認
-- [ ] 有 operation 進行中時 Push / Cherry-pick / Commit 禁用
+- [ ] ✅ History 選取 commit 後 Cherry-pick 顯示 preview 並執行 — `CherryPickDialog`
+- [ ] ✅ cherry-pick 衝突時顯示 operation banner 與 Conflicts 分組 — `OperationBanner` / `WorkingTreePanel`
+- [ ] ✅ Continue / Abort 僅在 operation 進行中可用;Abort 需確認 — `OperationBanner`
+- [ ] ✅ 有 operation 進行中時 Push / Cherry-pick / Commit 禁用 — `GitActionsMenu`(disabled 斷言)/ `OperationBanner`
 
 ## 已知尚未覆蓋(發版時標註為限制,非 blocker)
 
 - 內建三方 merge 編輯器
+- 互動式 rebase 操作輔助(squash/reorder)
+- commit / 分支搜尋過濾
+
+> 覆蓋對照分析詳見 [`docs/superpowers/specs/2026-06-15-enhancement-analysis.md`](superpowers/specs/2026-06-15-enhancement-analysis.md)。
