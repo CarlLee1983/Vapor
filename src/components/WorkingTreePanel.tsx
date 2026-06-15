@@ -4,8 +4,10 @@ import { formatBytes, isLargeNonLfs } from "../lib/lfsHints";
 import { filterFiles } from "../lib/fileFilter";
 import type { DiffScope, FileStatus, LfsTrackMode, RepositoryState, SelectedFileTarget } from "../types/git";
 import { CommitBox } from "./CommitBox";
+import { ContextMenu } from "./ContextMenu";
 import { LfsTrackMenu } from "./LfsTrackMenu";
 import { SearchInput } from "./SearchInput";
+import { useContextMenu } from "../hooks/useContextMenu";
 
 interface Props {
   repository: RepositoryState | null;
@@ -139,12 +141,16 @@ interface FileRowProps {
   onAction: (path: string) => void;
   onDiscard?: (file: FileStatus) => void;
   onTrackLfs?: (file: FileStatus, mode: LfsTrackMode) => void;
+  onContextMenu?: (event: React.MouseEvent, file: FileStatus) => void;
 }
 
-function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, onAction, onDiscard, onTrackLfs }: FileRowProps) {
+function FileRow({ file, isActive, actionLabel, actionGlyph, scope, onSelect, onAction, onDiscard, onTrackLfs, onContextMenu }: FileRowProps) {
   const status = getStatusInfo(file.indexStatus, file.worktreeStatus);
   return (
-    <div className={`file-row${isActive ? " active" : ""}`}>
+    <div
+      className={`file-row${isActive ? " active" : ""}`}
+      onContextMenu={onContextMenu ? (event) => onContextMenu(event, file) : undefined}
+    >
       <button type="button" className="file-row__select" onClick={() => onSelect(file, scope)}>
         <span className="file-name-container">
           {getFileIcon(file.path)}
@@ -204,6 +210,7 @@ export function WorkingTreePanel({
   onLoadLastMessage,
 }: Props) {
   const [query, setQuery] = useState("");
+  const menu = useContextMenu<{ file: FileStatus; scope: Extract<DiffScope, "unstaged" | "staged"> }>();
   const allFiles = repository?.workingTree ?? [];
   const files = filterFiles(allFiles, query);
   const conflicts = files.filter(isConflict);
@@ -299,6 +306,7 @@ export function WorkingTreePanel({
                     onSelect={onSelectFile}
                     onAction={(path) => onUnstage([path])}
                     onTrackLfs={onTrackLfs}
+                    onContextMenu={(event, file) => menu.open(event, { file, scope: "staged" })}
                   />
                 ))
               )}
@@ -330,6 +338,7 @@ export function WorkingTreePanel({
                     onAction={(path) => onStage([path])}
                     onDiscard={requestDiscard}
                     onTrackLfs={onTrackLfs}
+                    onContextMenu={(event, file) => menu.open(event, { file, scope: "unstaged" })}
                   />
                 ))
               )}
@@ -348,6 +357,30 @@ export function WorkingTreePanel({
           onLoadLastMessage={onLoadLastMessage}
         />
       ) : null}
+
+      {menu.state
+        ? (() => {
+            const { file, scope } = menu.state.target;
+            const items =
+              scope === "staged"
+                ? [
+                    { label: "Unstage", onSelect: () => onUnstage([file.path]) },
+                    {
+                      label: "Copy path",
+                      onSelect: () => void navigator.clipboard?.writeText(file.path),
+                    },
+                  ]
+                : [
+                    { label: "Stage", onSelect: () => onStage([file.path]) },
+                    { label: "Discard…", danger: true, onSelect: () => requestDiscard(file) },
+                    {
+                      label: "Copy path",
+                      onSelect: () => void navigator.clipboard?.writeText(file.path),
+                    },
+                  ];
+            return <ContextMenu x={menu.state.x} y={menu.state.y} onClose={menu.close} items={items} />;
+          })()
+        : null}
     </section>
   );
 }

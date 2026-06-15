@@ -7,6 +7,8 @@ import { buildCommitGraph, LANE_WIDTH, ROW_HEIGHT, UNCOMMITTED_HASH } from "../l
 import { computeVisibleRange, isNearBottom } from "../lib/virtualList";
 import { filterCommits } from "../lib/commitFilter";
 import { SearchInput } from "./SearchInput";
+import { ContextMenu } from "./ContextMenu";
+import { useContextMenu } from "../hooks/useContextMenu";
 
 const OVERSCAN = 6;
 const NEAR_BOTTOM_THRESHOLD = ROW_HEIGHT * 6;
@@ -22,6 +24,7 @@ interface Props {
   uncommittedCount?: number;
   /** Invoked when the uncommitted row is clicked (e.g. switch to the status view). */
   onSelectUncommitted?: () => void;
+  onCherryPick?: (commit: CommitSummary) => void;
 }
 
 export function getInitials(name: string): string {
@@ -62,8 +65,10 @@ export function CommitList({
   onLoadMore,
   uncommittedCount = 0,
   onSelectUncommitted,
+  onCherryPick,
 }: Props) {
   const hasUncommittedChanges = uncommittedCount > 0;
+  const menu = useContextMenu<CommitSummary>();
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => filterCommits(commits, query), [commits, query]);
   const isFiltering = query.trim().length > 0;
@@ -193,6 +198,7 @@ export function CommitList({
                   type="button"
                   aria-pressed={commit.hash === selectedCommit?.hash}
                   onClick={() => onSelectCommit(commit)}
+                  onContextMenu={(event) => menu.open(event, commit)}
                 >
                   <div
                     className="commit-avatar"
@@ -230,6 +236,33 @@ export function CommitList({
         ) : null}
         {isLoadingMore ? <div className="commit-list-loading">載入更多…</div> : null}
       </div>
+      {menu.state
+        ? (() => {
+            const commit = menu.state.target;
+            return (
+              <ContextMenu
+                x={menu.state.x}
+                y={menu.state.y}
+                onClose={menu.close}
+                items={[
+                  {
+                    label: "Cherry-pick…",
+                    disabled: !onCherryPick,
+                    onSelect: () => onCherryPick?.(commit),
+                  },
+                  {
+                    label: "Copy SHA",
+                    onSelect: () => void navigator.clipboard?.writeText(commit.hash),
+                  },
+                  {
+                    label: "Copy message",
+                    onSelect: () => void navigator.clipboard?.writeText(commit.subject),
+                  },
+                ]}
+              />
+            );
+          })()
+        : null}
     </section>
   );
 }

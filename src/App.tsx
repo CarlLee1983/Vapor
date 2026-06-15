@@ -32,8 +32,8 @@ import { RepoTabs } from "./components/RepoTabs";
 import { useLayoutPreferences } from "./hooks/useLayoutPreferences";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
 import { getRepoParam, openRepoWindow } from "./lib/window";
-import { checkoutBranch, previewCommit } from "./lib/tauriApi";
-import type { BranchInfo } from "./types/git";
+import { checkoutBranch, deleteBranch, mergeBranch, previewCommit, renameBranch } from "./lib/tauriApi";
+import type { BranchInfo, CommitSummary } from "./types/git";
 import "./styles.css";
 
 export const AUTO_REFRESH_INTERVAL_MS = 5000;
@@ -150,6 +150,54 @@ export default function App() {
       });
   };
 
+  const handleRenameBranch = (branch: BranchInfo) => {
+    if (!repoView.repository) return;
+    const newName = window.prompt(`Rename branch "${branch.name}" to:`, branch.name)?.trim();
+    if (!newName || newName === branch.name) return;
+    void renameBranch({
+      repositoryPath: repoView.repository.root,
+      oldName: branch.name,
+      newName,
+    })
+      .then(refreshActiveRepository)
+      .catch(() => {
+        // Errors surface on next refresh via repository state.
+      });
+  };
+
+  const handleDeleteBranch = (branch: BranchInfo) => {
+    if (!repoView.repository || branch.isCurrent) return;
+    if (!window.confirm(`Delete branch "${branch.name}"?\nThis cannot be undone.`)) return;
+    void deleteBranch({
+      repositoryPath: repoView.repository.root,
+      branchName: branch.name,
+      force: false,
+    })
+      .then(refreshActiveRepository)
+      .catch(() => {
+        // Errors surface on next refresh (e.g. unmerged branch needs force).
+      });
+  };
+
+  const handleMergeBranch = (branch: BranchInfo) => {
+    if (!repoView.repository || branch.isCurrent) return;
+    if (!window.confirm(`Merge "${branch.name}" into the current branch?`)) return;
+    void mergeBranch({
+      repositoryPath: repoView.repository.root,
+      branchName: branch.name,
+      noFf: false,
+    })
+      .then(refreshActiveRepository)
+      .catch(() => {
+        // Errors / conflicts surface via the operation banner on next refresh.
+      });
+  };
+
+  const handleCherryPickCommit = (commit: CommitSummary) => {
+    repoView.selectCommit(commit);
+    setIsCherryPickOpen(true);
+  };
+
   useEffect(() => {
     if (!repoView.repositoryPath) {
       return;
@@ -192,6 +240,9 @@ export default function App() {
         onClose={workspace.closeRepository}
         onOpen={() => void handleOpen()}
         onCheckoutBranch={handleCheckoutBranch}
+        onRenameBranch={handleRenameBranch}
+        onDeleteBranch={handleDeleteBranch}
+        onMergeBranch={handleMergeBranch}
         onOpenBranches={() => setIsBranchesOpen(true)}
       />
       <section className="workspace" aria-label="Git workbench">
@@ -312,6 +363,7 @@ export default function App() {
               onLoadMore={repoView.loadMoreCommits}
               uncommittedCount={repoView.repository?.workingTree.length ?? 0}
               onSelectUncommitted={() => setViewMode("status")}
+              onCherryPick={handleCherryPickCommit}
             />
           ) : (
             <WorkingTreePanel

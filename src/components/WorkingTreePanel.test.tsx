@@ -213,6 +213,90 @@ describe("WorkingTreePanel", () => {
     setup({ repository, onTrackLfs });
     expect(screen.getByRole("button", { name: "Track with LFS" })).toBeInTheDocument();
   });
+  it("right-clicking an unstaged file offers Stage / Discard / Copy path", async () => {
+    const user = userEvent.setup();
+    const onStage = vi.fn();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    try {
+      const repository = {
+        ...baseRepo,
+        workingTree: [
+          { path: "src/a.ts", indexStatus: ".", worktreeStatus: "M", sizeBytes: 10, isLfs: false },
+        ],
+      };
+      render(
+        <WorkingTreePanel
+          repository={repository}
+          selectedFile={null}
+          onSelectFile={vi.fn()}
+          onStage={onStage}
+          onUnstage={vi.fn()}
+          onDiscard={vi.fn()}
+          onCommit={vi.fn()}
+          onPreviewCommit={vi.fn()}
+          onLoadLastMessage={vi.fn()}
+        />,
+      );
+
+      const row = screen.getByText("src/a.ts").closest(".file-row")!;
+      fireEvent.contextMenu(row);
+
+      await user.click(screen.getByRole("menuitem", { name: "Copy path" }));
+      expect(writeText).toHaveBeenCalledWith("src/a.ts");
+
+      fireEvent.contextMenu(row);
+      await user.click(screen.getByRole("menuitem", { name: "Stage" }));
+      expect(onStage).toHaveBeenCalledWith(["src/a.ts"]);
+    } finally {
+      if (originalClipboard) {
+        Object.defineProperty(navigator, "clipboard", originalClipboard);
+      }
+    }
+  });
+
+  it("right-clicking a staged file offers Unstage / Copy path (no Discard)", async () => {
+    const user = userEvent.setup();
+    const onUnstage = vi.fn();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    try {
+      const repository = {
+        root: "/repo",
+        currentBranch: "main",
+        ahead: 0,
+        behind: 0,
+        branches: [],
+        remotes: [],
+        lfsEnabled: false,
+        workingTree: [
+          { path: "src/b.ts", indexStatus: "M", worktreeStatus: ".", sizeBytes: 10, isLfs: false },
+        ],
+      };
+      render(
+        <WorkingTreePanel
+          repository={repository}
+          selectedFile={null}
+          onSelectFile={vi.fn()}
+          onStage={vi.fn()}
+          onUnstage={onUnstage}
+          onDiscard={vi.fn()}
+          onCommit={vi.fn()}
+          onPreviewCommit={vi.fn()}
+          onLoadLastMessage={vi.fn()}
+        />,
+      );
+      const row = screen.getByText("src/b.ts").closest(".file-row")!;
+      fireEvent.contextMenu(row);
+      expect(screen.queryByRole("menuitem", { name: "Discard…" })).toBeNull();
+      await user.click(screen.getByRole("menuitem", { name: "Unstage" }));
+      expect(onUnstage).toHaveBeenCalledWith(["src/b.ts"]);
+    } finally {
+      Object.defineProperty(navigator, "clipboard", { value: originalClipboard, configurable: true });
+    }
+  });
 });
 
 const filterRepo: RepositoryState = {

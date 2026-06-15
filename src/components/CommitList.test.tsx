@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CommitList, getInitials, getAvatarColor } from "./CommitList";
 import { ROW_HEIGHT } from "../lib/commitGraph";
 import type { CommitSummary } from "../types/git";
@@ -35,6 +36,14 @@ const commits: CommitSummary[] = [
 ];
 
 describe("CommitList", () => {
+  let originalClipboard: typeof navigator.clipboard;
+  beforeEach(() => {
+    originalClipboard = navigator.clipboard;
+  });
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", { value: originalClipboard, configurable: true });
+  });
+
   it("renders branch and tag labels on the commit that carries them", () => {
     render(<CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} />);
     expect(screen.getByText("main")).toBeInTheDocument();
@@ -216,6 +225,55 @@ describe("CommitList", () => {
     render(<CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Search commits"), { target: { value: "zzzzz" } });
     expect(screen.getByText(/沒有符合/)).toBeInTheDocument();
+  });
+
+  it("opens a context menu on a commit row and fires cherry-pick with that commit", async () => {
+    const user = userEvent.setup();
+    const onCherryPick = vi.fn();
+    render(
+      <CommitList
+        commits={commits}
+        selectedCommit={null}
+        onSelectCommit={vi.fn()}
+        onCherryPick={onCherryPick}
+      />,
+    );
+
+    const row = screen.getByText(commits[0].subject).closest(".commit-row")!;
+    fireEvent.contextMenu(row);
+
+    await user.click(screen.getByRole("menuitem", { name: "Cherry-pick…" }));
+    expect(onCherryPick).toHaveBeenCalledWith(commits[0]);
+  });
+
+  it("copies the commit SHA from the context menu", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} />);
+
+    const row = screen.getByText(commits[0].subject).closest(".commit-row")!;
+    fireEvent.contextMenu(row);
+    await user.click(screen.getByRole("menuitem", { name: "Copy SHA" }));
+    expect(writeText).toHaveBeenCalledWith(commits[0].hash);
+  });
+
+  it("copies the commit message from the context menu", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} />);
+    const row = screen.getByText(commits[0].subject).closest(".commit-row")!;
+    fireEvent.contextMenu(row);
+    await user.click(screen.getByRole("menuitem", { name: "Copy message" }));
+    expect(writeText).toHaveBeenCalledWith(commits[0].subject);
+  });
+
+  it("does not open a context menu on the uncommitted row", () => {
+    render(<CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} uncommittedCount={3} />);
+    const row = screen.getByText("Uncommitted changes").closest(".commit-row--uncommitted")!;
+    fireEvent.contextMenu(row);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });
 
