@@ -592,6 +592,7 @@ pub fn abort_operation_preview(kind: RepositoryOperationKind) -> Result<GitComma
         RepositoryOperationKind::CherryPick => vec!["cherry-pick".to_string(), "--abort".to_string()],
         RepositoryOperationKind::Merge => vec!["merge".to_string(), "--abort".to_string()],
         RepositoryOperationKind::Rebase => vec!["rebase".to_string(), "--abort".to_string()],
+        RepositoryOperationKind::Revert => vec!["revert".to_string(), "--abort".to_string()],
     };
     Ok(preview(args))
 }
@@ -600,6 +601,7 @@ pub fn continue_operation_preview(kind: RepositoryOperationKind) -> Result<GitCo
     let args = match kind {
         RepositoryOperationKind::CherryPick => vec!["cherry-pick".to_string(), "--continue".to_string()],
         RepositoryOperationKind::Rebase => vec!["rebase".to_string(), "--continue".to_string()],
+        RepositoryOperationKind::Revert => vec!["revert".to_string(), "--continue".to_string()],
         RepositoryOperationKind::Merge => {
             return Err(GitError {
                 code: GitErrorCode::CommandFailed,
@@ -1251,6 +1253,12 @@ mod tests {
     fn builds_abort_cherry_pick_args() {
         let preview = abort_operation_preview(RepositoryOperationKind::CherryPick).expect("preview");
         assert_eq!(preview.args, vec!["cherry-pick", "--abort"]);
+    }
+
+    #[test]
+    fn builds_abort_revert_args() {
+        let preview = abort_operation_preview(RepositoryOperationKind::Revert).expect("preview");
+        assert_eq!(preview.args, vec!["revert", "--abort"]);
     }
 
     #[test]

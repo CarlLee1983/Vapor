@@ -69,6 +69,7 @@ pub enum RepositoryOperationKind {
     CherryPick,
     Merge,
     Rebase,
+    Revert,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
