@@ -1262,6 +1262,12 @@ mod tests {
     }
 
     #[test]
+    fn builds_continue_revert_args() {
+        let preview = continue_operation_preview(RepositoryOperationKind::Revert).expect("preview");
+        assert_eq!(preview.args, vec!["revert", "--continue"]);
+    }
+
+    #[test]
     fn builds_fetch_remote_args() {
         let request = FetchRequest {
             repository_path: PathBuf::from("/tmp/repo"),
