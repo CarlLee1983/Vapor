@@ -1,6 +1,9 @@
+import { useMemo, useState } from "react";
 import type { BranchInfo, RepoEntry, RepositoryState } from "../types/git";
 import { FolderIcon, GlobeIcon, HistoryIcon } from "./sidebarIcons";
 import { BranchTree } from "./BranchTree";
+import { SearchInput } from "./SearchInput";
+import { filterBranches } from "../lib/branchFilter";
 
 interface Props {
   repository: RepositoryState | null;
@@ -47,6 +50,11 @@ export function RepositorySidebar({
   onCheckoutBranch,
   onOpenBranches,
 }: Props) {
+  const [branchQuery, setBranchQuery] = useState("");
+  const visibleBranches = useMemo(
+    () => filterBranches(repository?.branches ?? [], branchQuery),
+    [repository?.branches, branchQuery],
+  );
   return (
     <aside className="sidebar" aria-label="Repositories">
       <div
@@ -157,11 +165,21 @@ export function RepositorySidebar({
                   </button>
                 ) : null}
               </div>
+              <SearchInput
+                value={branchQuery}
+                onChange={setBranchQuery}
+                placeholder="搜尋分支"
+                ariaLabel="Search branches"
+              />
               <BranchTree
-                branches={repository.branches}
+                branches={visibleBranches}
                 currentBranchName={repository.currentBranch}
                 onCheckout={onCheckoutBranch}
+                forceExpandAll={branchQuery.trim().length > 0}
               />
+              {branchQuery.trim().length > 0 && visibleBranches.length === 0 ? (
+                <p className="muted">沒有符合的分支</p>
+              ) : null}
             </section>
 
             <section className="sidebar-section">

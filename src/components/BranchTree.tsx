@@ -9,6 +9,8 @@ interface Props {
   branches: BranchInfo[];
   currentBranchName: string | null;
   onCheckout?: (branch: BranchInfo) => void;
+  /** When true, render every folder expanded (used while filtering). */
+  forceExpandAll?: boolean;
 }
 
 function expandedPathsFor(current: string | null): Set<string> {
@@ -23,7 +25,7 @@ function expandedPathsFor(current: string | null): Set<string> {
   return paths;
 }
 
-export function BranchTree({ branches, currentBranchName, onCheckout }: Props) {
+export function BranchTree({ branches, currentBranchName, onCheckout, forceExpandAll = false }: Props) {
   const tree = useMemo(() => buildBranchTree(branches), [branches]);
   const [expanded, setExpanded] = useState<Set<string>>(() =>
     expandedPathsFor(currentBranchName),
@@ -46,7 +48,7 @@ export function BranchTree({ branches, currentBranchName, onCheckout }: Props) {
 
   return (
     <>
-      {tree.map((node) => renderNode(node, 0, expanded, toggle, onCheckout))}
+      {tree.map((node) => renderNode(node, 0, expanded, toggle, onCheckout, forceExpandAll))}
     </>
   );
 }
@@ -57,11 +59,12 @@ function renderNode(
   expanded: Set<string>,
   toggle: (path: string) => void,
   onCheckout?: (branch: BranchInfo) => void,
+  forceExpandAll = false,
 ): React.JSX.Element {
   const indent = { paddingLeft: `${depth * INDENT_PX}px` };
 
   if (node.type === "folder") {
-    const isOpen = expanded.has(node.path);
+    const isOpen = forceExpandAll || expanded.has(node.path);
     return (
       <div key={`folder:${node.path}`}>
         <div
@@ -88,7 +91,7 @@ function renderNode(
         </div>
         {isOpen &&
           node.children.map((child) =>
-            renderNode(child, depth + 1, expanded, toggle, onCheckout),
+            renderNode(child, depth + 1, expanded, toggle, onCheckout, forceExpandAll),
           )}
       </div>
     );

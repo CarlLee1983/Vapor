@@ -204,6 +204,19 @@ describe("CommitList", () => {
     expect(screen.getByText("C")).toBeInTheDocument();
     expect(screen.getByText("JD")).toBeInTheDocument();
   });
+
+  it("filters the visible commits by the search query", () => {
+    render(<CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Search commits"), { target: { value: "Tip" } });
+    expect(screen.getByText("Tip of main")).toBeInTheDocument();
+    expect(screen.queryByText("Older commit")).not.toBeInTheDocument();
+  });
+
+  it("shows an empty-state hint when no commit matches the query", () => {
+    render(<CommitList commits={commits} selectedCommit={null} onSelectCommit={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Search commits"), { target: { value: "zzzzz" } });
+    expect(screen.getByText(/沒有符合/)).toBeInTheDocument();
+  });
 });
 
 describe("CommitList helpers", () => {

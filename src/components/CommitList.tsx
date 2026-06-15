@@ -5,6 +5,8 @@ import { describeRef } from "../lib/refs";
 import { CommitGraph } from "./CommitGraph";
 import { buildCommitGraph, LANE_WIDTH, ROW_HEIGHT, UNCOMMITTED_HASH } from "../lib/commitGraph";
 import { computeVisibleRange, isNearBottom } from "../lib/virtualList";
+import { filterCommits } from "../lib/commitFilter";
+import { SearchInput } from "./SearchInput";
 
 const OVERSCAN = 6;
 const NEAR_BOTTOM_THRESHOLD = ROW_HEIGHT * 6;
@@ -62,9 +64,12 @@ export function CommitList({
   onSelectUncommitted,
 }: Props) {
   const hasUncommittedChanges = uncommittedCount > 0;
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => filterCommits(commits, query), [commits, query]);
+  const isFiltering = query.trim().length > 0;
   const graph = useMemo(
-    () => buildCommitGraph(commits, { hasUncommittedChanges }),
-    [commits, hasUncommittedChanges],
+    () => buildCommitGraph(filtered, { hasUncommittedChanges }),
+    [filtered, hasUncommittedChanges],
   );
   const gutterWidth = Math.max(1, graph.maxLaneCount) * LANE_WIDTH;
 
@@ -98,7 +103,7 @@ export function CommitList({
 
   const maybeLoadMore = useCallback(
     (scrollTop: number, viewportHeight: number) => {
-      if (!onLoadMore || !hasMore || isLoadingMore) return;
+      if (isFiltering || !onLoadMore || !hasMore || isLoadingMore) return;
       if (loadMoreRequestedAtLengthRef.current === commits.length) return;
       if (
         isNearBottom({
@@ -112,7 +117,7 @@ export function CommitList({
         onLoadMore();
       }
     },
-    [onLoadMore, hasMore, isLoadingMore, commits.length],
+    [onLoadMore, hasMore, isLoadingMore, commits.length, isFiltering],
   );
 
   const handleScroll = useCallback(() => {
@@ -133,7 +138,15 @@ export function CommitList({
 
   return (
     <section className="panel commit-list" aria-label="Commit history">
-      <h2>History</h2>
+      <div className="panel__header">
+        <h2>History</h2>
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="搜尋 commit(訊息 / 作者 / hash)"
+          ariaLabel="Search commits"
+        />
+      </div>
       <div
         className="commit-graph-rows"
         ref={scrollRef}
@@ -212,6 +225,9 @@ export function CommitList({
             })}
           </div>
         </div>
+        {isFiltering && filtered.length === 0 ? (
+          <p className="muted commit-list-empty">沒有符合「{query}」的 commit</p>
+        ) : null}
         {isLoadingMore ? <div className="commit-list-loading">載入更多…</div> : null}
       </div>
     </section>
