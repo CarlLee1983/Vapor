@@ -36,10 +36,10 @@
 
 ## 開啟與 workspace
 
-- [ ] ✅ 工具列「Open Repository」可開啟本機 Git repo — `useRepository` / `RepositorySidebar` / `App` 測試(資料夾選擇器於人工驗證)
+- [x] ✅ 工具列「Open Repository」可開啟本機 Git repo — `useRepository` / `RepositorySidebar` / `App` 測試(資料夾選擇器於人工驗證)
 - [ ] 🔶 `vapor .` 可冷啟動或轉發到既有視窗 — 路徑解析 `cli.rs` / `launch.test.ts`;轉發為執行期
-- [ ] ✅ 主視窗可同時開啟第二個 repo,分頁與側欄切換 active repo 正確 — `useWorkspace` / `RepoTabs` 測試
-- [ ] ✅ 關閉分頁後 active repo 切到相鄰 tab — `useWorkspace`「activates the previous neighbour」測試
+- [x] ✅ 主視窗可同時開啟第二個 repo,分頁與側欄切換 active repo 正確 — `useWorkspace` / `RepoTabs` 測試
+- [x] ✅ 關閉分頁後 active repo 切到相鄰 tab — `useWorkspace`「activates the previous neighbour」測試
 - [ ] 👤 重啟主視窗後 session 還原已開 repo 清單與 active path — **未自動化覆蓋(persist:false)**
 
 ## 多視窗
@@ -50,54 +50,54 @@
 
 ## 檢視與 diff
 
-- [ ] ✅ 提交歷史可選取 commit 並顯示 diff — `useRepository` / `DiffViewer` / `git_integration.rs`
-- [ ] ✅ 工作樹 Unstaged 列顯示 unstaged diff — 同上
-- [ ] ✅ 工作樹 Staged 列顯示 staged diff(`--cached`)— `useRepository`(DiffScope)/ `git_integration.rs`
-- [ ] ✅ 同一檔案同時在 Staged/Unstaged 時,兩列可獨立選取且標題正確 — `useRepository` / `DiffViewer`
+- [x] ✅ 提交歷史可選取 commit 並顯示 diff — `useRepository` / `DiffViewer` / `git_integration.rs`
+- [x] ✅ 工作樹 Unstaged 列顯示 unstaged diff — 同上
+- [x] ✅ 工作樹 Staged 列顯示 staged diff(`--cached`)— `useRepository`(DiffScope)/ `git_integration.rs`
+- [x] ✅ 同一檔案同時在 Staged/Unstaged 時,兩列可獨立選取且標題正確 — `useRepository` / `DiffViewer`
 
 ## 提交與遠端
 
-- [ ] ✅ 單檔/整批 stage 與 unstage 正常 — `useRepository` / `WorkingTreePanel` / `git_integration.rs`
-- [ ] ✅ 有 staged 變更時可 commit;amend 預填上一筆訊息 — `CommitBox` / `useRepository`
+- [x] ✅ 單檔/整批 stage 與 unstage 正常 — `useRepository` / `WorkingTreePanel` / `git_integration.rs`
+- [x] ✅ 有 staged 變更時可 commit;amend 預填上一筆訊息 — `CommitBox` / `useRepository`
 - [ ] 🔶 Push 對話框預覽指令、非阻塞執行、成功後 ahead/behind 更新 — UI 由 `PushDialog` 測;真實 push 需人工
 - [ ] 🔶 Pull 對話框可 merge/rebase 切換,成功後刷新 — UI 由 `PullDialog` 測;真實 pull 需人工
-- [ ] ✅ Remotes 對話框可新增/編輯/移除(移除需確認)— `RemotesDialog` / `command_builder`
+- [x] ✅ Remotes 對話框可新增/編輯/移除(移除需確認)— `RemotesDialog` / `command_builder`
 
 ## 標籤
 
-- [ ] ✅ Tags 對話框列出現有標籤 — `TagsDialog`
-- [ ] ✅ 可建立新標籤 — `TagsDialog`
-- [ ] ✅ 刪除標籤需確認且成功後列表更新 — `TagsDialog`
+- [x] ✅ Tags 對話框列出現有標籤 — `TagsDialog`
+- [x] ✅ 可建立新標籤 — `TagsDialog`
+- [x] ✅ 刪除標籤需確認且成功後列表更新 — `TagsDialog`
 
 ## 錯誤與邊界
 
-- [ ] ✅ 開啟非 Git 目錄顯示可操作錯誤,不 crash — `parsers.rs`(NotRepository)/ `useRepository` 錯誤路徑
+- [x] ✅ 開啟非 Git 目錄顯示可操作錯誤,不 crash — `parsers.rs`(NotRepository)/ `useRepository` 錯誤路徑
 - [ ] 🔶 切換 active repo 時 Push/Pull/Remotes/Tags 對話框自動關閉 — 需人工確認
 - [ ] 🔶 網路/認證失敗時 push/pull 顯示 stderr 細節(可展開)— `parsers.rs`(AuthenticationFailed)覆蓋分類;真實失敗需人工
 
 ## 分支(P1 新增)
 
-- [ ] ✅ 工具列「Branches」開啟 Manage branches 對話框 — `BranchesDialog`
-- [ ] ✅ 建立分支(可選 start point `origin/main`)並 checkout — `BranchesDialog` / `git_integration.rs`
-- [ ] ✅ 側欄分支列點選 checkout 非 current 分支 — `BranchTree` / `RepositorySidebar`
-- [ ] ✅ 重新命名本機分支 — `BranchesDialog`
-- [ ] ✅ 安全刪除與強制刪除(後者需確認);刪除 current 分支顯示錯誤 — `BranchesDialog`
+- [x] ✅ 工具列「Branches」開啟 Manage branches 對話框 — `BranchesDialog`
+- [x] ✅ 建立分支(可選 start point `origin/main`)並 checkout — `BranchesDialog` / `git_integration.rs`
+- [x] ✅ 側欄分支列點選 checkout 非 current 分支 — `BranchTree` / `RepositorySidebar`
+- [x] ✅ 重新命名本機分支 — `BranchesDialog`
+- [x] ✅ 安全刪除與強制刪除(後者需確認);刪除 current 分支顯示錯誤 — `BranchesDialog`
 - [ ] 🔶 切換 active repo 時 Branches 對話框自動關閉 — 需人工確認
 
 ## Stash(P2 新增)
 
-- [ ] ✅ 工具列「Stash」開啟對話框並列出既有 stash — `StashDialog`
-- [ ] ✅ 有本地變更時可建立 stash(可選 message、include untracked)— `StashDialog`
-- [ ] ✅ Apply 保留 stash;Pop 套用後移除;Drop 需確認 — `StashDialog`
-- [ ] ✅ 無本地變更時 Stash 按鈕 disabled — `StashDialog`(disabled 斷言)
+- [x] ✅ 工具列「Stash」開啟對話框並列出既有 stash — `StashDialog`
+- [x] ✅ 有本地變更時可建立 stash(可選 message、include untracked)— `StashDialog`
+- [x] ✅ Apply 保留 stash;Pop 套用後移除;Drop 需確認 — `StashDialog`
+- [x] ✅ 無本地變更時 Stash 按鈕 disabled — `StashDialog`(disabled 斷言)
 - [ ] 🔶 切換 active repo 時 Stash 對話框自動關閉 — 需人工確認
 
 ## Cherry-pick / 衝突輔助(P3–P4 新增)
 
-- [ ] ✅ History 選取 commit 後 Cherry-pick 顯示 preview 並執行 — `CherryPickDialog`
-- [ ] ✅ cherry-pick 衝突時顯示 operation banner 與 Conflicts 分組 — `OperationBanner` / `WorkingTreePanel`
-- [ ] ✅ Continue / Abort 僅在 operation 進行中可用;Abort 需確認 — `OperationBanner`
-- [ ] ✅ 有 operation 進行中時 Push / Cherry-pick / Commit 禁用 — `GitActionsMenu`(disabled 斷言)/ `OperationBanner`
+- [x] ✅ History 選取 commit 後 Cherry-pick 顯示 preview 並執行 — `CherryPickDialog`
+- [x] ✅ cherry-pick 衝突時顯示 operation banner 與 Conflicts 分組 — `OperationBanner` / `WorkingTreePanel`
+- [x] ✅ Continue / Abort 僅在 operation 進行中可用;Abort 需確認 — `OperationBanner`
+- [x] ✅ 有 operation 進行中時 Push / Cherry-pick / Commit 禁用 — `GitActionsMenu`(disabled 斷言)/ `OperationBanner`
 
 ## 已知尚未覆蓋(發版時標註為限制,非 blocker)
 
