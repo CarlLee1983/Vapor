@@ -596,6 +596,57 @@ impl<R: GitRunner> GitService<R> {
         )
     }
 
+    pub fn revert(
+        &self,
+        request: &super::models::RevertRequest,
+    ) -> Result<super::models::RevertResponse, GitError> {
+        let preview = super::command_builder::revert_preview(request)?;
+        let short_hash: String = request.commit_hash.chars().take(7).collect();
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::Revert,
+            format!("Revert {short_hash}"),
+            None,
+            |service| {
+                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                Ok(super::models::RevertResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        )
+    }
+
+    pub fn reset(
+        &self,
+        request: &super::models::ResetRequest,
+    ) -> Result<super::models::ResetResponse, GitError> {
+        let preview = super::command_builder::reset_preview(request)?;
+        let short_hash: String = request.commit_hash.chars().take(7).collect();
+        let mode_label = match request.mode {
+            super::models::ResetMode::Soft => "soft",
+            super::models::ResetMode::Mixed => "mixed",
+            super::models::ResetMode::Hard => "hard",
+        };
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::Reset,
+            format!("Reset ({mode_label}) to {short_hash}"),
+            None,
+            |service| {
+                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                Ok(super::models::ResetResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        )
+    }
+
     pub fn abort_operation(&self, path: &Path) -> Result<super::models::CherryPickResponse, GitError> {
         let state = self.repository_state(path)?;
         let operation = state.operation.ok_or_else(|| GitError {
@@ -764,6 +815,8 @@ impl<R: GitRunner> GitService<R> {
             super::journal::SafetyOpType::CherryPick => "cherry-pick",
             super::journal::SafetyOpType::DeleteBranch => "delete-branch",
             super::journal::SafetyOpType::Undo => "undo",
+            super::journal::SafetyOpType::Revert => "revert",
+            super::journal::SafetyOpType::Reset => "reset",
         };
         let id = super::snapshot::new_snapshot_id(op_label);
 
