@@ -716,6 +716,23 @@ button:not(.commit-row):disabled {
 }
 
 .commit-subject {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Subject text takes the space the badges leave and ellipsises on its own. */
+.commit-subject-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Uncommitted row has no badge wrapper — keep its bare text truncating. */
+.commit-row--uncommitted .commit-subject {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -740,10 +757,17 @@ button:not(.commit-row):disabled {
 
 .commit-refs {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   margin-right: 6px;
   vertical-align: middle;
+  /* Rows are a fixed height (aligned to the graph), so badges must stay on one
+     line and clip rather than wrap into neighbouring rows. Cap the width so a
+     commit with many refs never crowds out the subject entirely. */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
 }
 
 .ref-badge {
@@ -758,6 +782,10 @@ button:not(.commit-row):disabled {
   white-space: nowrap;
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
+  flex: 0 0 auto;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .theme-dark .ref-badge {

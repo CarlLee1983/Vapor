@@ -216,14 +216,18 @@ export function CommitList({
                         {commit.refs.map((ref) => {
                           const badge = describeRef(ref);
                           return (
-                            <span key={ref} className={`ref-badge ref-badge--${badge.kind}`}>
+                            <span
+                              key={ref}
+                              className={`ref-badge ref-badge--${badge.kind}`}
+                              title={badge.label}
+                            >
                               {badge.label}
                             </span>
                           );
                         })}
                       </span>
                     ) : null}
-                    {commit.subject}
+                    <span className="commit-subject-text">{commit.subject}</span>
                   </span>
                   <span className="commit-meta">
                     <span className="commit-hash">{commit.hash.slice(0, 7)}</span>
