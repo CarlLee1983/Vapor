@@ -1880,3 +1880,61 @@ button.danger:not(:disabled):hover {
   padding: 6px 10px;
   white-space: nowrap;
 }
+
+/* Reusable search/filter input shared by history, branches, and working tree */
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.search-input {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  max-width: 260px;
+}
+
+.search-input__field {
+  width: 100%;
+  padding: 4px 24px 4px 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border-color-light);
+  border-radius: 6px;
+}
+
+.search-input__field:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.search-input__clear {
+  position: absolute;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.search-input__clear:hover {
+  opacity: 1;
+}
+
+.commit-list-empty {
+  padding: 8px;
+}

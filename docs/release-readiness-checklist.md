@@ -99,10 +99,21 @@
 - [x] ✅ Continue / Abort 僅在 operation 進行中可用;Abort 需確認 — `OperationBanner`
 - [x] ✅ 有 operation 進行中時 Push / Cherry-pick / Commit 禁用 — `GitActionsMenu`(disabled 斷言)/ `OperationBanner`
 
+## 搜尋/過濾(commit / branch / file)
+
+提交歷史搜尋、分支側欄過濾、工作樹檔案過濾。
+
+- [x] ✅ 提交歷史搜尋框過濾 commit 清單 — `SearchInput` / 歷史過濾 Vitest 測試
+- [x] ✅ 分支側欄搜尋框過濾分支清單,並自動展開含相符項目的資料夾 — `SearchInput` / `BranchTree` 測試
+- [x] ✅ 工作樹檔案搜尋框過濾變更檔案清單 — `SearchInput` / `WorkingTreePanel` 測試
+- [x] ✅ 無相符項目時顯示空狀態提示 — 過濾測試
+- [x] ✅ 清除(×)還原完整清單 — `SearchInput` 測試
+- [x] ✅ 自動化現況:完整 Vitest 套件 379 tests(56 files)+ `npm run typecheck` + `npm run build` 全綠 (2026-06-15)
+- [ ] 👤 **手動 GUI smoke 尚未驗證(owed)** — 啟動桌面版確認:三個搜尋框各自過濾清單、無相符的空狀態提示、分支搜尋自動展開資料夾、清除(×)還原完整清單。
+
 ## 已知尚未覆蓋(發版時標註為限制,非 blocker)
 
 - 內建三方 merge 編輯器
 - 互動式 rebase 操作輔助(squash/reorder)
-- commit / 分支搜尋過濾
 
 > 覆蓋對照分析詳見 [`docs/superpowers/specs/2026-06-15-enhancement-analysis.md`](superpowers/specs/2026-06-15-enhancement-analysis.md)。
