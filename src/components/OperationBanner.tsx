@@ -16,6 +16,8 @@ function label(kind: RepositoryOperation["kind"]): string {
       return "Merge";
     case "rebase":
       return "Rebase";
+    case "revert":
+      return "Revert";
   }
 }
 
