@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, memo } from "react";
 import type { ApplyMode, DiffScope, HunkSelection } from "../types/git";
 import { parseFileDiff, type DiffLine } from "../lib/diffModel";
 import { parseLfsPointer } from "../lib/lfsPointer";
 import { formatBytes } from "../lib/lfsHints";
 import { useDiffPreferences } from "../hooks/useDiffPreferences";
 import { languageForPath, highlightCode } from "../lib/syntaxHighlight";
+import { toSideBySide, type SideCell } from "../lib/sideBySide";
 
 interface ApplyInput {
   filePath: string;
@@ -46,7 +47,7 @@ const lineClassForKind = (line: DiffLine): string => {
 const isChangeLine = (line: DiffLine): boolean => line.kind === "add" || line.kind === "del";
 
 /** 渲染一行程式碼內容:prefix + (高亮 token 容器 | 純文字)。外層 textContent 維持原文。 */
-function CodeLineContent({
+const CodeLineContent = memo(function CodeLineContent({
   text,
   language,
   highlight,
@@ -70,7 +71,44 @@ function CodeLineContent({
       )}
     </>
   );
-}
+});
+
+const SplitCell = memo(function SplitCell({
+  cell,
+  column,
+  language,
+  highlight,
+}: {
+  cell: SideCell;
+  column: "left" | "right";
+  language: string | undefined;
+  highlight: boolean;
+}) {
+  const cls =
+    cell.kind === "add"
+      ? "diff-split__cell diff-split__cell--add"
+      : cell.kind === "del"
+        ? "diff-split__cell diff-split__cell--del"
+        : cell.kind === "empty"
+          ? "diff-split__cell diff-split__cell--empty"
+          : "diff-split__cell";
+  const lineNo = column === "left" ? cell.oldNo : cell.newNo;
+  return (
+    <div className={cls}>
+      <span className="diff-split__gutter">{lineNo ?? ""}</span>
+      {cell.kind === "empty" ? (
+        <span className="diff-split__code" />
+      ) : highlight ? (
+        <span
+          className="diff-split__code"
+          dangerouslySetInnerHTML={{ __html: highlightCode(cell.text, language) }}
+        />
+      ) : (
+        <span className="diff-split__code">{cell.text}</span>
+      )}
+    </div>
+  );
+});
 
 export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Props) {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -223,6 +261,7 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
             type="button"
             className="btn-icon diff-syntax-toggle"
             aria-pressed={highlightOn}
+            aria-label="Toggle syntax highlighting"
             title="Toggle syntax highlighting"
             onClick={() => setSyntaxHighlight(!highlightOn)}
           >
@@ -275,6 +314,20 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
           {lfsPointer.oid ? (
             <div className="diff-lfs-card__oid">sha256 {lfsPointer.oid.slice(0, 12)}…</div>
           ) : null}
+        </div>
+      ) : effectiveViewMode === "split" ? (
+        <div className="diff-split">
+          {parsed.hunks.map((hunk, hi) => (
+            <div key={`split-${hi}`} className="diff-split__hunk">
+              <div className="diff-split__hunk-header">{hunk.header}</div>
+              {toSideBySide(hunk).map((row, ri) => (
+                <div key={ri} className="diff-split__row">
+                  <SplitCell cell={row.left} column="left" language={language} highlight={highlightOn} />
+                  <SplitCell cell={row.right} column="right" language={language} highlight={highlightOn} />
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       ) : interactive ? (
         <>

@@ -167,4 +167,47 @@ describe("DiffViewer (syntax highlight + toolbar)", () => {
       hunks: [{ index: 0, selectedLines: [2] }],
     });
   });
+
+  it("hides the split toggle when there is no filePath (multi-file diff)", () => {
+    render(<DiffViewer diff={TS_DIFF} scope="commit" />);
+    expect(screen.queryByRole("button", { name: /^Split$/i })).not.toBeInTheDocument();
+  });
+
+  it("renders side-by-side columns after switching to Split", async () => {
+    const { container } = render(
+      <DiffViewer diff={TS_DIFF} scope="commit" filePath="app.ts" />,
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: /^Split$/i }));
+    expect(container.querySelector(".diff-split")).not.toBeNull();
+    expect(container.querySelector(".diff-split__cell--del")?.textContent).toContain("const b = 2;");
+    expect(container.querySelector(".diff-split__cell--add")?.textContent).toContain("const b = 3;");
+  });
+
+  it("does not show stage controls in split mode for a stageable scope", async () => {
+    render(
+      <DiffViewer diff={TS_DIFF} scope="unstaged" filePath="app.ts" onApplyPartial={vi.fn()} />,
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: /^Split$/i }));
+    expect(screen.queryByRole("button", { name: /Stage hunk/i })).not.toBeInTheDocument();
+  });
+
+  it("shows old line number on the left and new line number on the right for context rows", async () => {
+    const DIVERGE_DIFF = [
+      "diff --git a/n.txt b/n.txt",
+      "index 1111111..2222222 100644",
+      "--- a/n.txt",
+      "+++ b/n.txt",
+      "@@ -1,2 +1,3 @@",
+      "+added top",
+      " context line",
+      " last line",
+    ].join("\n");
+    const { container } = render(<DiffViewer diff={DIVERGE_DIFF} scope="commit" filePath="n.txt" />);
+    await userEvent.setup().click(screen.getByRole("button", { name: /^Split$/i }));
+    const rows = Array.from(container.querySelectorAll(".diff-split__row"));
+    const contextRow = rows.find((r) => r.textContent?.includes("context line"))!;
+    const gutters = contextRow.querySelectorAll(".diff-split__gutter");
+    expect(gutters[0].textContent).toBe("1"); // left = old line number
+    expect(gutters[1].textContent).toBe("2"); // right = new line number
+  });
 });
