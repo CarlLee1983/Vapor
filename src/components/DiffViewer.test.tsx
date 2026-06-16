@@ -67,7 +67,7 @@ describe("DiffViewer (interactive)", () => {
     render(<DiffViewer diff={FILE_DIFF} scope="unstaged" filePath="README.md" onApplyPartial={onApplyPartial} />);
     const user = userEvent.setup();
     // 點選 +line two changed(hunk body index 2)。
-    await user.click(screen.getByText("+line two changed"));
+    await user.click(screen.getByRole("button", { name: /line two changed/ }));
     await user.click(screen.getByRole("button", { name: /Stage 1 line/i }));
     expect(onApplyPartial).toHaveBeenCalledWith({
       filePath: "README.md",
@@ -120,5 +120,51 @@ describe("DiffViewer (LFS pointer)", () => {
     expect(screen.getByText(/12\.0 MB/)).toBeInTheDocument();
     // pointer 原始文字不應整行外露
     expect(screen.queryByText("oid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393")).toBeNull();
+  });
+});
+
+describe("DiffViewer (syntax highlight + toolbar)", () => {
+  beforeEach(() => localStorage.clear());
+
+  const TS_DIFF = [
+    "diff --git a/app.ts b/app.ts",
+    "index 1111111..2222222 100644",
+    "--- a/app.ts",
+    "+++ b/app.ts",
+    "@@ -1,2 +1,2 @@",
+    " const a = 1;",
+    "-const b = 2;",
+    "+const b = 3;",
+  ].join("\n");
+
+  it("applies hljs token markup to code lines for a .ts file", () => {
+    const { container } = render(
+      <DiffViewer diff={TS_DIFF} scope="commit" filePath="app.ts" />,
+    );
+    expect(container.querySelector(".hljs-keyword")).not.toBeNull();
+  });
+
+  it("does not apply hljs markup when syntax highlight is toggled off", async () => {
+    const { container } = render(
+      <DiffViewer diff={TS_DIFF} scope="commit" filePath="app.ts" />,
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: /Syntax/i }));
+    expect(container.querySelector(".hljs-keyword")).toBeNull();
+  });
+
+  it("keeps interactive line staging working with highlighting on", async () => {
+    const onApplyPartial = vi.fn();
+    render(
+      <DiffViewer diff={FILE_DIFF} scope="unstaged" filePath="README.md" onApplyPartial={onApplyPartial} />,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /line two changed/ }));
+    await user.click(screen.getByRole("button", { name: /Stage 1 line/i }));
+    expect(onApplyPartial).toHaveBeenCalledWith({
+      filePath: "README.md",
+      scope: "unstaged",
+      mode: "stage",
+      hunks: [{ index: 0, selectedLines: [2] }],
+    });
   });
 });

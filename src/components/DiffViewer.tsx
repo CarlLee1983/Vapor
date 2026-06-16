@@ -3,6 +3,8 @@ import type { ApplyMode, DiffScope, HunkSelection } from "../types/git";
 import { parseFileDiff, type DiffLine } from "../lib/diffModel";
 import { parseLfsPointer } from "../lib/lfsPointer";
 import { formatBytes } from "../lib/lfsHints";
+import { useDiffPreferences } from "../hooks/useDiffPreferences";
+import { languageForPath, highlightCode } from "../lib/syntaxHighlight";
 
 interface ApplyInput {
   filePath: string;
@@ -43,6 +45,33 @@ const lineClassForKind = (line: DiffLine): string => {
 
 const isChangeLine = (line: DiffLine): boolean => line.kind === "add" || line.kind === "del";
 
+/** 渲染一行程式碼內容:prefix + (高亮 token 容器 | 純文字)。外層 textContent 維持原文。 */
+function CodeLineContent({
+  text,
+  language,
+  highlight,
+}: {
+  text: string;
+  language: string | undefined;
+  highlight: boolean;
+}) {
+  const prefix = text.slice(0, 1);
+  const codeBody = text.slice(1);
+  return (
+    <>
+      <span className="diff-prefix">{prefix}</span>
+      {highlight ? (
+        <span
+          className="diff-tokens"
+          dangerouslySetInnerHTML={{ __html: highlightCode(codeBody, language) }}
+        />
+      ) : (
+        <span className="diff-tokens">{codeBody}</span>
+      )}
+    </>
+  );
+}
+
 export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Props) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -54,6 +83,13 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
 
   const parsed = useMemo(() => parseFileDiff(diff), [diff]);
   const lfsPointer = useMemo(() => parseLfsPointer(diff), [diff]);
+
+  const { prefs, setViewMode, setSyntaxHighlight } = useDiffPreferences();
+  const language = useMemo(
+    () => (filePath ? languageForPath(filePath) : undefined),
+    [filePath],
+  );
+  const highlightOn = prefs.syntaxHighlight;
 
   // diff 變了就清空選取(套用後 diff 會被重抓)。
   useEffect(() => {
@@ -154,6 +190,9 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
     emit(mode, hunks);
   };
 
+  const canSplit = !lfsPointer && !!filePath && parsed.hunks.length > 0;
+  const effectiveViewMode = canSplit ? prefs.viewMode : "unified";
+
   return (
     <section
       className={`panel diff-viewer ${isMaximized ? "diff-viewer--maximized" : ""}`}
@@ -162,6 +201,33 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
       <div className="diff-toolbar">
         <div className="diff-title">{title || "No active inspection"}</div>
         <div className="diff-actions">
+          {canSplit ? (
+            <div className="diff-view-toggle" role="group" aria-label="Diff view mode">
+              <button
+                type="button"
+                aria-pressed={effectiveViewMode === "unified"}
+                onClick={() => setViewMode("unified")}
+              >
+                Unified
+              </button>
+              <button
+                type="button"
+                aria-pressed={effectiveViewMode === "split"}
+                onClick={() => setViewMode("split")}
+              >
+                Split
+              </button>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className="btn-icon diff-syntax-toggle"
+            aria-pressed={highlightOn}
+            title="Toggle syntax highlighting"
+            onClick={() => setSyntaxHighlight(!highlightOn)}
+          >
+            Syntax
+          </button>
           <button onClick={handleCopy} className="btn-icon" title="Copy diff">
             {copied ? (
               <span className="copied-text">Copied!</span>
@@ -244,7 +310,7 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
                     if (!change) {
                       return (
                         <span key={line.index} className={lineClassForKind(line)}>
-                          {line.text}
+                          <CodeLineContent text={line.text} language={language} highlight={highlightOn} />
                         </span>
                       );
                     }
@@ -262,7 +328,7 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
                           }
                         }}
                       >
-                        {line.text}
+                        <CodeLineContent text={line.text} language={language} highlight={highlightOn} />
                       </span>
                     );
                   })}
@@ -291,11 +357,22 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
       ) : (
         <pre className="diff-code">
           <code>
-            {diff.split(/\r?\n/).map((line, idx) => (
-              <span key={idx} className={getLineClass(line)}>
-                {line}
-              </span>
-            ))}
+            {diff.split(/\r?\n/).map((line, idx) => {
+              const cls = getLineClass(line);
+              const isCode =
+                cls === "diff-line diff-line--added" ||
+                cls === "diff-line diff-line--deleted" ||
+                cls === "diff-line";
+              return (
+                <span key={idx} className={cls}>
+                  {isCode ? (
+                    <CodeLineContent text={line} language={language} highlight={highlightOn} />
+                  ) : (
+                    line
+                  )}
+                </span>
+              );
+            })}
           </code>
         </pre>
       )}
