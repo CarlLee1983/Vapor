@@ -129,6 +129,14 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
   );
   const highlightOn = prefs.syntaxHighlight;
 
+  // 只在 split 模式預先計算並排列,避免大型 diff 在每次 re-render(如 Copy/Syntax 切換)重算。
+  // 放在早期 return 之前以遵守 Rules of Hooks。
+  const sideBySideHunks = useMemo(() => {
+    const splittable = !lfsPointer && !!filePath && parsed.hunks.length > 0;
+    const mode = splittable ? prefs.viewMode : "unified";
+    return mode === "split" ? parsed.hunks.map(toSideBySide) : [];
+  }, [parsed, lfsPointer, filePath, prefs.viewMode]);
+
   // diff 變了就清空選取(套用後 diff 會被重抓)。
   useEffect(() => {
     setSelected({});
@@ -320,7 +328,7 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
           {parsed.hunks.map((hunk, hi) => (
             <div key={`split-${hi}`} className="diff-split__hunk">
               <div className="diff-split__hunk-header">{hunk.header}</div>
-              {toSideBySide(hunk).map((row, ri) => (
+              {sideBySideHunks[hi].map((row, ri) => (
                 <div key={ri} className="diff-split__row">
                   <SplitCell cell={row.left} column="left" language={language} highlight={highlightOn} />
                   <SplitCell cell={row.right} column="right" language={language} highlight={highlightOn} />

@@ -23,6 +23,7 @@ hljs.registerLanguage("bash", bash);
 hljs.registerLanguage("yaml", yaml);
 hljs.registerLanguage("ini", ini);
 
+// scss→css、toml→ini 為近似對應(highlight.js 未內建專屬文法),僅提供部分高亮。
 const EXT_TO_LANG: Record<string, string> = {
   ts: "typescript", tsx: "typescript",
   js: "javascript", jsx: "javascript", mjs: "javascript", cjs: "javascript",
@@ -46,6 +47,7 @@ export function languageForPath(path: string): string | undefined {
   return EXT_TO_LANG[ext];
 }
 
+// 僅注入元素內文(非屬性值),故只需轉義 & < >;單/雙引號在內文情境無需轉義。
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

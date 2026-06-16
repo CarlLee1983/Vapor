@@ -15,7 +15,8 @@ export interface SideBySideRow {
   right: SideCell;
 }
 
-const EMPTY_CELL: SideCell = { kind: "empty", text: "", oldNo: null, newNo: null };
+// 多列共用同一個空白格參照;凍結以明示其唯讀契約,防止下游意外 mutate。
+const EMPTY_CELL: SideCell = Object.freeze({ kind: "empty", text: "", oldNo: null, newNo: null });
 
 const body = (line: DiffLine): string => line.text.slice(1);
 
