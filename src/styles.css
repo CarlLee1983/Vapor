@@ -38,6 +38,15 @@
   --accent-orange-text: #c2410c;
   --accent-amber-bg: #fef3c7;
   --accent-amber-text: #92400e;
+  --syntax-keyword: #a626a4;
+  --syntax-string: #50a14f;
+  --syntax-number: #b76b01;
+  --syntax-comment: #a0a1a7;
+  --syntax-function: #4078f2;
+  --syntax-attr: #986801;
+  --syntax-built-in: #c18401;
+  --syntax-literal: #0184bb;
+  --syntax-meta: #4078f2;
 
   --bg-badge-head: #dbeafe;
   --text-badge-head: #1d4ed8;
@@ -88,6 +97,15 @@
   --accent-orange-text: #fb923c;
   --accent-amber-bg: rgba(245, 158, 11, 0.2);
   --accent-amber-text: #fcd34d;
+  --syntax-keyword: #c678dd;
+  --syntax-string: #98c379;
+  --syntax-number: #d19a66;
+  --syntax-comment: #7f848e;
+  --syntax-function: #61afef;
+  --syntax-attr: #d19a66;
+  --syntax-built-in: #e5c07b;
+  --syntax-literal: #56b6c2;
+  --syntax-meta: #61afef;
 
   --bg-badge-head: #1e3a8a;
   --text-badge-head: #93c5fd;
@@ -985,6 +1003,123 @@ button:not(.commit-row):disabled {
 .diff-action-bar__danger {
   background: var(--accent-red-bg) !important;
   color: var(--accent-red-text) !important;
+}
+
+/* highlight.js token 上色(沿用主題 CSS 變數,light/dark 自動切換) */
+.diff-tokens .hljs-keyword,
+.diff-tokens .hljs-selector-tag,
+.diff-split__code .hljs-keyword,
+.diff-split__code .hljs-selector-tag { color: var(--syntax-keyword); }
+.diff-tokens .hljs-string,
+.diff-tokens .hljs-regexp,
+.diff-split__code .hljs-string,
+.diff-split__code .hljs-regexp { color: var(--syntax-string); }
+.diff-tokens .hljs-number,
+.diff-split__code .hljs-number { color: var(--syntax-number); }
+.diff-tokens .hljs-literal,
+.diff-split__code .hljs-literal { color: var(--syntax-literal); }
+.diff-tokens .hljs-comment,
+.diff-tokens .hljs-quote,
+.diff-split__code .hljs-comment,
+.diff-split__code .hljs-quote { color: var(--syntax-comment); font-style: italic; }
+.diff-tokens .hljs-title,
+.diff-tokens .hljs-title.function_,
+.diff-split__code .hljs-title,
+.diff-split__code .hljs-title.function_ { color: var(--syntax-function); }
+.diff-tokens .hljs-attr,
+.diff-tokens .hljs-attribute,
+.diff-split__code .hljs-attr,
+.diff-split__code .hljs-attribute { color: var(--syntax-attr); }
+.diff-tokens .hljs-built_in,
+.diff-tokens .hljs-type,
+.diff-split__code .hljs-built_in,
+.diff-split__code .hljs-type { color: var(--syntax-built-in); }
+.diff-tokens .hljs-name,
+.diff-tokens .hljs-tag,
+.diff-split__code .hljs-name,
+.diff-split__code .hljs-tag { color: var(--syntax-keyword); }
+.diff-tokens .hljs-meta,
+.diff-split__code .hljs-meta { color: var(--syntax-meta); }
+
+/* 高亮行內部結構:prefix 與 token 容器並排,維持原行為 */
+.diff-prefix { user-select: none; }
+.diff-tokens { white-space: pre-wrap; }
+
+/* 工具列檢視切換 */
+.diff-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-right: 4px;
+}
+.diff-view-toggle button {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+}
+.diff-view-toggle button[aria-pressed="true"] {
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
+}
+.diff-syntax-toggle[aria-pressed="true"] {
+  color: var(--accent-blue-text);
+}
+
+/* Side-by-side 版面 */
+.diff-split {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  overflow: auto;
+  font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
+  font-size: 12px;
+}
+.diff-split__hunk-header {
+  background-color: var(--accent-blue-bg);
+  color: var(--accent-blue-text);
+  font-weight: bold;
+  padding: 2px 8px;
+}
+.diff-split__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.diff-split__cell {
+  display: flex;
+  gap: 8px;
+  padding: 2px 8px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.diff-split__cell + .diff-split__cell {
+  border-left: 1px solid var(--border-color);
+}
+.diff-split__cell--add {
+  background-color: var(--accent-green-bg);
+  color: var(--accent-green-text);
+}
+.diff-split__cell--del {
+  background-color: var(--accent-red-bg);
+  color: var(--accent-red-text);
+}
+.diff-split__cell--empty {
+  background-color: var(--bg-active);
+  opacity: 0.4;
+}
+.diff-split__gutter {
+  color: var(--text-muted);
+  min-width: 3ch;
+  text-align: right;
+  user-select: none;
+}
+.diff-split__code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .error-banner {
