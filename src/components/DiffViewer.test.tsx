@@ -210,4 +210,19 @@ describe("DiffViewer (syntax highlight + toolbar)", () => {
     expect(gutters[0].textContent).toBe("1"); // left = old line number
     expect(gutters[1].textContent).toBe("2"); // right = new line number
   });
+
+  it("highlights conflict marker regions when the diff contains conflict markers", () => {
+    const diff = [
+      "diff --git a/x.txt b/x.txt",
+      "@@ -1,1 +1,5 @@",
+      "<<<<<<< HEAD",
+      "our change",
+      "=======",
+      "their change",
+      ">>>>>>> feature",
+    ].join("\n");
+    const { container } = render(<DiffViewer diff={diff} filePath="x.txt" />);
+    expect(container.querySelector(".diff-line--conflict-ours")).toBeTruthy();
+    expect(container.querySelector(".diff-line--conflict-theirs")).toBeTruthy();
+  });
 });
