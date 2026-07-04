@@ -172,6 +172,39 @@ pub struct ResetResponse {
     pub stderr: String,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ConflictResolution {
+    Ours,
+    Theirs,
+    KeepDeleted,
+    MarkResolved,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListConflictsRequest {
+    pub repository_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolveConflictRequest {
+    pub repository_path: PathBuf,
+    pub path: String,
+    pub resolution: ConflictResolution,
+    #[serde(default)]
+    pub safety_net: SafetyNetMode,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolveConflictResponse {
+    pub previews: Vec<GitCommandPreview>,
+    pub stdout: String,
+    pub stderr: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct BranchInfo {
