@@ -264,11 +264,11 @@ pub fn parse_conflicted_files(stdout: &str) -> Vec<ConflictedFile> {
     for line in stdout.lines() {
         if let Some(rest) = line.strip_prefix("u ") {
             // "<XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>"
-            // Use splitn(9, ' ') to ensure paths with spaces are captured intact
-            let fields: Vec<&str> = rest.splitn(9, ' ').collect();
-            if fields.len() >= 9 {
+            // Use splitn(10, ' ') to ensure paths with spaces are captured intact
+            let fields: Vec<&str> = rest.splitn(10, ' ').collect();
+            if fields.len() == 10 {
                 files.push(ConflictedFile {
-                    path: fields[8].to_string(),
+                    path: fields[9].to_string(),
                     kind: conflict_kind_from_xy(fields[0]),
                 });
             }
@@ -355,10 +355,10 @@ mod repository_parser_tests {
     fn parses_conflicted_files_with_kinds() {
         let input = "# branch.head main\n\
 1 M. N... 100644 100644 100644 aaa bbb clean.txt\n\
-u UU N... 100644 100644 100644 h1 h2 h3 both mod.txt\n\
-u DU N... 100644 100644 100644 h1 h2 h3 gone.txt\n\
-u UD N... 100644 100644 100644 h1 h2 h3 theirs-del.txt\n\
-u AA N... 100644 100644 100644 h1 h2 h3 added.txt\n";
+u UU N... 100644 100644 100644 100644 h1 h2 h3 both mod.txt\n\
+u DU N... 100644 100644 100644 100644 h1 h2 h3 gone.txt\n\
+u UD N... 100644 100644 100644 100644 h1 h2 h3 theirs-del.txt\n\
+u AA N... 100644 100644 100644 100644 h1 h2 h3 added.txt\n";
         let files = parse_conflicted_files(input);
         assert_eq!(files.len(), 4);
         assert_eq!(files[0].path, "both mod.txt");
