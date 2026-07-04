@@ -72,6 +72,26 @@ pub enum RepositoryOperationKind {
     Revert,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ConflictKind {
+    BothModified,
+    BothAdded,
+    BothDeleted,
+    DeletedByUs,
+    DeletedByThem,
+    AddedByUs,
+    AddedByThem,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictedFile {
+    pub path: String,
+    pub kind: ConflictKind,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RepositoryOperation {

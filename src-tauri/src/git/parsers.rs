@@ -1,4 +1,4 @@
-use super::models::{BranchInfo, CommitSummary, FileStatus, GitError, GitErrorCode, RemoteInfo, StashEntry};
+use super::models::{BranchInfo, CommitSummary, ConflictedFile, ConflictKind, FileStatus, GitError, GitErrorCode, RemoteInfo, StashEntry};
 
 pub fn classify_git_error(stderr: &str) -> GitError {
     let lower = stderr.to_lowercase();
@@ -244,6 +244,39 @@ pub fn parse_commit_log(stdout: &str) -> Vec<CommitSummary> {
         .collect()
 }
 
+/// Map a porcelain v2 unmerged XY code (e.g. "UU", "DU") to a conflict kind.
+pub fn conflict_kind_from_xy(xy: &str) -> ConflictKind {
+    match xy {
+        "DD" => ConflictKind::BothDeleted,
+        "AU" => ConflictKind::AddedByUs,
+        "UD" => ConflictKind::DeletedByThem,
+        "UA" => ConflictKind::AddedByThem,
+        "DU" => ConflictKind::DeletedByUs,
+        "AA" => ConflictKind::BothAdded,
+        "UU" => ConflictKind::BothModified,
+        _ => ConflictKind::Unknown,
+    }
+}
+
+/// Parse only the unmerged (`u`) entries of `git status --porcelain=v2`.
+pub fn parse_conflicted_files(stdout: &str) -> Vec<ConflictedFile> {
+    let mut files = Vec::new();
+    for line in stdout.lines() {
+        if let Some(rest) = line.strip_prefix("u ") {
+            // "<XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>"
+            // Use splitn(9, ' ') to ensure paths with spaces are captured intact
+            let fields: Vec<&str> = rest.splitn(9, ' ').collect();
+            if fields.len() >= 9 {
+                files.push(ConflictedFile {
+                    path: fields[8].to_string(),
+                    kind: conflict_kind_from_xy(fields[0]),
+                });
+            }
+        }
+    }
+    files
+}
+
 #[cfg(test)]
 mod repository_parser_tests {
     use super::*;
@@ -316,5 +349,22 @@ mod repository_parser_tests {
         assert_eq!(stashes[0].reference, "stash@{0}");
         assert_eq!(stashes[0].message, "WIP on main: abc1234 Save work");
         assert_eq!(stashes[1].reference, "stash@{1}");
+    }
+
+    #[test]
+    fn parses_conflicted_files_with_kinds() {
+        let input = "# branch.head main\n\
+1 M. N... 100644 100644 100644 aaa bbb clean.txt\n\
+u UU N... 100644 100644 100644 h1 h2 h3 both mod.txt\n\
+u DU N... 100644 100644 100644 h1 h2 h3 gone.txt\n\
+u UD N... 100644 100644 100644 h1 h2 h3 theirs-del.txt\n\
+u AA N... 100644 100644 100644 h1 h2 h3 added.txt\n";
+        let files = parse_conflicted_files(input);
+        assert_eq!(files.len(), 4);
+        assert_eq!(files[0].path, "both mod.txt");
+        assert_eq!(files[0].kind, ConflictKind::BothModified);
+        assert_eq!(files[1].kind, ConflictKind::DeletedByUs);
+        assert_eq!(files[2].kind, ConflictKind::DeletedByThem);
+        assert_eq!(files[3].kind, ConflictKind::BothAdded);
     }
 }
