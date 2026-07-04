@@ -400,6 +400,7 @@ export default function App() {
                 previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })
               }
               onLoadLastMessage={repoView.loadLastCommitMessage}
+              onConflictResolved={refreshActiveRepository}
             />
           )}
           <DiffViewer

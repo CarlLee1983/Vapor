@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+vi.mock("../lib/tauriApi", () => ({
+  previewResolveConflict: vi
+    .fn()
+    .mockResolvedValue([{ program: "git", args: [], display: "git checkout --ours -- conflict.txt" }]),
+  resolveConflict: vi.fn().mockResolvedValue({ previews: [], stdout: "", stderr: "" }),
+}));
+
 import { WorkingTreePanel } from "./WorkingTreePanel";
 import type { RepositoryState, SelectedFileTarget } from "../types/git";
 import { LARGE_FILE_THRESHOLD_BYTES } from "../lib/lfsHints";
@@ -254,6 +262,32 @@ describe("WorkingTreePanel", () => {
         Object.defineProperty(navigator, "clipboard", originalClipboard);
       }
     }
+  });
+
+  it("opens the resolve dialog with the ours resolution for a both-modified conflict", async () => {
+    const user = userEvent.setup();
+    setup({
+      repository: {
+        ...baseRepo,
+        workingTree: [
+          { path: "conflict.txt", indexStatus: "U", worktreeStatus: "U", sizeBytes: 0, isLfs: false },
+        ],
+      },
+    });
+    await user.click(screen.getByRole("button", { name: "採用我方(ours) conflict.txt" }));
+    expect(screen.getByRole("dialog", { name: "採用我方(ours)" })).toBeInTheDocument();
+  });
+
+  it("disables conflict actions while an operation is not in progress but shows mark-resolved", async () => {
+    setup({
+      repository: {
+        ...baseRepo,
+        workingTree: [
+          { path: "conflict.txt", indexStatus: "U", worktreeStatus: "U", sizeBytes: 0, isLfs: false },
+        ],
+      },
+    });
+    expect(screen.getByRole("button", { name: "標記已解決 conflict.txt" })).toBeInTheDocument();
   });
 
   it("right-clicking a staged file offers Unstage / Copy path (no Discard)", async () => {
