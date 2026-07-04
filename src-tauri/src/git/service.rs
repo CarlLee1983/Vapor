@@ -619,6 +619,44 @@ impl<R: GitRunner> GitService<R> {
         )
     }
 
+    pub fn list_conflicted_files(
+        &self,
+        repository_path: &Path,
+    ) -> Result<Vec<super::models::ConflictedFile>, GitError> {
+        let args = super::command_builder::conflicted_files_args();
+        let output = self.runner.run(repository_path, &args)?;
+        Ok(super::parsers::parse_conflicted_files(&output.stdout))
+    }
+
+    pub fn resolve_conflict(
+        &self,
+        request: &super::models::ResolveConflictRequest,
+    ) -> Result<super::models::ResolveConflictResponse, GitError> {
+        let previews = super::command_builder::resolve_conflict_previews(request)?;
+        let short_path: String = request.path.chars().take(40).collect();
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::ResolveConflict,
+            format!("Resolve conflict in {short_path}"),
+            None,
+            |service| {
+                let mut stdout = String::new();
+                let mut stderr = String::new();
+                for step in &previews {
+                    let output = service.runner.run(&request.repository_path, &step.args)?;
+                    stdout.push_str(&output.stdout);
+                    stderr.push_str(&output.stderr);
+                }
+                Ok(super::models::ResolveConflictResponse {
+                    previews: previews.clone(),
+                    stdout,
+                    stderr,
+                })
+            },
+        )
+    }
+
     pub fn reset(
         &self,
         request: &super::models::ResetRequest,
@@ -817,6 +855,7 @@ impl<R: GitRunner> GitService<R> {
             super::journal::SafetyOpType::Undo => "undo",
             super::journal::SafetyOpType::Revert => "revert",
             super::journal::SafetyOpType::Reset => "reset",
+            super::journal::SafetyOpType::ResolveConflict => "resolve-conflict",
         };
         let id = super::snapshot::new_snapshot_id(op_label);
 

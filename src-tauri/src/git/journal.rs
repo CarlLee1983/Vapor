@@ -21,6 +21,7 @@ pub enum SafetyOpType {
     Undo,
     Revert,
     Reset,
+    ResolveConflict,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

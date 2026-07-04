@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { isConflict, isStaged, isUnstaged, isUntracked } from "../lib/workingTree";
+import { conflictActionsForKind, conflictKindFromStatus, isConflict, isStaged, isUnstaged, isUntracked } from "../lib/workingTree";
 import { formatBytes, isLargeNonLfs } from "../lib/lfsHints";
 import { filterFiles } from "../lib/fileFilter";
-import type { DiffScope, FileStatus, LfsTrackMode, RepositoryState, SelectedFileTarget } from "../types/git";
+import type { ConflictResolution, DiffScope, FileStatus, LfsTrackMode, RepositoryState, SelectedFileTarget } from "../types/git";
 import { CommitBox } from "./CommitBox";
 import { ContextMenu } from "./ContextMenu";
 import { LfsTrackMenu } from "./LfsTrackMenu";
+import { ResolveConflictDialog } from "./ResolveConflictDialog";
 import { SearchInput } from "./SearchInput";
 import { useContextMenu } from "../hooks/useContextMenu";
 
@@ -20,6 +21,7 @@ interface Props {
   onCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<unknown>;
   onPreviewCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<{ display: string }>;
   onLoadLastMessage: () => Promise<string>;
+  onConflictResolved?: () => void;
 }
 
 const FileCodeIcon = () => (
@@ -208,8 +210,14 @@ export function WorkingTreePanel({
   onCommit,
   onPreviewCommit,
   onLoadLastMessage,
+  onConflictResolved,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [pendingResolve, setPendingResolve] = useState<{
+    path: string;
+    resolution: ConflictResolution;
+    title: string;
+  } | null>(null);
   const menu = useContextMenu<{ file: FileStatus; scope: Extract<DiffScope, "unstaged" | "staged"> }>();
   const allFiles = repository?.workingTree ?? [];
   const files = filterFiles(allFiles, query);
@@ -259,24 +267,52 @@ export function WorkingTreePanel({
                 <div className="working-tree__group-header">
                   <span>Conflicts</span>
                 </div>
-                {conflicts.map((file) => (
-                  <div
-                    key={`conflict-${file.path}`}
-                    className={`file-row${selectedFile?.file.path === file.path && selectedFile.scope === "unstaged" ? " active" : ""}`}
-                  >
-                    <button
-                      type="button"
-                      className="file-row__select"
-                      onClick={() => onSelectFile(file, "unstaged")}
+                {conflicts.map((file) => {
+                  const kind = conflictKindFromStatus(file);
+                  const actions = conflictActionsForKind(kind);
+                  return (
+                    <div
+                      key={`conflict-${file.path}`}
+                      className={`file-row${selectedFile?.file.path === file.path && selectedFile.scope === "unstaged" ? " active" : ""}`}
                     >
-                      <span className="file-name-container">
-                        {getFileIcon(file.path)}
-                        <span>{file.path}</span>
-                      </span>
-                      <span className="status-badge status-badge--conflict status-conflict">C</span>
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        className="file-row__select"
+                        onClick={() => onSelectFile(file, "unstaged")}
+                      >
+                        <span className="file-name-container">
+                          {getFileIcon(file.path)}
+                          <span>{file.path}</span>
+                        </span>
+                        <span className="status-badge status-badge--conflict status-conflict">C</span>
+                      </button>
+                      {actions.map((action) => (
+                        <button
+                          key={action.resolution}
+                          type="button"
+                          className="file-row__action"
+                          aria-label={`${action.label} ${file.path}`}
+                          onClick={() =>
+                            setPendingResolve({ path: file.path, resolution: action.resolution, title: action.label })
+                          }
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="file-row__action"
+                        aria-label={`標記已解決 ${file.path}`}
+                        title="標記已解決"
+                        onClick={() =>
+                          setPendingResolve({ path: file.path, resolution: "markResolved", title: "標記已解決" })
+                        }
+                      >
+                        標記已解決
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
 
@@ -381,6 +417,17 @@ export function WorkingTreePanel({
             return <ContextMenu x={menu.state.x} y={menu.state.y} onClose={menu.close} items={items} />;
           })()
         : null}
+
+      {pendingResolve && repository ? (
+        <ResolveConflictDialog
+          repositoryPath={repository.root}
+          path={pendingResolve.path}
+          resolution={pendingResolve.resolution}
+          title={pendingResolve.title}
+          onClose={() => setPendingResolve(null)}
+          onCompleted={() => onConflictResolved?.()}
+        />
+      ) : null}
     </section>
   );
 }

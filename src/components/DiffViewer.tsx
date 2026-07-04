@@ -6,6 +6,7 @@ import { formatBytes } from "../lib/lfsHints";
 import { useDiffPreferences } from "../hooks/useDiffPreferences";
 import { languageForPath, highlightCode } from "../lib/syntaxHighlight";
 import { toSideBySide, type SideCell } from "../lib/sideBySide";
+import { classifyConflictLines, hasConflictMarkers } from "../lib/conflictMarkers";
 
 interface ApplyInput {
   filePath: string;
@@ -137,6 +138,11 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
     return mode === "split" ? parsed.hunks.map(toSideBySide) : [];
   }, [parsed, lfsPointer, filePath, prefs.viewMode]);
 
+  const conflictMode = useMemo(
+    () => scope !== "commit" && hasConflictMarkers(diff),
+    [diff, scope],
+  );
+
   // diff 變了就清空選取(套用後 diff 會被重抓)。
   useEffect(() => {
     setSelected({});
@@ -154,6 +160,27 @@ export function DiffViewer({ diff, title, scope, filePath, onApplyPartial }: Pro
       <section className="panel diff-viewer" aria-label="Diff">
         <h2>Diff</h2>
         <div className="diff-empty">Select a commit or file to inspect a diff.</div>
+      </section>
+    );
+  }
+
+  if (conflictMode) {
+    const lines = diff.split("\n");
+    const regions = classifyConflictLines(lines);
+    return (
+      <section className="panel diff-viewer" aria-label="Diff">
+        <h2>{title || "Conflict preview"}</h2>
+        <div className="diff-code diff-code--conflict" role="group" aria-label="Conflict preview">
+          {lines.map((line, index) => {
+            const region = regions[index];
+            const regionClass = region ? ` diff-line--conflict-${region.toLowerCase()}` : "";
+            return (
+              <div key={index} className={`diff-line${regionClass}`}>
+                {line}
+              </div>
+            );
+          })}
+        </div>
       </section>
     );
   }

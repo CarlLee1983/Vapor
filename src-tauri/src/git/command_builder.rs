@@ -4,6 +4,7 @@ use super::models::{
     FetchRequest, GitCommandPreview, GitError, GitErrorCode, MergeBranchRequest, PullRequest,
     PushRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
     SetRemoteUrlRequest, StashRefRequest, TagPushMode, RevertRequest, ResetRequest, ResetMode,
+    ConflictResolution, ResolveConflictRequest,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -671,6 +672,45 @@ pub fn partial_apply_args(mode: ApplyMode) -> Vec<String> {
     }
     args.push("--recount".to_string());
     args
+}
+
+/// `git status --porcelain=v2` — the caller keeps only the `u` lines.
+pub fn conflicted_files_args() -> Vec<String> {
+    vec!["status".to_string(), "--porcelain=v2".to_string()]
+}
+
+/// Build the command sequence that resolves one conflicted path.
+/// `ours`/`theirs` check out that side then stage; `keepDeleted` removes the path;
+/// `markResolved` stages the current worktree contents (git add stages deletions too).
+pub fn resolve_conflict_previews(
+    request: &ResolveConflictRequest,
+) -> Result<Vec<GitCommandPreview>, GitError> {
+    if request.path.trim().is_empty() {
+        return Err(GitError {
+            code: GitErrorCode::InvalidInput,
+            message: "A file path is required to resolve a conflict.".to_string(),
+            hint: "Select a conflicted file first.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    let path = request.path.clone();
+    let previews = match request.resolution {
+        ConflictResolution::Ours => vec![
+            preview(vec!["checkout".to_string(), "--ours".to_string(), "--".to_string(), path.clone()]),
+            preview(vec!["add".to_string(), "--".to_string(), path]),
+        ],
+        ConflictResolution::Theirs => vec![
+            preview(vec!["checkout".to_string(), "--theirs".to_string(), "--".to_string(), path.clone()]),
+            preview(vec!["add".to_string(), "--".to_string(), path]),
+        ],
+        ConflictResolution::KeepDeleted => {
+            vec![preview(vec!["rm".to_string(), "--".to_string(), path])]
+        }
+        ConflictResolution::MarkResolved => {
+            vec![preview(vec!["add".to_string(), "--".to_string(), path])]
+        }
+    };
+    Ok(previews)
 }
 
 #[cfg(test)]
@@ -1476,5 +1516,43 @@ mod tests {
         request.commit_hash = "abc1234 --hard".to_string();
         let error = reset_preview(&request).expect_err("invalid hash");
         assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    fn resolve_request(resolution: super::super::models::ConflictResolution) -> super::super::models::ResolveConflictRequest {
+        super::super::models::ResolveConflictRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            path: "conflict.txt".to_string(),
+            resolution,
+            safety_net: SafetyNetMode::Auto,
+        }
+    }
+
+    #[test]
+    fn builds_resolve_conflict_command_sequences() {
+        use super::super::models::ConflictResolution;
+        let ours = resolve_conflict_previews(&resolve_request(ConflictResolution::Ours)).expect("ours");
+        assert_eq!(ours.len(), 2);
+        assert_eq!(ours[0].args, vec!["checkout", "--ours", "--", "conflict.txt"]);
+        assert_eq!(ours[1].args, vec!["add", "--", "conflict.txt"]);
+
+        let theirs = resolve_conflict_previews(&resolve_request(ConflictResolution::Theirs)).expect("theirs");
+        assert_eq!(theirs[0].args, vec!["checkout", "--theirs", "--", "conflict.txt"]);
+
+        let deleted = resolve_conflict_previews(&resolve_request(ConflictResolution::KeepDeleted)).expect("del");
+        assert_eq!(deleted.len(), 1);
+        assert_eq!(deleted[0].args, vec!["rm", "--", "conflict.txt"]);
+
+        let mark = resolve_conflict_previews(&resolve_request(ConflictResolution::MarkResolved)).expect("mark");
+        assert_eq!(mark.len(), 1);
+        assert_eq!(mark[0].args, vec!["add", "--", "conflict.txt"]);
+    }
+
+    #[test]
+    fn rejects_resolve_conflict_empty_path() {
+        use super::super::models::ConflictResolution;
+        let mut request = resolve_request(ConflictResolution::Ours);
+        request.path = String::new();
+        let error = resolve_conflict_previews(&request).expect_err("empty path");
+        assert_eq!(error.code, GitErrorCode::InvalidInput);
     }
 }

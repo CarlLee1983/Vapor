@@ -8,6 +8,7 @@ import type {
   CommitRequest,
   CommitResponse,
   CommitSummary,
+  ConflictedFile,
   CreateBranchRequest,
   DeleteBranchRequest,
   DiffRequest,
@@ -22,6 +23,8 @@ import type {
   RemoveRemoteRequest,
   RenameBranchRequest,
   RepositoryState,
+  ResolveConflictRequest,
+  ResolveConflictResponse,
   SetRemoteUrlRequest,
   StageRequest,
   StageResponse,
@@ -331,4 +334,20 @@ export async function restoreSnapshotFile(
 
 export async function cleanupSnapshots(repositoryPath: string): Promise<void> {
   return invoke<void>("cleanup_snapshots", { request: { repositoryPath } });
+}
+
+export async function listConflictedFiles(repositoryPath: string): Promise<ConflictedFile[]> {
+  return invoke<ConflictedFile[]>("list_conflicted_files", { request: { repositoryPath } });
+}
+
+export async function previewResolveConflict(
+  request: ResolveConflictRequest,
+): Promise<GitCommandPreview[]> {
+  return invoke<GitCommandPreview[]>("preview_resolve_conflict", { request });
+}
+
+export async function resolveConflict(
+  request: ResolveConflictRequest,
+): Promise<ResolveConflictResponse> {
+  return invoke<ResolveConflictResponse>("resolve_conflict", { request });
 }

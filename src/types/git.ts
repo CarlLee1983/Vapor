@@ -334,6 +334,36 @@ export type SafetyOpType =
 
 export type SafetyNetMode = "auto" | "force" | "skip";
 
+export type ConflictKind =
+  | "bothModified"
+  | "bothAdded"
+  | "bothDeleted"
+  | "deletedByUs"
+  | "deletedByThem"
+  | "addedByUs"
+  | "addedByThem"
+  | "unknown";
+
+export interface ConflictedFile {
+  path: string;
+  kind: ConflictKind;
+}
+
+export type ConflictResolution = "ours" | "theirs" | "keepDeleted" | "markResolved";
+
+export interface ResolveConflictRequest {
+  repositoryPath: string;
+  path: string;
+  resolution: ConflictResolution;
+  safetyNet?: SafetyNetMode;
+}
+
+export interface ResolveConflictResponse {
+  previews: GitCommandPreview[];
+  stdout: string;
+  stderr: string;
+}
+
 export interface JournalEntry {
   id: string;
   /** Unix timestamp(秒)的十進位字串。 */

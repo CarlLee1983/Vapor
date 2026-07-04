@@ -99,6 +99,21 @@
 - [x] ✅ Continue / Abort 僅在 operation 進行中可用;Abort 需確認 — `OperationBanner`
 - [x] ✅ 有 operation 進行中時 Push / Cherry-pick / Commit 禁用 — `GitActionsMenu`(disabled 斷言)/ `OperationBanner`
 
+## 衝突解決(P1 conflict-resolution,本次新增)
+
+在 GUI 內解決簡單的 merge / cherry-pick / revert / rebase 衝突(整檔 ours/theirs、delete-vs-modify、標記已解決),並附唯讀衝突標記預覽。
+
+- [x] ✅ 後端 `list_conflicted_files` 解析 porcelain v2 `u` 行為 `{path, kind}`(splitn(10)/fields[9],處理含空白路徑)— `parsers.rs` / 單元測試
+- [x] ✅ `preview_resolve_conflict` / `resolve_conflict` 產生並執行 ours/theirs/keepDeleted/markResolved 指令序列(路徑一律置於 `--` 之後)— `command_builder.rs` / `service.rs`
+- [x] ✅ 每個 mutating 解決流程包在 `with_safety_net`(`SafetyOpType::ResolveConflict`),可 Time-Machine undo — `service.rs` / `journal.rs`
+- [x] ✅ 真實 repo 整合測試:both-modified 以 ours 解決後可完成 merge;delete/modify 以「保留刪除」移除檔案 — `git_integration.rs`(21 tests)
+- [x] ✅ WorkingTreePanel Conflicts 分組每列顯示 kind-aware 動作(both-modified→採用我方/對方;delete/modify→保留刪除/保留檔案)+ 標記已解決,經確認對話框執行 — `WorkingTreePanel` / `ResolveConflictDialog` 測試
+- [x] ✅ ResolveConflictDialog 顯示指令序列預覽、失敗時保留對話框並顯示 `role="alert"`、忙碌時禁用按鈕 — `ResolveConflictDialog` 測試
+- [x] ✅ DiffViewer 唯讀衝突標記高亮(ours/theirs/marker 分區配色,light+dark CSS var),僅在工作樹 scope 觸發(commit scope 不觸發)— `conflictMarkers` / `DiffViewer` 測試
+- [x] ✅ 修正:DiffViewer 實際接收 `git diff` **combined-diff(`diff --cc`)** 輸出,標記行帶 `++` 前綴;`hasConflictMarkers`/`classifyConflictLines` 已容忍 diff 欄前綴,並以 combined-diff fixture 測試(否則高亮在實機不會觸發)
+- [x] ✅ 自動化現況:後端 `cargo test` 全綠(173 unit + 21 git_integration + 其他);前端完整 Vitest 445 tests(66 files)+ `npm run typecheck` 全綠 (2026-07-05)
+- [ ] 👤 **手動 GUI smoke 尚未驗證(owed)** — 啟動桌面版(`npm run tauri dev`)建立真實衝突後確認:Conflicts 分組顯示 `C` 徽章與動作按鈕;選檔後 DiffViewer 在 light/dark 兩主題顯示 ours/theirs 分區配色;點「採用我方(ours)」對話框顯示 `git checkout --ours -- <path>` + `git add` 並執行後離開 Conflicts 分組;delete/modify 衝突標籤為「保留刪除」/「保留檔案」;全部解決後 OperationBanner Continue 可完成 merge。
+
 ## 搜尋/過濾(commit / branch / file)
 
 提交歷史搜尋、分支側欄過濾、工作樹檔案過濾。
