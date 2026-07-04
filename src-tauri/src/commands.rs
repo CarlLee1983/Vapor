@@ -3,12 +3,15 @@ use crate::git::models::{
     AddRemoteRequest, BranchMutationResponse, CheckoutBranchRequest, CherryPickRequest, CherryPickResponse,
     RevertRequest, RevertResponse, ResetRequest, ResetResponse,
     CloneRequest, CloneResponse,
-    CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, CreateBranchRequest, CreateStashRequest,
+    CommitLogRequest, CommitRequest, CommitResponse, CommitSummary,
+    ConflictedFile, CreateBranchRequest, CreateStashRequest,
     CreateTagRequest, CreateTagResponse, DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest,
     DiffResponse, DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse,
     FetchRequest, FetchResponse,
-    GitCommandPreview, GitError, ListStashesRequest, ListStashesResponse, ListTagsRequest, ListTagsResponse,
+    GitCommandPreview, GitError, ListConflictsRequest, ListStashesRequest, ListStashesResponse,
+    ListTagsRequest, ListTagsResponse,
     MergeBranchRequest, MergeBranchResponse,
+    ResolveConflictRequest, ResolveConflictResponse,
     LfsTrackRequest, LfsTrackResponse,
     PartialApplyRequest, PartialApplyResponse,
     PullRequest, PullResponse, PushRequest, PushResponse, RemoteMutationResponse, RemoveRemoteRequest,
@@ -401,6 +404,43 @@ pub async fn revert_commit(request: RevertRequest) -> Result<RevertResponse, Git
         .map_err(|error| GitError {
             code: crate::git::models::GitErrorCode::CommandFailed,
             message: "Revert task failed before Git completed.".to_string(),
+            hint: "Try again after refreshing the repository.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub async fn list_conflicted_files(
+    request: ListConflictsRequest,
+) -> Result<Vec<ConflictedFile>, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).list_conflicted_files(&request.repository_path)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Listing conflicts failed before Git completed.".to_string(),
+        hint: "Try again after refreshing the repository.".to_string(),
+        stderr: error.to_string(),
+    })?
+}
+
+#[tauri::command]
+pub fn preview_resolve_conflict(
+    request: ResolveConflictRequest,
+) -> Result<Vec<GitCommandPreview>, GitError> {
+    crate::git::command_builder::resolve_conflict_previews(&request)
+}
+
+#[tauri::command]
+pub async fn resolve_conflict(
+    request: ResolveConflictRequest,
+) -> Result<ResolveConflictResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).resolve_conflict(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Resolve task failed before Git completed.".to_string(),
             hint: "Try again after refreshing the repository.".to_string(),
             stderr: error.to_string(),
         })?

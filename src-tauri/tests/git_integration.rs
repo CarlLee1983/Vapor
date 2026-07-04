@@ -3,10 +3,11 @@ use std::process::Command;
 use tempfile::TempDir;
 use vapor_lib::git::models::{
     AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CherryPickRequest, CommitRequest,
-    CreateBranchRequest, CreateStashRequest, DeleteBranchRequest, DiffScope, DiscardChangesRequest,
-    FetchRequest, HunkSelection, MergeBranchRequest, PartialApplyRequest, PullRequest, PushRequest,
-    RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind, SafetyNetMode,
-    SetRemoteUrlRequest, StageRequest, StashRefRequest, TagPushMode,
+    ConflictKind, ConflictResolution, CreateBranchRequest, CreateStashRequest,
+    DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest, HunkSelection,
+    MergeBranchRequest, PartialApplyRequest, PullRequest, PushRequest,
+    RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind, ResolveConflictRequest,
+    SafetyNetMode, SetRemoteUrlRequest, StageRequest, StashRefRequest, TagPushMode,
 };
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
@@ -814,4 +815,93 @@ fn partial_discard_reverts_selected_hunk_in_worktree() {
     let worktree = git_stdout(work.path(), &["diff", "-U0", "--", "nums.txt"]);
     assert!(!worktree.contains("+b2"), "first hunk discarded: {worktree}");
     assert!(worktree.contains("+k2"), "second hunk remains: {worktree}");
+}
+
+#[test]
+fn lists_and_resolves_a_both_modified_conflict_with_ours() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    // Two branches change the same line to force a bothModified conflict.
+    git(work.path(), &["checkout", "-b", "feature"]);
+    std::fs::write(work.path().join("README.md"), "feature line\n").expect("write");
+    git(work.path(), &["commit", "-am", "feature change"]);
+    git(work.path(), &["checkout", "main"]);
+    std::fs::write(work.path().join("README.md"), "main line\n").expect("write");
+    git(work.path(), &["commit", "-am", "main change"]);
+
+    let merge = service.merge_branch(&MergeBranchRequest {
+        repository_path: work.path().to_path_buf(),
+        branch_name: "feature".to_string(),
+        no_ff: false,
+        safety_net: SafetyNetMode::Auto,
+    });
+    assert!(merge.is_err(), "expected merge conflict");
+
+    let conflicts = service
+        .list_conflicted_files(work.path())
+        .expect("list conflicts");
+    assert_eq!(conflicts.len(), 1);
+    assert_eq!(conflicts[0].path, "README.md");
+    assert_eq!(conflicts[0].kind, ConflictKind::BothModified);
+
+    service
+        .resolve_conflict(&ResolveConflictRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "README.md".to_string(),
+            resolution: ConflictResolution::Ours,
+            safety_net: SafetyNetMode::Auto,
+        })
+        .expect("resolve ours");
+
+    assert!(service.list_conflicted_files(work.path()).expect("relist").is_empty());
+    assert_eq!(
+        std::fs::read_to_string(work.path().join("README.md")).unwrap(),
+        "main line\n"
+    );
+
+    // Conflict cleared → the merge can be finalized.
+    git(work.path(), &["commit", "--no-edit"]);
+    assert!(service.repository_state(work.path()).expect("state").operation.is_none());
+}
+
+#[test]
+fn resolves_delete_modify_conflict_by_keeping_deletion() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("doc.txt"), "original\n").expect("write");
+    git(work.path(), &["add", "doc.txt"]);
+    git(work.path(), &["commit", "-m", "add doc"]);
+
+    git(work.path(), &["checkout", "-b", "deleter"]);
+    git(work.path(), &["rm", "doc.txt"]);
+    git(work.path(), &["commit", "-m", "delete doc"]);
+
+    git(work.path(), &["checkout", "main"]);
+    std::fs::write(work.path().join("doc.txt"), "changed\n").expect("write");
+    git(work.path(), &["commit", "-am", "modify doc"]);
+
+    let merge = service.merge_branch(&MergeBranchRequest {
+        repository_path: work.path().to_path_buf(),
+        branch_name: "deleter".to_string(),
+        no_ff: false,
+        safety_net: SafetyNetMode::Auto,
+    });
+    assert!(merge.is_err(), "expected delete/modify conflict");
+
+    let conflicts = service.list_conflicted_files(work.path()).expect("list");
+    assert_eq!(conflicts[0].kind, ConflictKind::DeletedByThem);
+
+    service
+        .resolve_conflict(&ResolveConflictRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "doc.txt".to_string(),
+            resolution: ConflictResolution::KeepDeleted,
+            safety_net: SafetyNetMode::Auto,
+        })
+        .expect("keep deletion");
+
+    assert!(service.list_conflicted_files(work.path()).expect("relist").is_empty());
+    assert!(!work.path().join("doc.txt").exists());
 }
