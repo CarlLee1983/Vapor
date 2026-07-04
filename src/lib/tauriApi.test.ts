@@ -29,6 +29,7 @@ import {
   listSnapshotFiles,
   getSnapshotDiff,
   listConflictedFiles,
+  previewResolveConflict,
   resolveConflict,
 } from "./tauriApi";
 import type { AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest } from "../types/git";
@@ -316,6 +317,13 @@ describe("tauriApi", () => {
       request: { repositoryPath: "/repo", entryId: "e1" },
     });
     expect(result).toBe("diff --git a/a.txt b/a.txt");
+  });
+
+  it("previewResolveConflict forwards the request to the preview_resolve_conflict command", async () => {
+    invokeMock.mockResolvedValue([]);
+    const request = { repositoryPath: "/repo", path: "a.txt", resolution: "ours" as const };
+    await previewResolveConflict(request);
+    expect(invokeMock).toHaveBeenCalledWith("preview_resolve_conflict", { request });
   });
 
   it("resolveConflict forwards the request to the resolve_conflict command", async () => {

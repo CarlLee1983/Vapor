@@ -245,4 +245,19 @@ describe("DiffViewer (syntax highlight + toolbar)", () => {
     expect(container.querySelector(".diff-line--conflict-ours")).toBeTruthy();
     expect(container.querySelector(".diff-line--conflict-theirs")).toBeTruthy();
   });
+
+  it("does not enter conflict mode for a commit-scope diff containing conflict marker text", () => {
+    const diff = [
+      "diff --git a/x.txt b/x.txt",
+      "@@ -1,1 +1,5 @@",
+      "<<<<<<< HEAD",
+      "our change",
+      "=======",
+      "their change",
+      ">>>>>>> feature",
+    ].join("\n");
+    const { container } = render(<DiffViewer diff={diff} scope="commit" filePath="x.txt" />);
+    expect(container.querySelector(".diff-line--conflict-ours")).toBeFalsy();
+    expect(container.querySelector(".diff-line--conflict-theirs")).toBeFalsy();
+  });
 });
