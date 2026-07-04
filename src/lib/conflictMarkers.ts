@@ -9,7 +9,11 @@ export type ConflictRegion =
   | null;
 
 export function hasConflictMarkers(diff: string): boolean {
-  return /^<{7} /m.test(diff) && /^={7}$/m.test(diff) && /^>{7} /m.test(diff);
+  return (
+    /^[+\- ]*<{7} /m.test(diff) &&
+    /^[+\- ]*={7}$/m.test(diff) &&
+    /^[+\- ]*>{7} /m.test(diff)
+  );
 }
 
 /**
@@ -19,7 +23,7 @@ export function hasConflictMarkers(diff: string): boolean {
 export function classifyConflictLines(lines: string[]): ConflictRegion[] {
   let state: "none" | "ours" | "base" | "theirs" = "none";
   return lines.map((line) => {
-    const body = line.replace(/^[+\- ]/, "");
+    const body = line.replace(/^[+\- ]+/, "");
     if (body.startsWith("<<<<<<<")) {
       state = "ours";
       return "oursMarker";
