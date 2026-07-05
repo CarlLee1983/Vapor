@@ -289,6 +289,18 @@ pub async fn checkout_branch(request: CheckoutBranchRequest) -> Result<BranchMut
 }
 
 #[tauri::command]
+pub async fn checkout_commit(request: CheckoutCommitRequest) -> Result<BranchMutationResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).checkout_commit(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Checkout task failed before Git completed.".to_string(),
+            hint: "Try checking out again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
 pub fn preview_create_branch(request: CreateBranchRequest) -> Result<GitCommandPreview, GitError> {
     crate::git::command_builder::create_branch_preview(&request)
 }

@@ -529,6 +529,78 @@ impl<R: GitRunner> GitService<R> {
         self.run_branch_mutation(&request.repository_path, preview)
     }
 
+    fn ensure_working_tree_clean(&self, repository_path: &Path) -> Result<(), GitError> {
+        let status = self.runner.run(
+            repository_path,
+            &["status".to_string(), "--porcelain".to_string()],
+        )?;
+        if status.stdout.trim().is_empty() {
+            Ok(())
+        } else {
+            Err(GitError {
+                code: super::models::GitErrorCode::CommandFailed,
+                message: "Working tree has uncommitted changes.".to_string(),
+                hint: "Commit or stash your changes before checking out a commit.".to_string(),
+                stderr: String::new(),
+            })
+        }
+    }
+
+    pub fn checkout_commit(
+        &self,
+        request: &super::models::CheckoutCommitRequest,
+    ) -> Result<super::models::BranchMutationResponse, GitError> {
+        self.ensure_working_tree_clean(&request.repository_path)?;
+        let preview = super::command_builder::checkout_commit_preview(request)?;
+
+        // Checkout does not destroy data → no snapshot, but journal it for Time Machine tracing.
+        let git_dir = super::snapshot::resolve_git_dir(&self.runner, &request.repository_path)?;
+        let before_head = self.current_head(&request.repository_path);
+        let before_branch = self
+            .runner
+            .run(
+                &request.repository_path,
+                &[
+                    "symbolic-ref".to_string(),
+                    "--short".to_string(),
+                    "-q".to_string(),
+                    "HEAD".to_string(),
+                ],
+            )
+            .ok()
+            .map(|output| output.stdout.trim().to_string())
+            .filter(|branch| !branch.is_empty());
+
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+
+        let after_head = self.current_head(&request.repository_path);
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs().to_string())
+            .unwrap_or_default();
+        super::journal::append_entry(
+            &git_dir,
+            super::journal::JournalEntry {
+                id: super::snapshot::new_snapshot_id("checkout"),
+                timestamp,
+                op_type: super::journal::SafetyOpType::Checkout,
+                description: format!("Checkout {}", request.commit_hash),
+                before_head,
+                before_branch,
+                snapshot_ref: String::new(),
+                after_head,
+                deleted_branch: None,
+                deleted_branch_tip: None,
+            },
+        )?;
+
+        Ok(super::models::BranchMutationResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
     pub fn create_branch(
         &self,
         request: &super::models::CreateBranchRequest,
@@ -979,6 +1051,7 @@ impl<R: GitRunner> GitService<R> {
             super::journal::SafetyOpType::Undo => "undo",
             super::journal::SafetyOpType::Revert => "revert",
             super::journal::SafetyOpType::Reset => "reset",
+            super::journal::SafetyOpType::Checkout => "checkout",
             super::journal::SafetyOpType::ResolveConflict => "resolve-conflict",
             super::journal::SafetyOpType::Rebase => "rebase",
         };

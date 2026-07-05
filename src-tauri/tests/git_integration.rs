@@ -2,7 +2,8 @@ use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 use vapor_lib::git::models::{
-    AddRemoteRequest, ApplyMode, BlameRequest, CheckoutBranchRequest, CherryPickRequest,
+    AddRemoteRequest, ApplyMode, BlameRequest, CheckoutBranchRequest,
+    CheckoutCommitRequest, CherryPickRequest,
     CommitRequest, ConflictKind, ConflictResolution, CreateBranchRequest, CreateStashRequest,
     DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest, GitErrorCode,
     FileHistoryRequest, HunkSelection, MergeBranchRequest, PartialApplyRequest, PullRequest,
@@ -1195,4 +1196,47 @@ fn rebase_conflict_surfaces_operation_and_aborts() {
         std::fs::read_to_string(work.path().join("README.md")).unwrap(),
         "topic version\n"
     );
+}
+
+#[test]
+fn checkout_commit_detaches_and_blocks_when_dirty() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    // Second commit so there is an older commit to detach onto.
+    std::fs::write(work.path().join("README.md"), "second\n").expect("write");
+    git(work.path(), &["add", "README.md"]);
+    git(work.path(), &["commit", "-m", "Second commit"]);
+
+    let log = service.commit_log(work.path(), 20, 0).expect("log");
+    let older = log.last().expect("initial commit").hash.clone();
+
+    // Checkout the initial commit → detached HEAD.
+    service
+        .checkout_commit(&CheckoutCommitRequest {
+            repository_path: work.path().to_path_buf(),
+            commit_hash: older.clone(),
+        })
+        .expect("checkout commit");
+    let detached_state = service.repository_state(work.path()).expect("state");
+    assert!(detached_state.is_detached);
+
+    // Switch back to main → detached cleared.
+    service
+        .checkout_branch(&CheckoutBranchRequest {
+            repository_path: work.path().to_path_buf(),
+            branch_name: "main".to_string(),
+        })
+        .expect("checkout main");
+    assert!(!service.repository_state(work.path()).expect("state").is_detached);
+
+    // Dirty working tree → blocked.
+    std::fs::write(work.path().join("README.md"), "dirty\n").expect("write dirty");
+    let error = service
+        .checkout_commit(&CheckoutCommitRequest {
+            repository_path: work.path().to_path_buf(),
+            commit_hash: older,
+        })
+        .expect_err("dirty tree must block checkout");
+    assert!(error.hint.to_lowercase().contains("stash"));
 }
