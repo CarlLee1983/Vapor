@@ -22,6 +22,8 @@ interface Props {
   onPreviewCommit: (input: { message: string; amend: boolean; signOff: boolean }) => Promise<{ display: string }>;
   onLoadLastMessage: () => Promise<string>;
   onConflictResolved?: () => void;
+  onBlame?: (path: string) => void;
+  onFileHistory?: (path: string) => void;
 }
 
 const FileCodeIcon = () => (
@@ -211,6 +213,8 @@ export function WorkingTreePanel({
   onPreviewCommit,
   onLoadLastMessage,
   onConflictResolved,
+  onBlame,
+  onFileHistory,
 }: Props) {
   const [query, setQuery] = useState("");
   const [pendingResolve, setPendingResolve] = useState<{
@@ -399,18 +403,30 @@ export function WorkingTreePanel({
             const { file, scope } = menu.state.target;
             const items =
               scope === "staged"
-                ? [
-                    { label: "Unstage", onSelect: () => onUnstage([file.path]) },
-                    {
-                      label: "Copy path",
-                      onSelect: () => void navigator.clipboard?.writeText(file.path),
-                    },
-                  ]
-                : [
-                    { label: "Stage", onSelect: () => onStage([file.path]) },
-                    { label: "Discard…", danger: true, onSelect: () => requestDiscard(file) },
-                    {
-                      label: "Copy path",
+              ? [
+                  { label: "Unstage", onSelect: () => onUnstage([file.path]) },
+                  { label: "Blame", onSelect: () => onBlame?.(file.path), disabled: !onBlame },
+                  {
+                    label: "File History",
+                    onSelect: () => onFileHistory?.(file.path),
+                    disabled: !onFileHistory,
+                  },
+                  {
+                    label: "Copy path",
+                    onSelect: () => void navigator.clipboard?.writeText(file.path),
+                  },
+                ]
+              : [
+                  { label: "Stage", onSelect: () => onStage([file.path]) },
+                  { label: "Blame", onSelect: () => onBlame?.(file.path), disabled: !onBlame },
+                  {
+                    label: "File History",
+                    onSelect: () => onFileHistory?.(file.path),
+                    disabled: !onFileHistory,
+                  },
+                  { label: "Discard…", danger: true, onSelect: () => requestDiscard(file) },
+                  {
+                    label: "Copy path",
                       onSelect: () => void navigator.clipboard?.writeText(file.path),
                     },
                   ];

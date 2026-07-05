@@ -81,6 +81,36 @@ export interface DiffRequest {
   filePath?: string | null;
 }
 
+export interface BlameSegment {
+  commitSha: string;
+  author: string;
+  date: string;
+  summary: string;
+  lineStart: number;
+  lineCount: number;
+}
+
+export interface BlameRequest {
+  repositoryPath: string;
+  path: string;
+  rev: string;
+  force?: boolean;
+}
+
+export interface BlameResponse {
+  oversize: boolean;
+  lineCount: number;
+  segments: BlameSegment[];
+  content: string;
+}
+
+export interface FileHistoryRequest {
+  repositoryPath: string;
+  path: string;
+  limit: number;
+  skip: number;
+}
+
 export interface SelectedFileTarget {
   file: FileStatus;
   scope: Extract<DiffScope, "unstaged" | "staged">;

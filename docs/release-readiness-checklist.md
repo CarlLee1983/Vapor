@@ -55,6 +55,12 @@
 - [x] ✅ 工作樹 Staged 列顯示 staged diff(`--cached`)— `useRepository`(DiffScope)/ `git_integration.rs`
 - [x] ✅ 同一檔案同時在 Staged/Unstaged 時,兩列可獨立選取且標題正確 — `useRepository` / `DiffViewer`
 
+## Blame / 單檔歷史(P3 新增)
+
+- [x] ✅ `get_file_blame` 會以 porcelain blame 解析 merged attribution segments,並在大檔案前回傳 `oversize` 提示; `get_file_history` 以 `--follow` + 分頁列出單檔歷史 — `git_integration.rs` / `BlameView` / `FileHistoryDialog`
+- [x] ✅ 工作樹檔案右鍵選單新增 `Blame` / `File History`,且前端 wrapper / helper / 型別已由 Vitest + `npm run typecheck` 驗證通過 — 2026-07-05
+- [ ] 👤 手動 GUI smoke 尚未驗證(owed) — 需以 `npm run tauri dev` 在真實 repo 確認 blame gutter、`Blame anyway`、單檔歷史分頁與 commit diff pane 的實機互動。
+
 ## 提交與遠端
 
 - [x] ✅ 單檔/整批 stage 與 unstage 正常 — `useRepository` / `WorkingTreePanel` / `git_integration.rs`

@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AddRemoteRequest,
+  BlameRequest,
+  BlameResponse,
   BranchMutationResponse,
   CheckoutBranchRequest,
   CloneRequest,
@@ -32,6 +34,7 @@ import type {
   PartialApplyResponse,
   CherryPickRequest,
   CherryPickResponse,
+  FileHistoryRequest,
   RevertRequest,
   RevertResponse,
   ResetRequest,
@@ -79,6 +82,14 @@ export async function getDiff(request: DiffRequest): Promise<string> {
     },
   });
   return response.text;
+}
+
+export async function getFileBlame(request: BlameRequest): Promise<BlameResponse> {
+  return invoke<BlameResponse>("get_file_blame", { request });
+}
+
+export async function getFileHistory(request: FileHistoryRequest): Promise<CommitSummary[]> {
+  return invoke<CommitSummary[]>("get_file_history", { request });
 }
 
 export async function previewPush(request: PushRequest): Promise<GitCommandPreview> {

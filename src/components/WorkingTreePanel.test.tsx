@@ -221,9 +221,11 @@ describe("WorkingTreePanel", () => {
     setup({ repository, onTrackLfs });
     expect(screen.getByRole("button", { name: "Track with LFS" })).toBeInTheDocument();
   });
-  it("right-clicking an unstaged file offers Stage / Discard / Copy path", async () => {
+  it("right-clicking an unstaged file offers Stage, Blame, File History, Discard, and Copy path", async () => {
     const user = userEvent.setup();
     const onStage = vi.fn();
+    const onBlame = vi.fn();
+    const onFileHistory = vi.fn();
     const writeText = vi.fn().mockResolvedValue(undefined);
     const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
@@ -242,6 +244,8 @@ describe("WorkingTreePanel", () => {
           onStage={onStage}
           onUnstage={vi.fn()}
           onDiscard={vi.fn()}
+          onBlame={onBlame}
+          onFileHistory={onFileHistory}
           onCommit={vi.fn()}
           onPreviewCommit={vi.fn()}
           onLoadLastMessage={vi.fn()}
@@ -249,6 +253,14 @@ describe("WorkingTreePanel", () => {
       );
 
       const row = screen.getByText("src/a.ts").closest(".file-row")!;
+      fireEvent.contextMenu(row);
+      await user.click(screen.getByRole("menuitem", { name: "Blame" }));
+      expect(onBlame).toHaveBeenCalledWith("src/a.ts");
+
+      fireEvent.contextMenu(row);
+      await user.click(screen.getByRole("menuitem", { name: "File History" }));
+      expect(onFileHistory).toHaveBeenCalledWith("src/a.ts");
+
       fireEvent.contextMenu(row);
 
       await user.click(screen.getByRole("menuitem", { name: "Copy path" }));

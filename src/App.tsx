@@ -12,6 +12,8 @@ import { PushDialog } from "./components/PushDialog";
 import { PullDialog } from "./components/PullDialog";
 import { FetchDialog } from "./components/FetchDialog";
 import { RemotesDialog } from "./components/RemotesDialog";
+import { BlameView } from "./components/BlameView";
+import { FileHistoryDialog } from "./components/FileHistoryDialog";
 import { AboutDialog } from "./components/AboutDialog";
 import { CloneDialog } from "./components/CloneDialog";
 import { SshDiagnosticsDialog } from "./components/SshDiagnosticsDialog";
@@ -63,6 +65,8 @@ export default function App() {
   const [isCloneOpen, setIsCloneOpen] = useState(false);
   const [isSshOpen, setIsSshOpen] = useState(false);
   const [rebaseTarget, setRebaseTarget] = useState<BranchInfo | null>(null);
+  const [blameTarget, setBlameTarget] = useState<string | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<string | null>(null);
   // 記住最後一次 discard 的目標,供安全網逃生口(force/skip)重送。
   const [lastDiscard, setLastDiscard] = useState<{
     trackedPaths: string[];
@@ -136,6 +140,8 @@ export default function App() {
     setIsCloneOpen(false);
     setIsSshOpen(false);
     setLastDiscard(null);
+    setBlameTarget(null);
+    setHistoryTarget(null);
   }, [workspace.activePath]);
 
   const refreshActiveRepository = () => {
@@ -219,6 +225,16 @@ export default function App() {
   const handleResetCommit = (commit: CommitSummary) => {
     repoView.selectCommit(commit);
     setIsResetOpen(true);
+  };
+
+  const handleOpenBlameCommit = (sha: string) => {
+    const commit = repoView.commits.find((entry) => entry.hash === sha);
+    setViewMode("history");
+    setBlameTarget(null);
+    setHistoryTarget(null);
+    if (commit) {
+      void repoView.selectCommit(commit);
+    }
   };
 
   useEffect(() => {
@@ -396,21 +412,30 @@ export default function App() {
               repository={repoView.repository}
               selectedFile={repoView.selectedFile}
               onSelectFile={repoView.selectFile}
-              onStage={repoView.stageFiles}
-              onUnstage={repoView.unstageFiles}
-              onDiscard={(trackedPaths, untrackedPaths) => {
-                setLastDiscard({ trackedPaths, untrackedPaths });
-                void repoView.discardFiles(trackedPaths, untrackedPaths);
-              }}
-              onTrackLfs={(file, mode) => void repoView.lfsTrack(file.path, mode)}
-              onCommit={repoView.commit}
-              onPreviewCommit={(input) =>
-                previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })
-              }
-              onLoadLastMessage={repoView.loadLastCommitMessage}
-              onConflictResolved={refreshActiveRepository}
-            />
-          )}
+            onStage={repoView.stageFiles}
+            onUnstage={repoView.unstageFiles}
+            onDiscard={(trackedPaths, untrackedPaths) => {
+              setLastDiscard({ trackedPaths, untrackedPaths });
+              void repoView.discardFiles(trackedPaths, untrackedPaths);
+            }}
+            onTrackLfs={(file, mode) => void repoView.lfsTrack(file.path, mode)}
+            onCommit={repoView.commit}
+            onPreviewCommit={(input) =>
+              previewCommit({ repositoryPath: repoView.repositoryPath ?? "", ...input })
+            }
+            onLoadLastMessage={repoView.loadLastCommitMessage}
+            onConflictResolved={refreshActiveRepository}
+            onBlame={(path) => {
+              setViewMode("status");
+              setHistoryTarget(null);
+              setBlameTarget(path);
+            }}
+            onFileHistory={(path) => {
+              setBlameTarget(null);
+              setHistoryTarget(path);
+            }}
+          />
+        )}
           <DiffViewer
             diff={repoView.diff}
             title={
@@ -549,6 +574,33 @@ export default function App() {
           }}
           onClose={() => setIsTimeMachineOpen(false)}
         />
+      ) : null}
+      {historyTarget && repoView.repository ? (
+        <FileHistoryDialog
+          repositoryPath={repoView.repository.root}
+          path={historyTarget}
+          onClose={() => setHistoryTarget(null)}
+        />
+      ) : null}
+      {blameTarget && repoView.repository ? (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="dialog dialog--wide" role="dialog" aria-label="Blame" aria-modal="true" tabIndex={-1}>
+            <header className="dialog-header">
+              <div>
+                <h2>Blame</h2>
+                <p className="dialog-subtitle">{blameTarget}</p>
+              </div>
+              <button type="button" onClick={() => setBlameTarget(null)}>
+                Close
+              </button>
+            </header>
+            <BlameView
+              repositoryPath={repoView.repository.root}
+              path={blameTarget}
+              onOpenCommit={handleOpenBlameCommit}
+            />
+          </section>
+        </div>
       ) : null}
     </main>
   );

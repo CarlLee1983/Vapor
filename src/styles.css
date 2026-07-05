@@ -50,6 +50,8 @@
   --syntax-built-in: #c18401;
   --syntax-literal: #0184bb;
   --syntax-meta: #4078f2;
+  --blame-gutter-bg: rgba(0, 0, 0, 0.03);
+  --blame-alt-bg: rgba(0, 0, 0, 0.02);
 
   --bg-badge-head: #dbeafe;
   --text-badge-head: #1d4ed8;
@@ -112,6 +114,8 @@
   --syntax-built-in: #e5c07b;
   --syntax-literal: #56b6c2;
   --syntax-meta: #61afef;
+  --blame-gutter-bg: rgba(255, 255, 255, 0.04);
+  --blame-alt-bg: rgba(255, 255, 255, 0.02);
 
   --bg-badge-head: #1e3a8a;
   --text-badge-head: #93c5fd;
@@ -665,6 +669,80 @@ button:not(.commit-row):disabled {
   text-align: center;
 }
 
+.file-history {
+  display: grid;
+  grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+  gap: 12px;
+  min-height: 60vh;
+}
+
+.file-history__list,
+.file-history__diff {
+  min-height: 0;
+}
+
+.file-history__list {
+  position: relative;
+  overflow-y: auto;
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-md);
+  background: rgba(var(--bg-panel-rgb), 0.35);
+}
+
+.file-history__spacer {
+  position: relative;
+  width: 100%;
+}
+
+.file-history__window {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+}
+
+.file-history__item {
+  width: 100%;
+  min-height: 72px;
+  box-sizing: border-box;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--border-color-light);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.file-history__item--active {
+  background: var(--blame-gutter-bg);
+}
+
+.file-history__subject {
+  font-weight: 600;
+}
+
+.file-history__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.file-history__hash {
+  font-family: var(--font-mono);
+  color: var(--syntax-function);
+}
+
+.file-history__diff {
+  overflow: auto;
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-md);
+  background: rgba(var(--bg-panel-rgb), 0.35);
+}
+
 .commit-row {
   width: 100%;
   height: var(--commit-row-height, 32px);  /* 對齊 commitGraph.ts 的 ROW_HEIGHT */
@@ -1209,6 +1287,10 @@ button:not(.commit-row):disabled {
   transition: var(--transition-smooth);
 }
 
+.dialog--wide {
+  width: min(1100px, calc(100vw - 32px));
+}
+
 .dialog-header,
 .dialog-actions {
   display: flex;
@@ -1227,6 +1309,92 @@ button:not(.commit-row):disabled {
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
+}
+
+.blame-loading,
+.blame-oversize,
+.file-history__empty {
+  color: var(--text-secondary);
+}
+
+.blame-oversize {
+  display: grid;
+  gap: 12px;
+}
+
+.blame-view {
+  display: grid;
+  gap: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow: auto;
+}
+
+.blame-row {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) 3rem minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+}
+
+.blame-row--alt {
+  background: var(--blame-alt-bg);
+}
+
+.blame-gutter {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+  background: var(--blame-gutter-bg);
+  border: 0;
+  border-right: 1px solid var(--border-color-light);
+  color: inherit;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.blame-gutter:disabled {
+  cursor: default;
+}
+
+.blame-sha {
+  color: var(--syntax-function);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.blame-author,
+.blame-date {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blame-author {
+  opacity: 0.85;
+}
+
+.blame-date {
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.blame-lineno {
+  padding: 0.2rem 0.45rem 0.2rem 0;
+  text-align: right;
+  color: var(--text-muted);
+  border-right: 1px solid var(--border-color-light);
+}
+
+.blame-code {
+  min-width: 0;
+  white-space: pre;
+  padding: 0.2rem 0.75rem;
 }
 
 .about-version {

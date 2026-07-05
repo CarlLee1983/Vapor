@@ -7,6 +7,8 @@ import {
   createBranch,
   createCommit,
   createStash,
+  getFileBlame,
+  getFileHistory,
   listStashes,
   getCommitLog,
   getDiff,
@@ -99,6 +101,20 @@ describe("tauriApi", () => {
       },
     });
     expect(result).toBe("diff-text");
+  });
+
+  it("getFileBlame forwards the request to get_file_blame", async () => {
+    invokeMock.mockResolvedValue({ oversize: false, lineCount: 0, segments: [], content: "" } as never);
+    const request = { repositoryPath: "/repo", path: "a.txt", rev: "HEAD" };
+    await getFileBlame(request);
+    expect(invokeMock).toHaveBeenCalledWith("get_file_blame", { request });
+  });
+
+  it("getFileHistory forwards the request to get_file_history", async () => {
+    invokeMock.mockResolvedValue([] as never);
+    const request = { repositoryPath: "/repo", path: "a.txt", limit: 200, skip: 0 };
+    await getFileHistory(request);
+    expect(invokeMock).toHaveBeenCalledWith("get_file_history", { request });
   });
 
   it("previewPush forwards the request", async () => {
