@@ -25,7 +25,7 @@ dist-ssr
 
 # Brainstorming Companion
 .superpowers/
+.worktrees/
 
 # Playwright MCP debug artifacts
 .playwright-mcp/
-
