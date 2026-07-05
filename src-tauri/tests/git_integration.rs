@@ -149,6 +149,45 @@ fn blames_a_file_and_reports_authors() {
 }
 
 #[test]
+fn file_history_pages_with_skip() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    for i in 1..=3 {
+        std::fs::write(work.path().join("paged.txt"), format!("value {i}\n"))
+            .expect("write paged");
+        if i == 1 {
+            git(work.path(), &["add", "paged.txt"]);
+        } else {
+            git(work.path(), &["add", "paged.txt"]);
+        }
+        git(work.path(), &["commit", "-m", &format!("Update {i}")]);
+    }
+
+    let full = service
+        .file_history(&FileHistoryRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "paged.txt".to_string(),
+            limit: 10,
+            skip: 0,
+        })
+        .expect("full history");
+    let page = service
+        .file_history(&FileHistoryRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "paged.txt".to_string(),
+            limit: 2,
+            skip: 1,
+        })
+        .expect("paged history");
+
+    assert_eq!(full.len(), 3);
+    assert_eq!(page.len(), 2);
+    assert_eq!(page[0].hash, full[1].hash);
+    assert_eq!(page[1].hash, full[2].hash);
+}
+
+#[test]
 fn file_history_follows_a_single_file() {
     let (work, _remote) = setup_repo();
     let service = GitService::new(SystemGitRunner);
@@ -177,6 +216,50 @@ fn file_history_follows_a_single_file() {
 }
 
 #[test]
+fn file_blame_and_history_reject_empty_paths() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    let blame_err = service
+        .file_blame(&BlameRequest {
+            repository_path: work.path().to_path_buf(),
+            path: String::new(),
+            rev: "HEAD".to_string(),
+            force: false,
+        })
+        .expect_err("empty blame path");
+    assert_eq!(blame_err.code, GitErrorCode::InvalidInput);
+
+    let history_err = service
+        .file_history(&FileHistoryRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "   ".to_string(),
+            limit: 20,
+            skip: 0,
+        })
+        .expect_err("empty history path");
+    assert_eq!(history_err.code, GitErrorCode::InvalidInput);
+}
+
+#[test]
+fn blame_reports_error_for_untracked_file() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("untracked.txt"), "draft\n").expect("write untracked");
+
+    let error = service
+        .file_blame(&BlameRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "untracked.txt".to_string(),
+            rev: "HEAD".to_string(),
+            force: false,
+        })
+        .expect_err("untracked blame should fail");
+    assert_eq!(error.code, GitErrorCode::CommandFailed);
+}
+
+#[test]
 fn blame_reports_oversize_without_forcing() {
     let (work, _remote) = setup_repo();
     let service = GitService::new(SystemGitRunner);
@@ -201,6 +284,17 @@ fn blame_reports_oversize_without_forcing() {
     assert_eq!(blame.line_count, 5_001);
     assert!(blame.segments.is_empty());
     assert_eq!(blame.content, content);
+
+    let forced = service
+        .file_blame(&BlameRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "big.txt".to_string(),
+            rev: "HEAD".to_string(),
+            force: true,
+        })
+        .expect("forced blame");
+    assert!(!forced.oversize);
+    assert!(!forced.segments.is_empty());
 }
 
 #[test]

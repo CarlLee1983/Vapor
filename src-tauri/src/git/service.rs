@@ -13,6 +13,18 @@ impl<R: GitRunner> GitService<R> {
         Self { runner }
     }
 
+    fn validate_path(value: &str, label: &str) -> Result<(), GitError> {
+        if value.trim().is_empty() {
+            return Err(GitError {
+                code: super::models::GitErrorCode::InvalidInput,
+                message: format!("{label} is required."),
+                hint: "Enter a file path before requesting blame or history.".to_string(),
+                stderr: String::new(),
+            });
+        }
+        Ok(())
+    }
+
     pub fn repository_state(&self, path: &Path) -> Result<RepositoryState, GitError> {
         let root = self.runner.run(path, &["rev-parse".to_string(), "--show-toplevel".to_string()])?;
         let status = self.runner.run(
@@ -81,6 +93,7 @@ impl<R: GitRunner> GitService<R> {
     ) -> Result<super::models::BlameResponse, GitError> {
         const BLAME_LINE_LIMIT: u32 = 5_000;
 
+        Self::validate_path(&request.path, "File path")?;
         let rev = if request.rev.trim().is_empty() {
             "HEAD"
         } else {
@@ -118,6 +131,7 @@ impl<R: GitRunner> GitService<R> {
         &self,
         request: &super::models::FileHistoryRequest,
     ) -> Result<Vec<super::models::CommitSummary>, GitError> {
+        Self::validate_path(&request.path, "File path")?;
         let args =
             super::command_builder::file_history_args(&request.path, request.limit, request.skip);
         let output = self.runner.run(&request.repository_path, &args)?;
