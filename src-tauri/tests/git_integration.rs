@@ -94,6 +94,17 @@ fn reads_repository_state_and_log() {
 }
 
 #[test]
+fn repository_state_reports_head_sha_and_not_detached_on_branch() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+    let state = service.repository_state(work.path()).expect("state");
+    assert!(!state.is_detached);
+    let sha = state.head_sha.expect("head sha");
+    assert!(!sha.is_empty());
+    assert!(sha.len() >= 7);
+}
+
+#[test]
 fn commit_log_paginates_with_skip() {
     let (work, _remote) = setup_repo();
     // setup_repo already created "Initial commit"; add four more for five total.

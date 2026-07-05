@@ -45,6 +45,20 @@ impl<R: GitRunner> GitService<R> {
         let remotes = self.runner.run(path, &["remote".to_string(), "-v".to_string()])?;
 
         let (current_branch, ahead, behind, working_tree) = parse_porcelain_status(&status.stdout);
+        let is_detached = super::parsers::head_is_detached(&status.stdout);
+        let head_sha = self
+            .runner
+            .run(
+                path,
+                &[
+                    "rev-parse".to_string(),
+                    "--short".to_string(),
+                    "HEAD".to_string(),
+                ],
+            )
+            .ok()
+            .map(|output| output.stdout.trim().to_string())
+            .filter(|sha| !sha.is_empty());
 
         let root_path = PathBuf::from(root.stdout.trim());
         let operation = detect_repository_operation(&root_path);
@@ -61,6 +75,8 @@ impl<R: GitRunner> GitService<R> {
             working_tree,
             lfs_enabled,
             operation,
+            is_detached,
+            head_sha,
         })
     }
 

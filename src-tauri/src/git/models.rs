@@ -110,6 +110,8 @@ pub struct RepositoryState {
     pub working_tree: Vec<FileStatus>,
     pub lfs_enabled: bool,
     pub operation: Option<RepositoryOperation>,
+    pub is_detached: bool,
+    pub head_sha: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -86,6 +86,14 @@ mod tests {
     }
 }
 
+/// Porcelain v2 emits `# branch.head (detached)` when HEAD is not on a branch.
+pub fn head_is_detached(status_stdout: &str) -> bool {
+    status_stdout
+        .lines()
+        .filter_map(|line| line.strip_prefix("# branch.head "))
+        .any(|value| value == "(detached)")
+}
+
 pub fn parse_porcelain_status(stdout: &str) -> (Option<String>, u32, u32, Vec<FileStatus>) {
     let mut branch = None;
     let mut ahead = 0;
@@ -372,6 +380,15 @@ mod repository_parser_tests {
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].path, "new name.rs");
         assert_eq!(files[0].index_status, "R");
+    }
+
+    #[test]
+    fn detects_detached_head_from_porcelain_branch_line() {
+        let detached = "# branch.head (detached)\n1 M. N... 100644 100644 100644 aaa bbb file.rs\n";
+        let on_branch = "# branch.head main\n# branch.ab +0 -0\n";
+        assert!(head_is_detached(detached));
+        assert!(!head_is_detached(on_branch));
+        assert!(!head_is_detached(""));
     }
 
     #[test]
