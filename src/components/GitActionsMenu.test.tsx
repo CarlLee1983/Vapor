@@ -13,7 +13,8 @@ const repository: RepositoryState = {
   remotes: [],
   workingTree: [],
   lfsEnabled: false,
-};
+  isDetached: false,
+  headSha: null,};
 
 const commit: CommitSummary = {
   hash: "abc123",

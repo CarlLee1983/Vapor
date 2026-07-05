@@ -26,7 +26,8 @@ const baseRepo: RepositoryState = {
     { path: "new.ts", indexStatus: "?", worktreeStatus: "?", sizeBytes: 0, isLfs: false },
   ],
   lfsEnabled: false,
-};
+  isDetached: false,
+  headSha: null,};
 
 function setup(overrides: Partial<React.ComponentProps<typeof WorkingTreePanel>> = {}) {
   const props = {
@@ -317,7 +318,8 @@ describe("WorkingTreePanel", () => {
         branches: [],
         remotes: [],
         lfsEnabled: false,
-        workingTree: [
+        isDetached: false,
+        headSha: null,        workingTree: [
           { path: "src/b.ts", indexStatus: "M", worktreeStatus: ".", sizeBytes: 10, isLfs: false },
         ],
       };
@@ -353,7 +355,8 @@ const filterRepo: RepositoryState = {
   remotes: [],
   branches: [],
   lfsEnabled: false,
-  workingTree: [
+  isDetached: false,
+  headSha: null,  workingTree: [
     { path: "src/App.tsx", indexStatus: ".", worktreeStatus: "M", sizeBytes: 1, isLfs: false },
     { path: "README.md", indexStatus: ".", worktreeStatus: "M", sizeBytes: 1, isLfs: false },
   ],

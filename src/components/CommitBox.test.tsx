@@ -14,7 +14,8 @@ const repository: RepositoryState = {
   remotes: [],
   workingTree: [],
   lfsEnabled: false,
-};
+  isDetached: false,
+  headSha: null,};
 
 function setup(overrides: Partial<React.ComponentProps<typeof CommitBox>> = {}) {
   const props = {

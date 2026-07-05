@@ -15,7 +15,8 @@ export const sampleRepositoryState: RepositoryState = {
     { path: "README.md", indexStatus: "?", worktreeStatus: "?", sizeBytes: 1024, isLfs: false },
   ],
   lfsEnabled: false,
-  operation: null,
+  isDetached: false,
+  headSha: null,  operation: null,
 };
 
 export const sampleCommits: CommitSummary[] = [

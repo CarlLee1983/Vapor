@@ -17,7 +17,8 @@ const mockRepo: RepositoryState = {
     { path: "b.ts", indexStatus: ".", worktreeStatus: "M", sizeBytes: 0, isLfs: false },
   ],
   lfsEnabled: false,
-};
+  isDetached: false,
+  headSha: null,};
 
 const openRepos: RepoEntry[] = [
   { path: "/repo", name: "repo", currentBranch: "main" },

@@ -61,6 +61,8 @@ export interface RepositoryState {
   workingTree: FileStatus[];
   lfsEnabled: boolean;
   operation?: RepositoryOperation | null;
+  isDetached: boolean;
+  headSha: string | null;
 }
 
 export interface CommitSummary {
@@ -197,6 +199,11 @@ export interface RemoteMutationResponse {
 export interface CheckoutBranchRequest {
   repositoryPath: string;
   branchName: string;
+}
+
+export interface CheckoutCommitRequest {
+  repositoryPath: string;
+  commitHash: string;
 }
 
 export interface CreateBranchRequest {
