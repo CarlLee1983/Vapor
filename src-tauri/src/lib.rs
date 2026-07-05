@@ -79,6 +79,8 @@ pub fn run() {
             commands::list_conflicted_files,
             commands::preview_resolve_conflict,
             commands::resolve_conflict,
+            commands::preview_rebase,
+            commands::rebase_branch,
             commands::abort_git_operation,
             commands::continue_git_operation,
             commands::preview_fetch,

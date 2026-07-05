@@ -754,6 +754,51 @@ impl<R: GitRunner> GitService<R> {
         )
     }
 
+    /// True when there are no staged or unstaged changes (untracked files are ignored,
+    /// matching `git rebase`'s own precondition).
+    fn working_tree_is_clean(&self, repository_path: &Path) -> Result<bool, GitError> {
+        let output = self
+            .runner
+            .run(repository_path, &["status".to_string(), "--porcelain".to_string()])?;
+        let dirty = output
+            .stdout
+            .lines()
+            .any(|line| !line.starts_with("?? ") && !line.trim().is_empty());
+        Ok(!dirty)
+    }
+
+    pub fn rebase(
+        &self,
+        request: &super::models::RebaseRequest,
+    ) -> Result<super::models::RebaseResponse, GitError> {
+        let preview = super::command_builder::rebase_preview(request)?;
+
+        if !self.working_tree_is_clean(&request.repository_path)? {
+            return Err(GitError {
+                code: super::models::GitErrorCode::CommandFailed,
+                message: "Cannot rebase with uncommitted changes.".to_string(),
+                hint: "Commit or stash your changes first, then rebase.".to_string(),
+                stderr: String::new(),
+            });
+        }
+
+        self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::Rebase,
+            format!("Rebase onto {}", request.upstream),
+            None,
+            |service| {
+                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                Ok(super::models::RebaseResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        )
+    }
+
     fn discard_previews(
         request: &super::models::DiscardChangesRequest,
     ) -> Result<Vec<super::models::GitCommandPreview>, GitError> {
@@ -856,6 +901,7 @@ impl<R: GitRunner> GitService<R> {
             super::journal::SafetyOpType::Revert => "revert",
             super::journal::SafetyOpType::Reset => "reset",
             super::journal::SafetyOpType::ResolveConflict => "resolve-conflict",
+            super::journal::SafetyOpType::Rebase => "rebase",
         };
         let id = super::snapshot::new_snapshot_id(op_label);
 
