@@ -24,6 +24,7 @@ interface Props {
   uncommittedCount?: number;
   /** Invoked when the uncommitted row is clicked (e.g. switch to the status view). */
   onSelectUncommitted?: () => void;
+  onCheckoutCommit?: (commit: CommitSummary) => void;
   onCherryPick?: (commit: CommitSummary) => void;
   onRevert?: (commit: CommitSummary) => void;
   onReset?: (commit: CommitSummary) => void;
@@ -67,6 +68,7 @@ export function CommitList({
   onLoadMore,
   uncommittedCount = 0,
   onSelectUncommitted,
+  onCheckoutCommit,
   onCherryPick,
   onRevert,
   onReset,
@@ -253,6 +255,11 @@ export function CommitList({
                 y={menu.state.y}
                 onClose={menu.close}
                 items={[
+                  {
+                    label: "Checkout this commit…",
+                    disabled: !onCheckoutCommit,
+                    onSelect: () => onCheckoutCommit?.(commit),
+                  },
                   {
                     label: "Cherry-pick…",
                     disabled: !onCherryPick,

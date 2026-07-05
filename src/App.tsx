@@ -5,6 +5,7 @@ import { BranchesDialog } from "./components/BranchesDialog";
 import { CherryPickDialog } from "./components/CherryPickDialog";
 import { RevertDialog } from "./components/RevertDialog";
 import { ResetDialog } from "./components/ResetDialog";
+import { CheckoutCommitDialog } from "./components/CheckoutCommitDialog";
 import { OperationBanner } from "./components/OperationBanner";
 import { StashDialog } from "./components/StashDialog";
 import { TagsDialog } from "./components/TagsDialog";
@@ -58,6 +59,8 @@ export default function App() {
   const [isCherryPickOpen, setIsCherryPickOpen] = useState(false);
   const [isRevertOpen, setIsRevertOpen] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
+  const [isCheckoutCommitOpen, setIsCheckoutCommitOpen] = useState(false);
+  const [previousBranch, setPreviousBranch] = useState<string | null>(null);
   const [isRemotesOpen, setIsRemotesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDoctorOpen, setIsDoctorOpen] = useState(false);
@@ -136,6 +139,7 @@ export default function App() {
     setIsCherryPickOpen(false);
     setIsRevertOpen(false);
     setIsResetOpen(false);
+    setIsCheckoutCommitOpen(false);
     setIsRemotesOpen(false);
     setIsCloneOpen(false);
     setIsSshOpen(false);
@@ -210,6 +214,13 @@ export default function App() {
   const handleRebaseOnto = (branch: BranchInfo) => {
     if (!repoView.repository || branch.isCurrent) return;
     setRebaseTarget(branch);
+  };
+
+  const handleCheckoutCommit = (commit: CommitSummary) => {
+    // Record the branch we are leaving so the detached badge can offer "Switch back".
+    setPreviousBranch(repoView.repository?.currentBranch ?? null);
+    repoView.selectCommit(commit);
+    setIsCheckoutCommitOpen(true);
   };
 
   const handleCherryPickCommit = (commit: CommitSummary) => {
@@ -403,6 +414,7 @@ export default function App() {
               onLoadMore={repoView.loadMoreCommits}
               uncommittedCount={repoView.repository?.workingTree.length ?? 0}
               onSelectUncommitted={() => setViewMode("status")}
+              onCheckoutCommit={handleCheckoutCommit}
               onCherryPick={handleCherryPickCommit}
               onRevert={handleRevertCommit}
               onReset={handleResetCommit}
@@ -533,6 +545,14 @@ export default function App() {
           repositoryPath={repoView.repository.root}
           commit={repoView.selectedCommit}
           onClose={() => setIsResetOpen(false)}
+          onCompleted={refreshActiveRepository}
+        />
+      ) : null}
+      {isCheckoutCommitOpen && repoView.repository && repoView.selectedCommit ? (
+        <CheckoutCommitDialog
+          repositoryPath={repoView.repository.root}
+          commit={repoView.selectedCommit}
+          onClose={() => setIsCheckoutCommitOpen(false)}
           onCompleted={refreshActiveRepository}
         />
       ) : null}
