@@ -32,13 +32,21 @@ import { SplitPane } from "./components/SplitPane";
 import { CliInstallBanner } from "./components/CliInstallBanner";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { WorkingTreePanel } from "./components/WorkingTreePanel";
+import { DetachedBadge } from "./components/DetachedBadge";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { useTimeline } from "./hooks/useTimeline";
 import { RepoTabs } from "./components/RepoTabs";
 import { useLayoutPreferences } from "./hooks/useLayoutPreferences";
 import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
 import { getRepoParam, openRepoWindow } from "./lib/window";
-import { checkoutBranch, deleteBranch, mergeBranch, previewCommit, renameBranch } from "./lib/tauriApi";
+import {
+  checkoutBranch,
+  createBranch,
+  deleteBranch,
+  mergeBranch,
+  previewCommit,
+  renameBranch,
+} from "./lib/tauriApi";
 import type { BranchInfo, CommitSummary } from "./types/git";
 import "./styles.css";
 
@@ -165,6 +173,37 @@ export default function App() {
       .then(refreshActiveRepository)
       .catch(() => {
         // Errors surface on next refresh via repository state; sidebar checkout stays fire-and-forget.
+      });
+  };
+
+  const handleCreateBranchHere = () => {
+    if (!repoView.repository?.headSha) return;
+    const name = window.prompt("New branch name (from detached HEAD):")?.trim();
+    if (!name) return;
+    void createBranch({
+      repositoryPath: repoView.repository.root,
+      branchName: name,
+      startPoint: repoView.repository.headSha,
+      checkout: true,
+    })
+      .then(refreshActiveRepository)
+      .catch(() => {
+        // Errors surface on next refresh.
+      });
+  };
+
+  const handleSwitchBack = () => {
+    if (!repoView.repository || !previousBranch) return;
+    void checkoutBranch({
+      repositoryPath: repoView.repository.root,
+      branchName: previousBranch,
+    })
+      .then(() => {
+        setPreviousBranch(null);
+        refreshActiveRepository();
+      })
+      .catch(() => {
+        // Errors surface on next refresh.
       });
   };
 
@@ -305,6 +344,14 @@ export default function App() {
                 ? `${repoView.repository.currentBranch} · ahead ${repoView.repository.ahead} · behind ${repoView.repository.behind}`
                 : "Open a Git repository to inspect history and push branches."}
             </span>
+            {repoView.repository?.isDetached ? (
+              <DetachedBadge
+                headSha={repoView.repository.headSha}
+                previousBranch={previousBranch}
+                onCreateBranch={handleCreateBranchHere}
+                onSwitchBack={handleSwitchBack}
+              />
+            ) : null}
           </div>
           <div className="toolbar-actions">
             <button type="button" onClick={() => void handleOpen()}>
@@ -321,7 +368,9 @@ export default function App() {
             </button>
             <button
               type="button"
-              disabled={!repoView.repository || !!repoView.repository.operation}
+              disabled={
+                !repoView.repository || !!repoView.repository.operation || repoView.repository.isDetached
+              }
               onClick={() => setIsPushOpen(true)}
             >
               Push

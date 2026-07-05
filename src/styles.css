@@ -268,6 +268,42 @@ button:not(.commit-row):disabled {
   background: var(--border-color);
 }
 
+.detached-badge {
+  position: relative;
+  display: inline-flex;
+}
+
+.detached-badge-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.detached-badge-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent-orange);
+}
+
+.detached-badge-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 12rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+}
+
+.detached-badge-menu button {
+  text-align: left;
+}
+
 .layout-controls {
   display: flex;
   gap: 2px;
