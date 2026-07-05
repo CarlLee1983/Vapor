@@ -4,10 +4,11 @@ use tempfile::TempDir;
 use vapor_lib::git::models::{
     AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CherryPickRequest, CommitRequest,
     ConflictKind, ConflictResolution, CreateBranchRequest, CreateStashRequest,
-    DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest, HunkSelection,
-    MergeBranchRequest, PartialApplyRequest, PullRequest, PushRequest,
-    RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind, ResolveConflictRequest,
-    SafetyNetMode, SetRemoteUrlRequest, StageRequest, StashRefRequest, TagPushMode,
+    DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest, GitErrorCode,
+    HunkSelection, MergeBranchRequest, PartialApplyRequest, PullRequest, PushRequest,
+    RebaseRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
+    ResolveConflictRequest, SafetyNetMode, SetRemoteUrlRequest, StageRequest, StashRefRequest,
+    TagPushMode,
 };
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
@@ -904,4 +905,99 @@ fn resolves_delete_modify_conflict_by_keeping_deletion() {
 
     assert!(service.list_conflicted_files(work.path()).expect("relist").is_empty());
     assert!(!work.path().join("doc.txt").exists());
+}
+
+#[test]
+fn rebase_is_blocked_when_working_tree_is_dirty() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    git(work.path(), &["checkout", "-b", "topic"]);
+    std::fs::write(work.path().join("topic.txt"), "topic\n").expect("write");
+    git(work.path(), &["add", "topic.txt"]);
+    git(work.path(), &["commit", "-m", "topic commit"]);
+
+    // Leave an uncommitted change.
+    std::fs::write(work.path().join("topic.txt"), "dirty\n").expect("write");
+
+    let result = service.rebase(&RebaseRequest {
+        repository_path: work.path().to_path_buf(),
+        upstream: "main".to_string(),
+        safety_net: SafetyNetMode::Auto,
+    });
+    let error = result.expect_err("dirty tree should block rebase");
+    assert_eq!(error.code, GitErrorCode::CommandFailed);
+    assert!(error.message.to_lowercase().contains("uncommitted"));
+    // No rebase should have started.
+    assert!(service.repository_state(work.path()).expect("state").operation.is_none());
+}
+
+#[test]
+fn rebase_replays_commits_onto_upstream() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    // main advances.
+    std::fs::write(work.path().join("main.txt"), "main\n").expect("write");
+    git(work.path(), &["add", "main.txt"]);
+    git(work.path(), &["commit", "-m", "main advance"]);
+    let main_head = git_stdout(work.path(), &["rev-parse", "HEAD"]);
+
+    // topic branches from the original commit and adds its own commit.
+    git(work.path(), &["checkout", "-b", "topic", "HEAD~1"]);
+    std::fs::write(work.path().join("topic.txt"), "topic\n").expect("write");
+    git(work.path(), &["add", "topic.txt"]);
+    git(work.path(), &["commit", "-m", "topic commit"]);
+
+    service
+        .rebase(&RebaseRequest {
+            repository_path: work.path().to_path_buf(),
+            upstream: "main".to_string(),
+            safety_net: SafetyNetMode::Auto,
+        })
+        .expect("rebase");
+
+    // topic's parent is now main's head.
+    let parent = git_stdout(work.path(), &["rev-parse", "HEAD~1"]);
+    assert_eq!(parent, main_head);
+    assert!(service.repository_state(work.path()).expect("state").operation.is_none());
+}
+
+#[test]
+fn rebase_conflict_surfaces_operation_and_aborts() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    // main changes README on the same line.
+    std::fs::write(work.path().join("README.md"), "main version\n").expect("write");
+    git(work.path(), &["commit", "-am", "main change"]);
+
+    // topic branches from the original commit and changes the same line.
+    git(work.path(), &["checkout", "-b", "topic", "HEAD~1"]);
+    std::fs::write(work.path().join("README.md"), "topic version\n").expect("write");
+    git(work.path(), &["commit", "-am", "topic change"]);
+
+    let result = service.rebase(&RebaseRequest {
+        repository_path: work.path().to_path_buf(),
+        upstream: "main".to_string(),
+        safety_net: SafetyNetMode::Auto,
+    });
+    let error = result.expect_err("expected rebase conflict");
+    // Pin the observed GitErrorCode: classify_git_error() maps rebase's
+    // "error: could not apply ..." stderr to MergeConflict.
+    assert_eq!(error.code, GitErrorCode::MergeConflict);
+
+    let state = service.repository_state(work.path()).expect("state");
+    assert_eq!(
+        state.operation.as_ref().map(|op| &op.kind),
+        Some(&RepositoryOperationKind::Rebase)
+    );
+
+    service.abort_operation(work.path()).expect("abort");
+    assert!(service.repository_state(work.path()).expect("state").operation.is_none());
+    // Abort restores topic's own version.
+    assert_eq!(
+        std::fs::read_to_string(work.path().join("README.md")).unwrap(),
+        "topic version\n"
+    );
 }

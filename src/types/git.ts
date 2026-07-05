@@ -320,6 +320,18 @@ export interface MergeBranchResponse {
   stderr: string;
 }
 
+export interface RebaseRequest {
+  repositoryPath: string;
+  upstream: string;
+  safetyNet?: SafetyNetMode;
+}
+
+export interface RebaseResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
 export type SafetyOpType =
   | "merge"
   | "pull"
@@ -330,7 +342,9 @@ export type SafetyOpType =
   | "deleteBranch"
   | "undo"
   | "revert"
-  | "reset";
+  | "reset"
+  | "resolveConflict"
+  | "rebase";
 
 export type SafetyNetMode = "auto" | "force" | "skip";
 

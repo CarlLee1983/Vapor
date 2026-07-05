@@ -31,6 +31,8 @@ import {
   listConflictedFiles,
   previewResolveConflict,
   resolveConflict,
+  previewRebase,
+  rebaseBranch,
 } from "./tauriApi";
 import type { AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest } from "../types/git";
 
@@ -343,5 +345,19 @@ describe("tauriApi", () => {
     expect(invokeMock).toHaveBeenCalledWith("list_conflicted_files", {
       request: { repositoryPath: "/repo" },
     });
+  });
+
+  it("rebaseBranch forwards the request to rebase_branch", async () => {
+    invokeMock.mockResolvedValue({ preview: { program: "git", args: [], display: "" }, stdout: "", stderr: "" });
+    const request = { repositoryPath: "/repo", upstream: "main" };
+    await rebaseBranch(request);
+    expect(invokeMock).toHaveBeenCalledWith("rebase_branch", { request });
+  });
+
+  it("previewRebase forwards the request to preview_rebase", async () => {
+    invokeMock.mockResolvedValue({ program: "git", args: [], display: "git rebase main" });
+    const request = { repositoryPath: "/repo", upstream: "main" };
+    await previewRebase(request);
+    expect(invokeMock).toHaveBeenCalledWith("preview_rebase", { request });
   });
 });

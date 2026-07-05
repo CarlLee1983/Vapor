@@ -172,6 +172,23 @@ pub struct ResetResponse {
     pub stderr: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RebaseRequest {
+    pub repository_path: PathBuf,
+    pub upstream: String,
+    #[serde(default)]
+    pub safety_net: SafetyNetMode,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RebaseResponse {
+    pub preview: GitCommandPreview,
+    pub stdout: String,
+    pub stderr: String,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum ConflictResolution {

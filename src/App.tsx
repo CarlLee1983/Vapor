@@ -17,6 +17,7 @@ import { CloneDialog } from "./components/CloneDialog";
 import { SshDiagnosticsDialog } from "./components/SshDiagnosticsDialog";
 import { DoctorDialog } from "./components/DoctorDialog";
 import { TimeMachineDialog } from "./components/TimeMachineDialog";
+import { RebaseDialog } from "./components/RebaseDialog";
 import { UndoButton } from "./components/UndoButton";
 import { SafetyNetErrorActions } from "./components/SafetyNetErrorActions";
 import { RepositorySidebar } from "./components/RepositorySidebar";
@@ -61,6 +62,7 @@ export default function App() {
   const [isTimeMachineOpen, setIsTimeMachineOpen] = useState(false);
   const [isCloneOpen, setIsCloneOpen] = useState(false);
   const [isSshOpen, setIsSshOpen] = useState(false);
+  const [rebaseTarget, setRebaseTarget] = useState<BranchInfo | null>(null);
   // 記住最後一次 discard 的目標,供安全網逃生口(force/skip)重送。
   const [lastDiscard, setLastDiscard] = useState<{
     trackedPaths: string[];
@@ -199,6 +201,11 @@ export default function App() {
       });
   };
 
+  const handleRebaseOnto = (branch: BranchInfo) => {
+    if (!repoView.repository || branch.isCurrent) return;
+    setRebaseTarget(branch);
+  };
+
   const handleCherryPickCommit = (commit: CommitSummary) => {
     repoView.selectCommit(commit);
     setIsCherryPickOpen(true);
@@ -259,6 +266,7 @@ export default function App() {
         onRenameBranch={handleRenameBranch}
         onDeleteBranch={handleDeleteBranch}
         onMergeBranch={handleMergeBranch}
+        onRebaseBranch={handleRebaseOnto}
         onOpenBranches={() => setIsBranchesOpen(true)}
       />
       <section className="workspace" aria-label="Git workbench">
@@ -468,6 +476,15 @@ export default function App() {
           repository={repoView.repository}
           onClose={() => setIsStashOpen(false)}
           onChanged={refreshActiveRepository}
+        />
+      ) : null}
+      {rebaseTarget && repoView.repository?.currentBranch ? (
+        <RebaseDialog
+          repositoryPath={repoView.repository.root}
+          upstream={rebaseTarget.name}
+          currentBranch={repoView.repository.currentBranch}
+          onClose={() => setRebaseTarget(null)}
+          onCompleted={refreshActiveRepository}
         />
       ) : null}
       {isCherryPickOpen && repoView.repository && repoView.selectedCommit ? (

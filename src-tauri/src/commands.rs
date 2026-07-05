@@ -14,7 +14,8 @@ use crate::git::models::{
     ResolveConflictRequest, ResolveConflictResponse,
     LfsTrackRequest, LfsTrackResponse,
     PartialApplyRequest, PartialApplyResponse,
-    PullRequest, PullResponse, PushRequest, PushResponse, RemoteMutationResponse, RemoveRemoteRequest,
+    PullRequest, PullResponse, PushRequest, PushResponse, RebaseRequest, RebaseResponse,
+    RemoteMutationResponse, RemoveRemoteRequest,
     RenameBranchRequest, RepositoryRequest, RepositoryState, SetRemoteUrlRequest, StageRequest, StageResponse,
     StashMutationResponse, StashRefRequest, TagsmithConfigRequest, TagsmithConfigResponse,
     RestoreSnapshotFileRequest, SnapshotFilesResponse, SnapshotRefRequest, TimelineRequest,
@@ -458,6 +459,23 @@ pub async fn reset_to_commit(request: ResetRequest) -> Result<ResetResponse, Git
         .map_err(|error| GitError {
             code: crate::git::models::GitErrorCode::CommandFailed,
             message: "Reset task failed before Git completed.".to_string(),
+            hint: "Try again after refreshing the repository.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub fn preview_rebase(request: RebaseRequest) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::rebase_preview(&request)
+}
+
+#[tauri::command]
+pub async fn rebase_branch(request: RebaseRequest) -> Result<RebaseResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).rebase(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Rebase task failed before Git completed.".to_string(),
             hint: "Try again after refreshing the repository.".to_string(),
             stderr: error.to_string(),
         })?
