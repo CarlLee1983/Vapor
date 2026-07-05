@@ -145,6 +145,49 @@ describe("BranchTree", () => {
     expect(screen.getByRole("menuitem", { name: "Merge into current branch" })).toBeDisabled();
   });
 
+  it("offers a rebase-onto action for non-current branches and disables it for the current branch", async () => {
+    const user = userEvent.setup();
+    const onRebaseOnto = vi.fn();
+    const branches = [
+      { name: "main", isCurrent: true, upstream: null },
+      { name: "dev", isCurrent: false, upstream: null },
+    ];
+    render(
+      <BranchTree
+        branches={branches}
+        currentBranchName="main"
+        onCheckout={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onMerge={vi.fn()}
+        onRebaseOnto={onRebaseOnto}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByText("dev").closest(".sidebar-row")!);
+    const item = screen.getByRole("menuitem", { name: "Rebase current branch onto this" });
+    expect(item).not.toBeDisabled();
+    await user.click(item);
+    expect(onRebaseOnto).toHaveBeenCalledWith(branches[1]);
+  });
+
+  it("disables rebase-onto on the current branch", () => {
+    const branches = [{ name: "main", isCurrent: true, upstream: null }];
+    render(
+      <BranchTree
+        branches={branches}
+        currentBranchName="main"
+        onCheckout={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onMerge={vi.fn()}
+        onRebaseOnto={vi.fn()}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByText("main").closest(".sidebar-row")!);
+    expect(screen.getByRole("menuitem", { name: "Rebase current branch onto this" })).toBeDisabled();
+  });
+
   it("context menu works on a nested branch leaf", async () => {
     const user = userEvent.setup();
     const onMerge = vi.fn();
