@@ -274,6 +274,17 @@ pub struct CommitSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct BlameSegment {
+    pub commit_sha: String,
+    pub author: String,
+    pub date: String,
+    pub summary: String,
+    pub line_start: u32,
+    pub line_count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct CommitLogRequest {
     pub repository_path: PathBuf,
     pub limit: u32,

@@ -1,4 +1,5 @@
-use super::models::{BranchInfo, CommitSummary, ConflictedFile, ConflictKind, FileStatus, GitError, GitErrorCode, RemoteInfo, StashEntry};
+use super::models::{BlameSegment, BranchInfo, CommitSummary, ConflictedFile, ConflictKind, FileStatus, GitError, GitErrorCode, RemoteInfo, StashEntry};
+use std::collections::HashMap;
 
 pub fn classify_git_error(stderr: &str) -> GitError {
     let lower = stderr.to_lowercase();
@@ -244,6 +245,67 @@ pub fn parse_commit_log(stdout: &str) -> Vec<CommitSummary> {
         .collect()
 }
 
+/// Parse `git blame --porcelain` output into attribution segments, merging
+/// consecutive lines that share a commit. `date` is the author-time epoch (seconds).
+pub fn parse_blame_porcelain(stdout: &str) -> Vec<BlameSegment> {
+    // Commit metadata is emitted only the first time a sha appears; cache it.
+    let mut meta: HashMap<String, (String, String, String)> = HashMap::new();
+    let mut segments: Vec<BlameSegment> = Vec::new();
+    let mut current_sha: Option<String> = None;
+    let mut current_line: u32 = 0;
+
+    let is_header = |line: &str| -> Option<(String, u32)> {
+        let mut parts = line.split(' ');
+        let sha = parts.next()?;
+        if sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()) {
+            let _orig = parts.next()?;
+            let final_line: u32 = parts.next()?.parse().ok()?;
+            return Some((sha.to_string(), final_line));
+        }
+        None
+    };
+
+    for line in stdout.lines() {
+        if let Some((sha, final_line)) = is_header(line) {
+            current_sha = Some(sha.clone());
+            current_line = final_line;
+            meta.entry(sha).or_insert_with(|| (String::new(), String::new(), String::new()));
+        } else if let Some(sha) = &current_sha {
+            let entry = meta.get_mut(sha).expect("meta seeded on header");
+            if let Some(value) = line.strip_prefix("author ") {
+                entry.0 = value.to_string();
+            } else if let Some(value) = line.strip_prefix("author-time ") {
+                entry.1 = value.to_string();
+            } else if let Some(value) = line.strip_prefix("summary ") {
+                entry.2 = value.to_string();
+            } else if line.starts_with('\t') {
+                let sha = sha.clone();
+                match segments.last_mut() {
+                    Some(last)
+                        if last.commit_sha == sha
+                            && last.line_start + last.line_count == current_line =>
+                    {
+                        last.line_count += 1;
+                    }
+                    _ => {
+                        let (author, date, summary) = meta.get(&sha).cloned().unwrap_or_default();
+                        segments.push(BlameSegment {
+                            commit_sha: sha,
+                            author,
+                            date,
+                            summary,
+                            line_start: current_line,
+                            line_count: 1,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    segments
+}
+
 /// Map a porcelain v2 unmerged XY code (e.g. "UU", "DU") to a conflict kind.
 pub fn conflict_kind_from_xy(xy: &str) -> ConflictKind {
     match xy {
@@ -366,5 +428,39 @@ u AA N... 100644 100644 100644 100644 h1 h2 h3 added.txt\n";
         assert_eq!(files[1].kind, ConflictKind::DeletedByUs);
         assert_eq!(files[2].kind, ConflictKind::DeletedByThem);
         assert_eq!(files[3].kind, ConflictKind::BothAdded);
+    }
+
+    #[test]
+    fn parses_blame_porcelain_into_merged_segments() {
+        let input = "\
+0000000000000000000000000000000000000001 1 1 2
+author Alice
+author-time 1700000000
+author-tz +0000
+summary first commit
+filename x.txt
+\tline one
+0000000000000000000000000000000000000001 2 2
+\tline two
+0000000000000000000000000000000000000002 3 3 1
+author Bob
+author-time 1700000100
+author-tz +0000
+summary second commit
+filename x.txt
+\tline three
+";
+        let segments = parse_blame_porcelain(input);
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].commit_sha, "0000000000000000000000000000000000000001");
+        assert_eq!(segments[0].author, "Alice");
+        assert_eq!(segments[0].date, "1700000000");
+        assert_eq!(segments[0].summary, "first commit");
+        assert_eq!(segments[0].line_start, 1);
+        assert_eq!(segments[0].line_count, 2);
+        assert_eq!(segments[1].commit_sha, "0000000000000000000000000000000000000002");
+        assert_eq!(segments[1].author, "Bob");
+        assert_eq!(segments[1].line_start, 3);
+        assert_eq!(segments[1].line_count, 1);
     }
 }
