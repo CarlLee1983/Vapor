@@ -257,7 +257,7 @@ pub fn parse_blame_porcelain(stdout: &str) -> Vec<BlameSegment> {
     let is_header = |line: &str| -> Option<(String, u32)> {
         let mut parts = line.split(' ');
         let sha = parts.next()?;
-        if sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()) {
+        if matches!(sha.len(), 40 | 64) && sha.chars().all(|c| c.is_ascii_hexdigit()) {
             let _orig = parts.next()?;
             let final_line: u32 = parts.next()?.parse().ok()?;
             return Some((sha.to_string(), final_line));
@@ -462,5 +462,26 @@ filename x.txt
         assert_eq!(segments[1].author, "Bob");
         assert_eq!(segments[1].line_start, 3);
         assert_eq!(segments[1].line_count, 1);
+    }
+
+    #[test]
+    fn parses_blame_porcelain_with_sha256_header() {
+        let input = "\
+0000000000000000000000000000000000000000000000000000000000000001 1 1 1
+author Alice
+author-time 1700000000
+summary sha256 commit
+filename x.txt
+\tline one
+";
+        let segments = parse_blame_porcelain(input);
+        assert_eq!(segments.len(), 1);
+        assert_eq!(
+            segments[0].commit_sha,
+            "0000000000000000000000000000000000000000000000000000000000000001"
+        );
+        assert_eq!(segments[0].author, "Alice");
+        assert_eq!(segments[0].line_start, 1);
+        assert_eq!(segments[0].line_count, 1);
     }
 }
