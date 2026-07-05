@@ -154,6 +154,7 @@ export default function App() {
     setLastDiscard(null);
     setBlameTarget(null);
     setHistoryTarget(null);
+    setPreviousBranch(null);
   }, [workspace.activePath]);
 
   const refreshActiveRepository = () => {

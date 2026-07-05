@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App, { AUTO_REFRESH_INTERVAL_MS } from "./App";
 import { useWorkspace } from "./hooks/useWorkspace";
@@ -293,5 +293,36 @@ describe("App", () => {
     useWorkspaceMock.mockReturnValue(workspaceValue({ activePath: "/repo/other" }));
     rerender(<App />);
     expect(screen.queryByRole("dialog", { name: "Manage stashes" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer to switch back to another repo's previous branch after switching tabs", async () => {
+    // Regression test for I1: previousBranch is App-level state. Detaching in repo A
+    // (leaving "main") must not leak into repo B's DetachedBadge after a tab switch,
+    // even though repo B is independently detached.
+    const user = userEvent.setup();
+    const { rerender } = render(<App />);
+
+    // Detach in repo A: right-click a commit and choose "Checkout this commit…", which
+    // records previousBranch = "main" (repo A's current branch) via handleCheckoutCommit,
+    // ahead of the actual checkout confirmation.
+    const row = screen.getByText(repoState.commits[0].subject).closest(".commit-row")!;
+    fireEvent.contextMenu(row);
+    await user.click(screen.getByRole("menuitem", { name: "Checkout this commit…" }));
+
+    // Switch to a different repo tab that is independently in a detached state.
+    useWorkspaceMock.mockReturnValue(
+      workspaceValue({
+        activePath: "/repo/other",
+        repo: {
+          ...repoState,
+          repository: { ...repoState.repository, isDetached: true, currentBranch: null, headSha: "def4567" },
+        } as unknown as ReturnType<typeof useWorkspace>["repo"],
+      }),
+    );
+    rerender(<App />);
+
+    // Open repo B's detached badge menu; it must not offer repo A's "main" as a switch-back target.
+    await user.click(screen.getByRole("button", { name: /Detached HEAD/ }));
+    expect(screen.queryByRole("button", { name: "Switch back to main" })).not.toBeInTheDocument();
   });
 });
