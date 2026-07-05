@@ -4,7 +4,7 @@ use super::models::{
     FetchRequest, GitCommandPreview, GitError, GitErrorCode, MergeBranchRequest, PullRequest,
     PushRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
     SetRemoteUrlRequest, StashRefRequest, TagPushMode, RevertRequest, ResetRequest, ResetMode,
-    ConflictResolution, ResolveConflictRequest,
+    ConflictResolution, ResolveConflictRequest, RebaseRequest,
 };
 
 fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -586,6 +586,12 @@ pub fn reset_preview(request: &ResetRequest) -> Result<GitCommandPreview, GitErr
         flag.to_string(),
         request.commit_hash.clone(),
     ]))
+}
+
+/// `git rebase <upstream>`. History rewrite → the service wraps this in the safety net.
+pub fn rebase_preview(request: &RebaseRequest) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.upstream, "upstream")?;
+    Ok(preview(vec!["rebase".to_string(), request.upstream.clone()]))
 }
 
 pub fn abort_operation_preview(kind: RepositoryOperationKind) -> Result<GitCommandPreview, GitError> {
@@ -1554,5 +1560,28 @@ mod tests {
         request.path = String::new();
         let error = resolve_conflict_previews(&request).expect_err("empty path");
         assert_eq!(error.code, GitErrorCode::InvalidInput);
+    }
+
+    fn rebase_request() -> super::super::models::RebaseRequest {
+        super::super::models::RebaseRequest {
+            repository_path: PathBuf::from("/tmp/repo"),
+            upstream: "main".to_string(),
+            safety_net: SafetyNetMode::Auto,
+        }
+    }
+
+    #[test]
+    fn builds_rebase_args() {
+        let preview = rebase_preview(&rebase_request()).expect("preview");
+        assert_eq!(preview.args, vec!["rebase", "main"]);
+        assert_eq!(preview.display, "git rebase main");
+    }
+
+    #[test]
+    fn rejects_rebase_upstream_injection() {
+        let mut request = rebase_request();
+        request.upstream = "main; rm -rf /".to_string();
+        let error = rebase_preview(&request).expect_err("invalid upstream");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
     }
 }
