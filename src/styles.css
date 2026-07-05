@@ -1377,6 +1377,13 @@ button:not(.commit-row):disabled {
   }
 }
 
+.dialog-warning {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--conflict-marker-bg, rgba(210, 153, 34, 0.18));
+  font-size: 0.85rem;
+}
+
 .command-preview,
 .push-output {
   margin: 0;
