@@ -342,7 +342,9 @@ export type SafetyOpType =
   | "deleteBranch"
   | "undo"
   | "revert"
-  | "reset";
+  | "reset"
+  | "resolveConflict"
+  | "rebase";
 
 export type SafetyNetMode = "auto" | "force" | "skip";
 
