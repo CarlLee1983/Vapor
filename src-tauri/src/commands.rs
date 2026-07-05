@@ -1,6 +1,7 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
     AddRemoteRequest, BlameRequest, BlameResponse, BranchMutationResponse, CheckoutBranchRequest,
+    CheckoutCommitRequest,
     CherryPickRequest, CherryPickResponse,
     RevertRequest, RevertResponse, ResetRequest, ResetResponse,
     CloneRequest, CloneResponse,
@@ -266,6 +267,13 @@ pub async fn delete_git_tag(request: DeleteTagRequest) -> Result<DeleteTagRespon
 #[tauri::command]
 pub fn preview_checkout_branch(request: CheckoutBranchRequest) -> Result<GitCommandPreview, GitError> {
     crate::git::command_builder::checkout_branch_preview(&request)
+}
+
+#[tauri::command]
+pub fn preview_checkout_commit(
+    request: CheckoutCommitRequest,
+) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::checkout_commit_preview(&request)
 }
 
 #[tauri::command]

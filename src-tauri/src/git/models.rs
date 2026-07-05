@@ -518,6 +518,13 @@ pub struct CheckoutBranchRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct CheckoutCommitRequest {
+    pub repository_path: PathBuf,
+    pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateBranchRequest {
     pub repository_path: PathBuf,
     pub branch_name: String,
