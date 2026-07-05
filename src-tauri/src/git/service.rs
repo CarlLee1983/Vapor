@@ -75,6 +75,55 @@ impl<R: GitRunner> GitService<R> {
         Ok(output.stdout)
     }
 
+    pub fn file_blame(
+        &self,
+        request: &super::models::BlameRequest,
+    ) -> Result<super::models::BlameResponse, GitError> {
+        const BLAME_LINE_LIMIT: u32 = 5_000;
+
+        let rev = if request.rev.trim().is_empty() {
+            "HEAD"
+        } else {
+            request.rev.as_str()
+        };
+        super::command_builder::validate_ref_part(rev, "revision")?;
+        let content_output = self.runner.run(
+            &request.repository_path,
+            &super::command_builder::show_blob_args(rev, &request.path),
+        )?;
+        let line_count = content_output.stdout.lines().count() as u32;
+
+        if line_count > BLAME_LINE_LIMIT && !request.force {
+            return Ok(super::models::BlameResponse {
+                oversize: true,
+                line_count,
+                segments: Vec::new(),
+                content: content_output.stdout,
+            });
+        }
+
+        let blame_output = self.runner.run(
+            &request.repository_path,
+            &super::command_builder::blame_args(rev, &request.path),
+        )?;
+        Ok(super::models::BlameResponse {
+            oversize: false,
+            line_count,
+            segments: super::parsers::parse_blame_porcelain(&blame_output.stdout),
+            content: content_output.stdout,
+        })
+    }
+
+    pub fn file_history(
+        &self,
+        request: &super::models::FileHistoryRequest,
+    ) -> Result<Vec<super::models::CommitSummary>, GitError> {
+        let args =
+            super::command_builder::file_history_args(&request.path, request.limit, request.skip);
+        let output = self.runner.run(&request.repository_path, &args)?;
+        Ok(super::parsers::parse_commit_log(&output.stdout))
+    }
+
     pub fn apply_partial(
         &self,
         request: &super::models::PartialApplyRequest,

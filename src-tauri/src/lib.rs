@@ -30,6 +30,8 @@ pub fn run() {
             commands::get_repository_state,
             commands::get_commit_log,
             commands::get_diff,
+            commands::get_file_blame,
+            commands::get_file_history,
             commands::preview_push,
             commands::push_branch,
             commands::preview_clone,

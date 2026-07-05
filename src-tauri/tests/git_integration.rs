@@ -2,10 +2,11 @@ use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 use vapor_lib::git::models::{
-    AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CherryPickRequest, CommitRequest,
-    ConflictKind, ConflictResolution, CreateBranchRequest, CreateStashRequest,
+    AddRemoteRequest, ApplyMode, BlameRequest, CheckoutBranchRequest, CherryPickRequest,
+    CommitRequest, ConflictKind, ConflictResolution, CreateBranchRequest, CreateStashRequest,
     DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest, GitErrorCode,
-    HunkSelection, MergeBranchRequest, PartialApplyRequest, PullRequest, PushRequest,
+    FileHistoryRequest, HunkSelection, MergeBranchRequest, PartialApplyRequest, PullRequest,
+    PushRequest,
     RebaseRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
     ResolveConflictRequest, SafetyNetMode, SetRemoteUrlRequest, StageRequest, StashRefRequest,
     TagPushMode,
@@ -111,6 +112,95 @@ fn commit_log_paginates_with_skip() {
     // skip=2 must yield the same window as indices [2, 3] of the full log.
     assert_eq!(page2[0].hash, full[2].hash);
     assert_eq!(page2[1].hash, full[3].hash);
+}
+
+#[test]
+fn blames_a_file_and_reports_authors() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("notes.txt"), "alpha\nbeta\n").expect("write notes");
+    git(work.path(), &["add", "notes.txt"]);
+    git(work.path(), &["commit", "-m", "Add notes"]);
+    git(work.path(), &["config", "user.name", "Second Author"]);
+    git(work.path(), &["config", "user.email", "second@example.com"]);
+    std::fs::write(work.path().join("notes.txt"), "alpha\nbeta changed\n").expect("write notes");
+    git(work.path(), &["commit", "-am", "Change beta"]);
+
+    let blame = service
+        .file_blame(&BlameRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "notes.txt".to_string(),
+            rev: "HEAD".to_string(),
+            force: false,
+        })
+        .expect("blame");
+
+    assert!(!blame.oversize);
+    assert_eq!(blame.line_count, 2);
+    assert_eq!(blame.content, "alpha\nbeta changed\n");
+    assert_eq!(blame.segments.len(), 2);
+    assert_eq!(blame.segments[0].author, "Vapor Test");
+    assert_eq!(blame.segments[0].line_start, 1);
+    assert_eq!(blame.segments[0].line_count, 1);
+    assert_eq!(blame.segments[1].author, "Second Author");
+    assert_eq!(blame.segments[1].line_start, 2);
+    assert_eq!(blame.segments[1].line_count, 1);
+}
+
+#[test]
+fn file_history_follows_a_single_file() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("old-name.txt"), "one\n").expect("write old");
+    git(work.path(), &["add", "old-name.txt"]);
+    git(work.path(), &["commit", "-m", "Add tracked file"]);
+    git(work.path(), &["mv", "old-name.txt", "new-name.txt"]);
+    std::fs::write(work.path().join("new-name.txt"), "one\ntwo\n").expect("write new");
+    git(work.path(), &["commit", "-am", "Rename tracked file"]);
+
+    let history = service
+        .file_history(&FileHistoryRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "new-name.txt".to_string(),
+            limit: 20,
+            skip: 0,
+        })
+        .expect("history");
+
+    let subjects = history
+        .iter()
+        .map(|entry| entry.subject.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(subjects, vec!["Rename tracked file", "Add tracked file"]);
+}
+
+#[test]
+fn blame_reports_oversize_without_forcing() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+    let content = (1..=5_001)
+        .map(|line| format!("line {line}\n"))
+        .collect::<String>();
+
+    std::fs::write(work.path().join("big.txt"), &content).expect("write big");
+    git(work.path(), &["add", "big.txt"]);
+    git(work.path(), &["commit", "-m", "Add big file"]);
+
+    let blame = service
+        .file_blame(&BlameRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "big.txt".to_string(),
+            rev: "HEAD".to_string(),
+            force: false,
+        })
+        .expect("blame guard");
+
+    assert!(blame.oversize);
+    assert_eq!(blame.line_count, 5_001);
+    assert!(blame.segments.is_empty());
+    assert_eq!(blame.content, content);
 }
 
 #[test]

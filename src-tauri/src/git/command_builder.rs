@@ -7,7 +7,7 @@ use super::models::{
     ConflictResolution, ResolveConflictRequest, RebaseRequest,
 };
 
-fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
+pub fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
     let is_valid = !value.is_empty()
         && !value.starts_with('-')
         && !value.contains(' ')
@@ -265,18 +265,45 @@ pub fn last_commit_message_args() -> Vec<String> {
     vec!["log".to_string(), "-1".to_string(), "--pretty=%B".to_string()]
 }
 
+pub const COMMIT_LOG_FORMAT: &str = "%H%x1f%P%x1f%an%x1f%aI%x1f%s%x1f%D%x1e";
+
 /// Builds `git log` args for a paginated commit history page.
 /// `limit` is clamped to 500 per call; `skip` offsets into the full history for infinite scroll.
 pub fn commit_log_args(limit: u32, skip: u32) -> Vec<String> {
-    let format = "%H%x1f%P%x1f%an%x1f%aI%x1f%s%x1f%D%x1e";
     vec![
         "log".to_string(),
         "--all".to_string(),
         "--topo-order".to_string(),
         format!("--max-count={}", limit.min(500)),
         format!("--skip={skip}"),
-        format!("--pretty=format:{format}"),
+        format!("--pretty=format:{COMMIT_LOG_FORMAT}"),
         "--decorate=short".to_string(),
+    ]
+}
+
+pub fn blame_args(rev: &str, path: &str) -> Vec<String> {
+    vec![
+        "blame".to_string(),
+        "--porcelain".to_string(),
+        rev.to_string(),
+        "--".to_string(),
+        path.to_string(),
+    ]
+}
+
+pub fn show_blob_args(rev: &str, path: &str) -> Vec<String> {
+    vec!["show".to_string(), format!("{rev}:{path}")]
+}
+
+pub fn file_history_args(path: &str, limit: u32, skip: u32) -> Vec<String> {
+    vec![
+        "log".to_string(),
+        "--follow".to_string(),
+        format!("--max-count={}", limit.min(500)),
+        format!("--skip={skip}"),
+        format!("--pretty=format:{COMMIT_LOG_FORMAT}"),
+        "--".to_string(),
+        path.to_string(),
     ]
 }
 
@@ -989,6 +1016,35 @@ mod tests {
         let args = commit_log_args(10_000, 0);
         assert!(args.contains(&"--max-count=500".to_string()));
         assert!(!args.contains(&"--max-count=10000".to_string()));
+    }
+
+    #[test]
+    fn builds_blame_and_history_args() {
+        assert_eq!(
+            blame_args("HEAD", "src/app.rs"),
+            vec!["blame", "--porcelain", "HEAD", "--", "src/app.rs"]
+        );
+        assert_eq!(
+            show_blob_args("HEAD", "src/app.rs"),
+            vec!["show", "HEAD:src/app.rs"]
+        );
+
+        assert_eq!(
+            file_history_args("src/app.rs", 200, 400),
+            vec![
+                "log",
+                "--follow",
+                "--max-count=200",
+                "--skip=400",
+                "--pretty=format:%H%x1f%P%x1f%an%x1f%aI%x1f%s%x1f%D%x1e",
+                "--",
+                "src/app.rs",
+            ]
+        );
+
+        let clamped = file_history_args("src/app.rs", 10_000, 0);
+        assert!(clamped.contains(&"--max-count=500".to_string()));
+        assert!(!clamped.contains(&"--max-count=10000".to_string()));
     }
 
     #[test]

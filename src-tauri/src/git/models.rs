@@ -283,6 +283,40 @@ pub struct BlameSegment {
     pub line_count: u32,
 }
 
+fn default_blame_rev() -> String {
+    "HEAD".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlameRequest {
+    pub repository_path: PathBuf,
+    pub path: String,
+    #[serde(default = "default_blame_rev")]
+    pub rev: String,
+    #[serde(default)]
+    pub force: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlameResponse {
+    pub oversize: bool,
+    pub line_count: u32,
+    pub segments: Vec<BlameSegment>,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileHistoryRequest {
+    pub repository_path: PathBuf,
+    pub path: String,
+    pub limit: u32,
+    #[serde(default)]
+    pub skip: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitLogRequest {

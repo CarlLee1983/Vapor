@@ -1,13 +1,14 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
-    AddRemoteRequest, BranchMutationResponse, CheckoutBranchRequest, CherryPickRequest, CherryPickResponse,
+    AddRemoteRequest, BlameRequest, BlameResponse, BranchMutationResponse, CheckoutBranchRequest,
+    CherryPickRequest, CherryPickResponse,
     RevertRequest, RevertResponse, ResetRequest, ResetResponse,
     CloneRequest, CloneResponse,
     CommitLogRequest, CommitRequest, CommitResponse, CommitSummary,
     ConflictedFile, CreateBranchRequest, CreateStashRequest,
     CreateTagRequest, CreateTagResponse, DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest,
     DiffResponse, DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse,
-    FetchRequest, FetchResponse,
+    FetchRequest, FetchResponse, FileHistoryRequest,
     GitCommandPreview, GitError, ListConflictsRequest, ListStashesRequest, ListStashesResponse,
     ListTagsRequest, ListTagsResponse,
     MergeBranchRequest, MergeBranchResponse,
@@ -55,6 +56,34 @@ pub fn get_diff(request: DiffRequest) -> Result<DiffResponse, GitError> {
         request.file_path.as_deref(),
     )?;
     Ok(DiffResponse { text })
+}
+
+#[tauri::command]
+pub async fn get_file_blame(request: BlameRequest) -> Result<BlameResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).file_blame(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Blame task failed before Git completed.".to_string(),
+        hint: "Refresh the repository and try again.".to_string(),
+        stderr: error.to_string(),
+    })?
+}
+
+#[tauri::command]
+pub async fn get_file_history(request: FileHistoryRequest) -> Result<Vec<CommitSummary>, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).file_history(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "File history task failed before Git completed.".to_string(),
+        hint: "Refresh the repository and try again.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
