@@ -320,6 +320,18 @@ export interface MergeBranchResponse {
   stderr: string;
 }
 
+export interface RebaseRequest {
+  repositoryPath: string;
+  upstream: string;
+  safetyNet?: SafetyNetMode;
+}
+
+export interface RebaseResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
 export type SafetyOpType =
   | "merge"
   | "pull"

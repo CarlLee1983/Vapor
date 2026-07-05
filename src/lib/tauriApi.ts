@@ -45,6 +45,8 @@ import type {
   ListStashesResponse,
   MergeBranchRequest,
   MergeBranchResponse,
+  RebaseRequest,
+  RebaseResponse,
   StashMutationResponse,
   StashRefRequest,
   TimelineResponse,
@@ -279,6 +281,14 @@ export async function previewMergeBranch(request: MergeBranchRequest): Promise<G
 
 export async function mergeBranch(request: MergeBranchRequest): Promise<MergeBranchResponse> {
   return invoke<MergeBranchResponse>("merge_branch", { request });
+}
+
+export async function previewRebase(request: RebaseRequest): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_rebase", { request });
+}
+
+export async function rebaseBranch(request: RebaseRequest): Promise<RebaseResponse> {
+  return invoke<RebaseResponse>("rebase_branch", { request });
 }
 
 export async function previewDiscardChanges(
