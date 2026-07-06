@@ -9,6 +9,7 @@ import { filterCommits } from "../lib/commitFilter";
 import { SearchInput } from "./SearchInput";
 import { ContextMenu } from "./ContextMenu";
 import { useContextMenu } from "../hooks/useContextMenu";
+import { isEditableTarget } from "../lib/actions";
 
 const OVERSCAN = 6;
 const NEAR_BOTTOM_THRESHOLD = ROW_HEIGHT * 6;
@@ -130,6 +131,50 @@ export function CommitList({
     },
     [onLoadMore, hasMore, isLoadingMore, commits.length, isFiltering],
   );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      // A dialog/palette owns the keyboard while open (spec §五: dialogs auto-disable
+      // background shortcuts) — do not navigate the list behind it.
+      if (document.querySelector(".dialog-backdrop") !== null) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key !== "j" && event.key !== "k" && event.key !== "Enter") return;
+      if (commits.length === 0) return;
+
+      const currentIndex = commits.findIndex((commit) => commit.hash === selectedCommit?.hash);
+
+      if (event.key === "Enter") {
+        if (currentIndex >= 0) {
+          event.preventDefault();
+          onSelectCommit(commits[currentIndex]);
+        }
+        return;
+      }
+
+      const delta = event.key === "j" ? 1 : -1;
+      const base = currentIndex < 0 ? 0 : currentIndex;
+      const nextIndex = base + delta;
+      if (nextIndex < 0 || nextIndex >= commits.length) return; // respect bounds
+
+      event.preventDefault();
+      onSelectCommit(commits[nextIndex]);
+
+      // The list is virtualized — scroll the container so the row is in view.
+      const container = scrollRef.current;
+      if (container) {
+        const rowTop = nextIndex * ROW_HEIGHT;
+        const rowBottom = rowTop + ROW_HEIGHT;
+        if (rowTop < container.scrollTop) {
+          container.scrollTop = rowTop;
+        } else if (rowBottom > container.scrollTop + container.clientHeight) {
+          container.scrollTop = rowBottom - container.clientHeight;
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [commits, selectedCommit, onSelectCommit]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;

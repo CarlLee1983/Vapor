@@ -294,6 +294,26 @@ describe("CommitList", () => {
     fireEvent.contextMenu(row);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
+
+  it("moves selection down on j and up on k, respecting bounds", () => {
+    const onSelectCommit = vi.fn();
+    const { rerender } = render(
+      <CommitList commits={commits} selectedCommit={commits[0]} onSelectCommit={onSelectCommit} />,
+    );
+
+    fireEvent.keyDown(window, { key: "j" });
+    expect(onSelectCommit).toHaveBeenLastCalledWith(commits[1]);
+
+    onSelectCommit.mockClear();
+    rerender(<CommitList commits={commits} selectedCommit={commits[1]} onSelectCommit={onSelectCommit} />);
+    fireEvent.keyDown(window, { key: "k" });
+    expect(onSelectCommit).toHaveBeenLastCalledWith(commits[0]);
+
+    onSelectCommit.mockClear();
+    rerender(<CommitList commits={commits} selectedCommit={commits[0]} onSelectCommit={onSelectCommit} />);
+    fireEvent.keyDown(window, { key: "k" });
+    expect(onSelectCommit).not.toHaveBeenCalled(); // already at the top
+  });
 });
 
 describe("CommitList helpers", () => {
