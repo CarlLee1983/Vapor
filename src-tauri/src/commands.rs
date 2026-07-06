@@ -1,6 +1,7 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
     AddRemoteRequest, BlameRequest, BlameResponse, BranchMutationResponse, CheckoutBranchRequest,
+    CheckoutCommitRequest,
     CherryPickRequest, CherryPickResponse,
     RevertRequest, RevertResponse, ResetRequest, ResetResponse,
     CloneRequest, CloneResponse,
@@ -269,8 +270,27 @@ pub fn preview_checkout_branch(request: CheckoutBranchRequest) -> Result<GitComm
 }
 
 #[tauri::command]
+pub fn preview_checkout_commit(
+    request: CheckoutCommitRequest,
+) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::checkout_commit_preview(&request)
+}
+
+#[tauri::command]
 pub async fn checkout_branch(request: CheckoutBranchRequest) -> Result<BranchMutationResponse, GitError> {
     tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).checkout_branch(&request))
+        .await
+        .map_err(|error| GitError {
+            code: crate::git::models::GitErrorCode::CommandFailed,
+            message: "Checkout task failed before Git completed.".to_string(),
+            hint: "Try checking out again. If it keeps failing, restart Vapor.".to_string(),
+            stderr: error.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub async fn checkout_commit(request: CheckoutCommitRequest) -> Result<BranchMutationResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).checkout_commit(&request))
         .await
         .map_err(|error| GitError {
             code: crate::git::models::GitErrorCode::CommandFailed,

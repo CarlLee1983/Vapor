@@ -1,5 +1,5 @@
 use super::models::{
-    AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CherryPickRequest, CloneRequest,
+    AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CheckoutCommitRequest, CherryPickRequest, CloneRequest,
     CommitRequest, CreateBranchRequest, CreateStashRequest, DeleteBranchRequest, DiffScope,
     FetchRequest, GitCommandPreview, GitError, GitErrorCode, MergeBranchRequest, PullRequest,
     PushRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
@@ -429,6 +429,16 @@ pub fn checkout_branch_preview(request: &CheckoutBranchRequest) -> Result<GitCom
     Ok(preview(vec![
         "checkout".to_string(),
         request.branch_name.clone(),
+    ]))
+}
+
+pub fn checkout_commit_preview(
+    request: &CheckoutCommitRequest,
+) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.commit_hash, "commit")?;
+    Ok(preview(vec![
+        "checkout".to_string(),
+        request.commit_hash.clone(),
     ]))
 }
 
@@ -1190,6 +1200,27 @@ mod tests {
         let mut request = checkout_branch_request();
         request.branch_name = "--orphan".to_string();
         let error = checkout_branch_preview(&request).expect_err("invalid branch");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_checkout_commit_args() {
+        let request = CheckoutCommitRequest {
+            repository_path: std::path::PathBuf::from("/repo"),
+            commit_hash: "abc1234".to_string(),
+        };
+        let preview = checkout_commit_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["checkout", "abc1234"]);
+        assert_eq!(preview.display, "git checkout abc1234");
+    }
+
+    #[test]
+    fn rejects_checkout_commit_injection() {
+        let request = CheckoutCommitRequest {
+            repository_path: std::path::PathBuf::from("/repo"),
+            commit_hash: "--exec=evil".to_string(),
+        };
+        let error = checkout_commit_preview(&request).expect_err("invalid commit");
         assert_eq!(error.code, GitErrorCode::InvalidRef);
     }
 

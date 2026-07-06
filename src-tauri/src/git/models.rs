@@ -110,6 +110,8 @@ pub struct RepositoryState {
     pub working_tree: Vec<FileStatus>,
     pub lfs_enabled: bool,
     pub operation: Option<RepositoryOperation>,
+    pub is_detached: bool,
+    pub head_sha: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -512,6 +514,13 @@ pub struct DeleteTagResponse {
 pub struct CheckoutBranchRequest {
     pub repository_path: PathBuf,
     pub branch_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckoutCommitRequest {
+    pub repository_path: PathBuf,
+    pub commit_hash: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

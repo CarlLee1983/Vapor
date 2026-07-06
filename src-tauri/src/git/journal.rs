@@ -21,6 +21,7 @@ pub enum SafetyOpType {
     Undo,
     Revert,
     Reset,
+    Checkout,
     ResolveConflict,
     Rebase,
 }

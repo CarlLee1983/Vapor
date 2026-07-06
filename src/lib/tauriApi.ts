@@ -5,6 +5,7 @@ import type {
   BlameResponse,
   BranchMutationResponse,
   CheckoutBranchRequest,
+  CheckoutCommitRequest,
   CloneRequest,
   CloneResponse,
   CommitRequest,
@@ -193,6 +194,18 @@ export async function checkoutBranch(
   request: CheckoutBranchRequest,
 ): Promise<BranchMutationResponse> {
   return invoke<BranchMutationResponse>("checkout_branch", { request });
+}
+
+export async function previewCheckoutCommit(
+  request: CheckoutCommitRequest,
+): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_checkout_commit", { request });
+}
+
+export async function checkoutCommit(
+  request: CheckoutCommitRequest,
+): Promise<BranchMutationResponse> {
+  return invoke<BranchMutationResponse>("checkout_commit", { request });
 }
 
 export async function previewCreateBranch(request: CreateBranchRequest): Promise<GitCommandPreview> {

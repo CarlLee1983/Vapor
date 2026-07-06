@@ -227,6 +227,25 @@ describe("CommitList", () => {
     expect(screen.getByText(/沒有符合/)).toBeInTheDocument();
   });
 
+  it("shows a Checkout this commit entry and fires onCheckoutCommit", async () => {
+    const user = userEvent.setup();
+    const onCheckoutCommit = vi.fn();
+    render(
+      <CommitList
+        commits={commits}
+        selectedCommit={null}
+        onSelectCommit={vi.fn()}
+        onCheckoutCommit={onCheckoutCommit}
+      />,
+    );
+
+    const row = screen.getByText(commits[0].subject).closest(".commit-row")!;
+    fireEvent.contextMenu(row);
+
+    await user.click(screen.getByRole("menuitem", { name: "Checkout this commit…" }));
+    expect(onCheckoutCommit).toHaveBeenCalledWith(commits[0]);
+  });
+
   it("opens a context menu on a commit row and fires cherry-pick with that commit", async () => {
     const user = userEvent.setup();
     const onCherryPick = vi.fn();

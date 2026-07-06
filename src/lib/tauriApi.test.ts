@@ -4,6 +4,8 @@ import {
   addRemote,
   applyStash,
   checkoutBranch,
+  checkoutCommit,
+  previewCheckoutCommit,
   createBranch,
   createCommit,
   createStash,
@@ -244,6 +246,20 @@ describe("tauriApi", () => {
     expect(invokeMock).toHaveBeenCalledWith("checkout_branch", {
       request: { repositoryPath: "/repo", branchName: "dev" },
     });
+  });
+
+  it("checkoutCommit invokes checkout_commit with the request", async () => {
+    invokeMock.mockResolvedValue({ preview: {}, stdout: "", stderr: "" } as never);
+    const request = { repositoryPath: "/repo", commitHash: "abc1234" };
+    await checkoutCommit(request);
+    expect(invokeMock).toHaveBeenCalledWith("checkout_commit", { request });
+  });
+
+  it("previewCheckoutCommit invokes preview_checkout_commit with the request", async () => {
+    invokeMock.mockResolvedValue({ program: "git", args: [], display: "" } as never);
+    const request = { repositoryPath: "/repo", commitHash: "abc1234" };
+    await previewCheckoutCommit(request);
+    expect(invokeMock).toHaveBeenCalledWith("preview_checkout_commit", { request });
   });
 
   it("createBranch invokes create_branch with the request", async () => {

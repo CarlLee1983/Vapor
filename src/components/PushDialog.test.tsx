@@ -14,7 +14,8 @@ const repository: RepositoryState = {
   remotes: [{ name: "origin", fetchUrl: "git@example.com:vapor.git", pushUrl: "git@example.com:vapor.git" }],
   workingTree: [],
   lfsEnabled: false,
-};
+  isDetached: false,
+  headSha: null,};
 
 vi.mock("../lib/tauriApi", () => ({
   previewPush: vi.fn(async (request) => {

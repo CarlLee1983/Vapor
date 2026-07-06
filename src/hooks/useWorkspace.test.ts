@@ -24,7 +24,8 @@ function repoState(root: string, branch: string): RepositoryState {
     remotes: [],
     workingTree: [],
     lfsEnabled: false,
-  };
+    isDetached: false,
+    headSha: null,  };
 }
 
 describe("repoNameFromPath", () => {

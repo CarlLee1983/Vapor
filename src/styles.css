@@ -63,7 +63,11 @@
   --bg-error: #fff4f4;
   --border-error: #f5b5b5;
   --text-error: #912018;
-  
+
+  --bg-warning: #fff8e6;
+  --border-warning: #f0c674;
+  --text-warning: #92500e;
+
   --bg-backdrop: rgba(32, 33, 36, 0.42);
   --shadow-dialog: 0 20px 50px rgba(32, 33, 36, 0.24);
   --bg-terminal: #101828;
@@ -127,7 +131,11 @@
   --bg-error: #450a0a;
   --border-error: #7f1d1d;
   --text-error: #fca5a5;
-  
+
+  --bg-warning: #451a03;
+  --border-warning: #92400e;
+  --text-warning: #fcd34d;
+
   --bg-backdrop: rgba(0, 0, 0, 0.6);
   --shadow-dialog: 0 20px 50px rgba(0, 0, 0, 0.5);
   --bg-terminal: #020617;
@@ -258,6 +266,42 @@ button:not(.commit-row):disabled {
   align-self: stretch;
   margin: 8px 4px;
   background: var(--border-color);
+}
+
+.detached-badge {
+  position: relative;
+  display: inline-flex;
+}
+
+.detached-badge-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.detached-badge-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent-orange);
+}
+
+.detached-badge-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 12rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+}
+
+.detached-badge-menu button {
+  text-align: left;
 }
 
 .layout-controls {
@@ -1227,6 +1271,20 @@ button:not(.commit-row):disabled {
 }
 
 .error-banner pre {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+
+.warning-banner {
+  margin: 12px 12px 0;
+  border: 1px solid var(--border-warning);
+  background: var(--bg-warning);
+  color: var(--text-warning);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.warning-banner pre {
   margin: 4px 0 0;
   white-space: pre-wrap;
 }

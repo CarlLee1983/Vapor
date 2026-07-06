@@ -40,7 +40,8 @@ describe("useRepository", () => {
       remotes: [],
       workingTree: [],
       lfsEnabled: false,
-    };
+      isDetached: false,
+      headSha: null,    };
   }
 
   function commit(hash: string): CommitSummary {
@@ -67,7 +68,8 @@ describe("useRepository", () => {
       remotes: [],
       workingTree: [mockFile],
       lfsEnabled: false,
-    });
+      isDetached: false,
+      headSha: null,    });
     vi.mocked(tauriApi.getCommitLog).mockResolvedValue([]);
     vi.mocked(tauriApi.getDiff).mockResolvedValue("mock staged diff");
 
@@ -240,7 +242,8 @@ const emptyRepo: RepositoryState = {
   remotes: [],
   workingTree: [],
   lfsEnabled: false,
-};
+  isDetached: false,
+  headSha: null,};
 
 describe("useRepository commit actions", () => {
   beforeEach(() => {
@@ -321,7 +324,8 @@ describe("useRepository commit actions", () => {
       remotes: [],
       workingTree: [],
       lfsEnabled: false,
-      operation: null,
+      isDetached: false,
+      headSha: null,      operation: null,
     });
     vi.mocked(tauriApi.getCommitLog).mockResolvedValue([]);
     vi.mocked(tauriApi.getDiff).mockResolvedValue("refreshed-diff");

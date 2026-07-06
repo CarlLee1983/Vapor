@@ -22,7 +22,8 @@ const repository: RepositoryState = {
   remotes: [],
   workingTree: [{ path: "dirty.ts", indexStatus: ".", worktreeStatus: "M", sizeBytes: 0, isLfs: false }],
   lfsEnabled: false,
-};
+  isDetached: false,
+  headSha: null,};
 
 describe("StashDialog", () => {
   beforeEach(() => {
