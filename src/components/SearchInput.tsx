@@ -1,3 +1,5 @@
+import { forwardRef, useImperativeHandle, useRef } from "react";
+
 interface Props {
   value: string;
   onChange: (value: string) => void;
@@ -5,10 +7,21 @@ interface Props {
   ariaLabel: string;
 }
 
-export function SearchInput({ value, onChange, placeholder, ariaLabel }: Props) {
+export interface SearchInputHandle {
+  focus: () => void;
+}
+
+export const SearchInput = forwardRef<SearchInputHandle, Props>(function SearchInput(
+  { value, onChange, placeholder, ariaLabel },
+  ref,
+) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => ({ focus: () => inputRef.current?.focus() }), []);
+
   return (
     <div className="search-input">
       <input
+        ref={inputRef}
         type="text"
         className="search-input__field"
         value={value}
@@ -28,4 +41,4 @@ export function SearchInput({ value, onChange, placeholder, ariaLabel }: Props) 
       ) : null}
     </div>
   );
-}
+});

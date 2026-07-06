@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { SearchInput } from "./SearchInput";
+import { createRef } from "react";
+import { SearchInput, type SearchInputHandle } from "./SearchInput";
 
 describe("SearchInput", () => {
   it("renders with the given placeholder and value", () => {
@@ -27,5 +28,16 @@ describe("SearchInput", () => {
     rerender(<SearchInput value="fix" onChange={onChange} placeholder="Search…" ariaLabel="Search commits" />);
     fireEvent.click(screen.getByLabelText("Clear search"));
     expect(onChange).toHaveBeenCalledWith("");
+  });
+});
+
+describe("SearchInput ref", () => {
+  it("focuses the field when focus() is called on the ref", () => {
+    const ref = createRef<SearchInputHandle>();
+    const { getByLabelText } = render(
+      <SearchInput ref={ref} value="" onChange={() => {}} placeholder="p" ariaLabel="Search commits" />,
+    );
+    ref.current?.focus();
+    expect(getByLabelText("Search commits")).toHaveFocus();
   });
 });
