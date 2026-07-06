@@ -6,18 +6,18 @@ use crate::git::models::{
     CreateBranchRequest, CreateStashRequest, CreateTagRequest, CreateTagResponse,
     DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest, DiffResponse,
     DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse, FetchRequest,
-    FetchResponse, FileHistoryRequest, GitCommandPreview, GitError, InteractiveRebaseRequest,
-    InteractiveRebaseResponse, LfsTrackRequest, LfsTrackResponse, ListConflictsRequest,
-    ListStashesRequest, ListStashesResponse, ListTagsRequest, ListTagsResponse,
-    MergeBranchRequest, MergeBranchResponse, PartialApplyRequest, PartialApplyResponse,
-    PullRequest, PullResponse, PushRequest, PushResponse, RebaseRequest,
+    FetchResponse, FileHistoryRequest, GitCommandPreview, GitError, GetSubmodulesRequest,
+    InteractiveRebaseRequest, InteractiveRebaseResponse, LfsTrackRequest, LfsTrackResponse,
+    ListConflictsRequest, ListStashesRequest, ListStashesResponse, ListTagsRequest,
+    ListTagsResponse, MergeBranchRequest, MergeBranchResponse, PartialApplyRequest,
+    PartialApplyResponse, PullRequest, PullResponse, PushRequest, PushResponse, RebaseRequest,
     RebaseResponse, RebaseTodoCommitsRequest, RemoteMutationResponse, RemoveRemoteRequest,
     RenameBranchRequest, RepositoryRequest, RepositoryState, ResetRequest, ResetResponse,
     ResolveConflictRequest, ResolveConflictResponse, RestoreSnapshotFileRequest, RevertRequest,
     RevertResponse, SetRemoteUrlRequest, SnapshotFilesResponse, SnapshotRefRequest, StageRequest,
-    StageResponse, StashMutationResponse, StashRefRequest, TagsmithConfigRequest,
+    StageResponse, SubmoduleStatus, StashMutationResponse, StashRefRequest, TagsmithConfigRequest,
     TagsmithConfigResponse, TimelineRequest, TimelineResponse, UndoPlan, UndoPlanRequest,
-    UndoRequest,
+    UndoRequest, UpdateAllSubmodulesRequest, UpdateSubmoduleRequest, SubmoduleUpdateResponse,
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
@@ -657,6 +657,45 @@ pub async fn fetch_remote(request: FetchRequest) -> Result<FetchResponse, GitErr
             hint: "Try the fetch again. If it keeps failing, restart Vapor.".to_string(),
             stderr: error.to_string(),
         })?
+}
+
+#[tauri::command]
+pub fn get_submodules(
+    request: GetSubmodulesRequest,
+) -> Result<Vec<SubmoduleStatus>, GitError> {
+    GitService::new(SystemGitRunner).submodules(&request.repository_path)
+}
+
+#[tauri::command]
+pub async fn update_submodule(
+    request: UpdateSubmoduleRequest,
+) -> Result<SubmoduleUpdateResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).update_submodule(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Submodule update task failed to run.".to_string(),
+        hint: "Try the update again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
+}
+
+#[tauri::command]
+pub async fn update_all_submodules(
+    request: UpdateAllSubmodulesRequest,
+) -> Result<SubmoduleUpdateResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).update_all_submodules(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Submodule update task failed to run.".to_string(),
+        hint: "Try the update again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
