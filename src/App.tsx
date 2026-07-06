@@ -420,6 +420,7 @@ export default function App() {
         onRebaseBranch={handleRebaseOnto}
         onInteractiveRebase={handleInteractiveRebaseOnto}
         onOpenBranches={() => setIsBranchesOpen(true)}
+        onSubmodulesChanged={refreshActiveRepository}
       />
       <section className="workspace" aria-label="Git workbench">
         <header className="toolbar">

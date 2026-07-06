@@ -2,8 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RepositorySidebar } from "./RepositorySidebar";
+import { getSubmodules } from "../lib/tauriApi";
 import type { RepositoryState } from "../types/git";
 import type { RepoEntry } from "../types/git";
+
+vi.mock("../lib/tauriApi", () => ({
+  getSubmodules: vi.fn().mockResolvedValue([]),
+  updateSubmodule: vi.fn(),
+  updateAllSubmodules: vi.fn(),
+}));
 
 const mockRepo: RepositoryState = {
   root: "/repo",
@@ -208,5 +215,26 @@ describe("RepositorySidebar", () => {
     fireEvent.contextMenu(row);
     await user.click(screen.getByRole("menuitem", { name: "Merge into current branch" }));
     expect(onMergeBranch).toHaveBeenCalledWith(repository.branches[1]);
+  });
+
+  it("renders the Submodules group for a repository with submodules", async () => {
+    vi.mocked(getSubmodules).mockResolvedValueOnce([
+      { path: "libs/foo", sha: "e1b2c3d4e5f6", state: "inSync", describe: "v1.0" },
+    ]);
+    render(
+      <RepositorySidebar
+        repository={mockRepo}
+        openRepos={[{ path: mockRepo.root, name: "repo" }]}
+        activePath={mockRepo.root}
+        viewMode="history"
+        onViewModeChange={vi.fn()}
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Submodules")).toBeInTheDocument();
+    expect(screen.getByText("libs/foo")).toBeInTheDocument();
   });
 });
