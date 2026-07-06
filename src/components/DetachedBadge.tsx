@@ -26,6 +26,7 @@ export function DetachedBadge({ headSha, previousBranch, onCreateBranch, onSwitc
         <div className="detached-badge-menu" role="menu">
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setOpen(false);
               onCreateBranch();
@@ -36,6 +37,7 @@ export function DetachedBadge({ headSha, previousBranch, onCreateBranch, onSwitc
           {previousBranch ? (
             <button
               type="button"
+              role="menuitem"
               onClick={() => {
                 setOpen(false);
                 onSwitchBack();

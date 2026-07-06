@@ -323,6 +323,6 @@ describe("App", () => {
 
     // Open repo B's detached badge menu; it must not offer repo A's "main" as a switch-back target.
     await user.click(screen.getByRole("button", { name: /Detached HEAD/ }));
-    expect(screen.queryByRole("button", { name: "Switch back to main" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Switch back to main" })).not.toBeInTheDocument();
   });
 });
