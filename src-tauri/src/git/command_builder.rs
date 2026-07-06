@@ -2,9 +2,10 @@ use super::models::{
     AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CheckoutCommitRequest, CherryPickRequest,
     CloneRequest, CommitRequest, ConflictResolution, CreateBranchRequest, CreateStashRequest,
     DeleteBranchRequest, DiffScope, FetchRequest, GitCommandPreview, GitError, GitErrorCode,
-    MergeBranchRequest, PullRequest, PushRequest, RebaseRequest, RemoveRemoteRequest,
-    RenameBranchRequest, RepositoryOperationKind, ResetMode, ResetRequest, ResolveConflictRequest,
-    RevertRequest, SetRemoteUrlRequest, StashRefRequest, TagPushMode,
+    InteractiveRebaseRequest, MergeBranchRequest, PullRequest, PushRequest, RebaseAction,
+    RebaseRequest, RebaseTodoItem, RemoveRemoteRequest, RenameBranchRequest,
+    RepositoryOperationKind, ResetMode, ResetRequest, ResolveConflictRequest, RevertRequest,
+    SetRemoteUrlRequest, StashRefRequest, TagPushMode,
 };
 
 pub fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -651,6 +652,59 @@ pub fn rebase_preview(request: &RebaseRequest) -> Result<GitCommandPreview, GitE
         "rebase".to_string(),
         request.upstream.clone(),
     ]))
+}
+
+/// Renders a git rebase todo body (`<action> <hash>` per line; apply order = top-first).
+/// Messages are injected separately through GIT_EDITOR, so only action + hash appear here.
+pub fn render_rebase_todo(items: &[RebaseTodoItem]) -> Result<String, GitError> {
+    if items.is_empty() {
+        return Err(GitError {
+            code: GitErrorCode::InvalidRef,
+            message: "Interactive rebase needs at least one commit.".to_string(),
+            hint: "Select a branch with commits ahead of the target.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    let mut lines = String::new();
+    for item in items {
+        validate_commit_hash(&item.commit_hash)?;
+        let keyword = match item.action {
+            RebaseAction::Pick => "pick",
+            RebaseAction::Reword => "reword",
+            RebaseAction::Squash => "squash",
+            RebaseAction::Fixup => "fixup",
+            RebaseAction::Drop => "drop",
+        };
+        lines.push_str(keyword);
+        lines.push(' ');
+        lines.push_str(&item.commit_hash);
+        lines.push('\n');
+    }
+    Ok(lines)
+}
+
+/// The equivalent `git rebase -i <upstream>` preview shown before executing.
+pub fn interactive_rebase_preview(
+    request: &InteractiveRebaseRequest,
+) -> Result<GitCommandPreview, GitError> {
+    validate_ref_part(&request.upstream, "upstream")?;
+    Ok(preview(vec![
+        "rebase".to_string(),
+        "-i".to_string(),
+        request.upstream.clone(),
+    ]))
+}
+
+/// `git log <upstream>..HEAD` in the same machine-readable format as `commit_log_args`,
+/// so `parse_commit_log` reads it. Newest-first (git log default).
+pub fn rebase_todo_range_args(upstream: &str) -> Result<Vec<String>, GitError> {
+    validate_ref_part(upstream, "upstream")?;
+    Ok(vec![
+        "log".to_string(),
+        "--pretty=format:%H%x1f%P%x1f%an%x1f%aI%x1f%s%x1f%D%x1e".to_string(),
+        "--decorate=short".to_string(),
+        format!("{upstream}..HEAD"),
+    ])
 }
 
 pub fn abort_operation_preview(
@@ -1673,6 +1727,65 @@ mod tests {
         let mut request = reset_request(ResetMode::Hard);
         request.commit_hash = "abc1234 --hard".to_string();
         let error = reset_preview(&request).expect_err("invalid hash");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn renders_rebase_todo_in_order() {
+        let items = vec![
+            RebaseTodoItem {
+                commit_hash: "aaa1111".to_string(),
+                action: RebaseAction::Pick,
+                message: None,
+            },
+            RebaseTodoItem {
+                commit_hash: "bbb2222".to_string(),
+                action: RebaseAction::Squash,
+                message: Some("combined".to_string()),
+            },
+            RebaseTodoItem {
+                commit_hash: "ccc3333".to_string(),
+                action: RebaseAction::Drop,
+                message: None,
+            },
+        ];
+        let todo = render_rebase_todo(&items).expect("todo");
+        assert_eq!(todo, "pick aaa1111\nsquash bbb2222\ndrop ccc3333\n");
+    }
+
+    #[test]
+    fn rejects_rebase_todo_with_bad_hash() {
+        let items = vec![RebaseTodoItem {
+            commit_hash: "--exec=evil".to_string(),
+            action: RebaseAction::Pick,
+            message: None,
+        }];
+        let error = render_rebase_todo(&items).expect_err("invalid hash");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn rejects_empty_rebase_todo() {
+        let error = render_rebase_todo(&[]).expect_err("empty todo");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_interactive_rebase_preview() {
+        let request = InteractiveRebaseRequest {
+            repository_path: PathBuf::from("/repo"),
+            upstream: "main".to_string(),
+            items: vec![],
+            safety_net: SafetyNetMode::Auto,
+        };
+        let preview = interactive_rebase_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["rebase", "-i", "main"]);
+        assert_eq!(preview.display, "git rebase -i main");
+    }
+
+    #[test]
+    fn rejects_range_args_for_bad_upstream() {
+        let error = rebase_todo_range_args("main; rm -rf /").expect_err("invalid upstream");
         assert_eq!(error.code, GitErrorCode::InvalidRef);
     }
 
