@@ -302,6 +302,32 @@ export interface ResetResponse {
   stderr: string;
 }
 
+export type RebaseAction = "pick" | "reword" | "squash" | "fixup" | "drop";
+
+export interface RebaseTodoItem {
+  commitHash: string;
+  action: RebaseAction;
+  message?: string;
+}
+
+export interface InteractiveRebaseRequest {
+  repositoryPath: string;
+  upstream: string;
+  items: RebaseTodoItem[];
+  safetyNet?: SafetyNetMode;
+}
+
+export interface InteractiveRebaseResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}
+
+export interface RebaseTodoCommitsRequest {
+  repositoryPath: string;
+  upstream: string;
+}
+
 export interface StageRequest {
   repositoryPath: string;
   paths: string[];
