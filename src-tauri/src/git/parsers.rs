@@ -1,4 +1,7 @@
-use super::models::{BlameSegment, BranchInfo, CommitSummary, ConflictedFile, ConflictKind, FileStatus, GitError, GitErrorCode, RemoteInfo, StashEntry};
+use super::models::{
+    BlameSegment, BranchInfo, CommitSummary, ConflictKind, ConflictedFile, FileStatus, GitError,
+    GitErrorCode, RemoteInfo, StashEntry,
+};
 use std::collections::HashMap;
 
 pub fn classify_git_error(stderr: &str) -> GitError {
@@ -81,7 +84,9 @@ mod tests {
 
     #[test]
     fn classifies_authentication_failure() {
-        let error = classify_git_error("Permission denied (publickey). Could not read from remote repository.");
+        let error = classify_git_error(
+            "Permission denied (publickey). Could not read from remote repository.",
+        );
         assert_eq!(error.code, GitErrorCode::AuthenticationFailed);
     }
 }
@@ -171,7 +176,11 @@ pub fn parse_branches(stdout: &str) -> Vec<BranchInfo> {
             Some(BranchInfo {
                 name: parts[0].to_string(),
                 is_current: parts[1] == "*",
-                upstream: if parts[2].is_empty() { None } else { Some(parts[2].to_string()) },
+                upstream: if parts[2].is_empty() {
+                    None
+                } else {
+                    Some(parts[2].to_string())
+                },
             })
         })
         .collect()
@@ -201,7 +210,11 @@ pub fn parse_remotes(stdout: &str) -> Vec<RemoteInfo> {
                 "(push)" => (None, Some(url)),
                 _ => (None, None),
             };
-            remotes.push(RemoteInfo { name: name.to_string(), fetch_url, push_url });
+            remotes.push(RemoteInfo {
+                name: name.to_string(),
+                fetch_url,
+                push_url,
+            });
         }
     }
 
@@ -239,7 +252,10 @@ pub fn parse_commit_log(stdout: &str) -> Vec<CommitSummary> {
             }
             Some(CommitSummary {
                 hash: parts[0].to_string(),
-                parents: parts[1].split_whitespace().map(ToString::to_string).collect(),
+                parents: parts[1]
+                    .split_whitespace()
+                    .map(ToString::to_string)
+                    .collect(),
                 author: parts[2].to_string(),
                 date: parts[3].to_string(),
                 subject: parts[4].to_string(),
@@ -277,7 +293,8 @@ pub fn parse_blame_porcelain(stdout: &str) -> Vec<BlameSegment> {
         if let Some((sha, final_line)) = is_header(line) {
             current_sha = Some(sha.clone());
             current_line = final_line;
-            meta.entry(sha).or_insert_with(|| (String::new(), String::new(), String::new()));
+            meta.entry(sha)
+                .or_insert_with(|| (String::new(), String::new(), String::new()));
         } else if let Some(sha) = &current_sha {
             let entry = meta.get_mut(sha).expect("meta seeded on header");
             if let Some(value) = line.strip_prefix("author ") {
@@ -365,7 +382,8 @@ mod repository_parser_tests {
 
     #[test]
     fn parses_porcelain_unmerged_entry() {
-        let input = "# branch.head main\nu UU N... 100644 100644 100644 abc def ghi 100644 conflict.txt\n";
+        let input =
+            "# branch.head main\nu UU N... 100644 100644 100644 abc def ghi 100644 conflict.txt\n";
         let (_branch, _ahead, _behind, files) = parse_porcelain_status(input);
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].path, "conflict.txt");
@@ -375,7 +393,8 @@ mod repository_parser_tests {
 
     #[test]
     fn parses_porcelain_rename_entry_path() {
-        let input = "# branch.head main\n2 R. N... 100644 100644 100644 abc abc R100 new name.rs\told.rs\n";
+        let input =
+            "# branch.head main\n2 R. N... 100644 100644 100644 abc abc R100 new name.rs\told.rs\n";
         let (_branch, _ahead, _behind, files) = parse_porcelain_status(input);
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].path, "new name.rs");
@@ -405,7 +424,8 @@ mod repository_parser_tests {
 
     #[test]
     fn parses_commit_log_parents_and_empty_refs() {
-        let input = "def456\x1fabc123 111222\x1fBob\x1f2024-01-02T00:00:00+00:00\x1fMerge branch x\x1f\x1e";
+        let input =
+            "def456\x1fabc123 111222\x1fBob\x1f2024-01-02T00:00:00+00:00\x1fMerge branch x\x1f\x1e";
         let commits = parse_commit_log(input);
         assert_eq!(commits[0].parents, vec!["abc123", "111222"]);
         assert!(commits[0].refs.is_empty());
@@ -413,16 +433,24 @@ mod repository_parser_tests {
 
     #[test]
     fn parses_remote_fetch_and_push_urls() {
-        let input = "origin\tgit@example.com:vapor.git (fetch)\norigin\tgit@example.com:vapor.git (push)\n";
+        let input =
+            "origin\tgit@example.com:vapor.git (fetch)\norigin\tgit@example.com:vapor.git (push)\n";
         let remotes = parse_remotes(input);
         assert_eq!(remotes[0].name, "origin");
-        assert_eq!(remotes[0].fetch_url.as_deref(), Some("git@example.com:vapor.git"));
-        assert_eq!(remotes[0].push_url.as_deref(), Some("git@example.com:vapor.git"));
+        assert_eq!(
+            remotes[0].fetch_url.as_deref(),
+            Some("git@example.com:vapor.git")
+        );
+        assert_eq!(
+            remotes[0].push_url.as_deref(),
+            Some("git@example.com:vapor.git")
+        );
     }
 
     #[test]
     fn parses_stash_list_entries() {
-        let input = "stash@{0}\tWIP on main: abc1234 Save work\nstash@{1}\tOn dev: def5678 older stash\n";
+        let input =
+            "stash@{0}\tWIP on main: abc1234 Save work\nstash@{1}\tOn dev: def5678 older stash\n";
         let stashes = parse_stash_list(input);
         assert_eq!(stashes.len(), 2);
         assert_eq!(stashes[0].reference, "stash@{0}");
@@ -469,13 +497,19 @@ filename x.txt
 ";
         let segments = parse_blame_porcelain(input);
         assert_eq!(segments.len(), 2);
-        assert_eq!(segments[0].commit_sha, "0000000000000000000000000000000000000001");
+        assert_eq!(
+            segments[0].commit_sha,
+            "0000000000000000000000000000000000000001"
+        );
         assert_eq!(segments[0].author, "Alice");
         assert_eq!(segments[0].date, "1700000000");
         assert_eq!(segments[0].summary, "first commit");
         assert_eq!(segments[0].line_start, 1);
         assert_eq!(segments[0].line_count, 2);
-        assert_eq!(segments[1].commit_sha, "0000000000000000000000000000000000000002");
+        assert_eq!(
+            segments[1].commit_sha,
+            "0000000000000000000000000000000000000002"
+        );
         assert_eq!(segments[1].author, "Bob");
         assert_eq!(segments[1].line_start, 3);
         assert_eq!(segments[1].line_count, 1);

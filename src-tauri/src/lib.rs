@@ -26,6 +26,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(cli::LaunchPath(launch_path))
+        .manage(git::watcher::WatcherRegistry::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_repository_state,
             commands::get_commit_log,
@@ -100,6 +101,8 @@ pub fn run() {
             commands::doctor_run,
             commands::doctor_fix,
             commands::open_repo_window,
+            commands::watch_repository,
+            commands::unwatch_repository,
             commands::get_timeline,
             commands::plan_undo,
             commands::execute_undo,

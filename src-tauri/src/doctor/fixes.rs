@@ -17,7 +17,8 @@ fn io_error(detail: &str) -> GitError {
     GitError {
         code: GitErrorCode::CommandFailed,
         message: "Doctor fix failed.".to_string(),
-        hint: "Check write permissions for ~/.config in your home directory and try again.".to_string(),
+        hint: "Check write permissions for ~/.config in your home directory and try again."
+            .to_string(),
         stderr: detail.to_string(),
     }
 }

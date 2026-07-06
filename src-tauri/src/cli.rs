@@ -103,7 +103,10 @@ pub fn install_cli(app_binary: &Path) -> Result<String, GitError> {
     let hint = if needs_path_hint {
         format!(
             " Add it to your PATH: echo 'export PATH=\"{}:$PATH\"' >> ~/.zshrc",
-            target.parent().map(|p| p.display().to_string()).unwrap_or_default()
+            target
+                .parent()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default()
         )
     } else {
         String::new()
@@ -189,12 +192,19 @@ mod tests {
     #[test]
     fn returns_first_non_flag_argument() {
         let args = vec!["vapor".to_string(), "/Users/carl/repo".to_string()];
-        assert_eq!(parse_launch_path(&args), Some(PathBuf::from("/Users/carl/repo")));
+        assert_eq!(
+            parse_launch_path(&args),
+            Some(PathBuf::from("/Users/carl/repo"))
+        );
     }
 
     #[test]
     fn skips_leading_flags() {
-        let args = vec!["vapor".to_string(), "--debug".to_string(), "/repo".to_string()];
+        let args = vec![
+            "vapor".to_string(),
+            "--debug".to_string(),
+            "/repo".to_string(),
+        ];
         assert_eq!(parse_launch_path(&args), Some(PathBuf::from("/repo")));
     }
 

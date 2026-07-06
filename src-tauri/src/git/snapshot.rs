@@ -19,7 +19,11 @@ pub struct SnapshotResult {
 pub fn resolve_git_dir<R: GitRunner>(runner: &R, repo: &Path) -> Result<PathBuf, GitError> {
     let output = runner.run(repo, &["rev-parse".to_string(), "--git-dir".to_string()])?;
     let raw = PathBuf::from(output.stdout.trim());
-    Ok(if raw.is_absolute() { raw } else { repo.join(raw) })
+    Ok(if raw.is_absolute() {
+        raw
+    } else {
+        repo.join(raw)
+    })
 }
 
 pub fn new_snapshot_id(op_label: &str) -> String {
@@ -72,7 +76,10 @@ pub fn create_snapshot<R: GitRunner>(
         stderr: error.to_string(),
     })?;
     let tmp_index = vapor_dir.join(format!("tmp-index-{id}"));
-    let env = vec![("GIT_INDEX_FILE".to_string(), tmp_index.display().to_string())];
+    let env = vec![(
+        "GIT_INDEX_FILE".to_string(),
+        tmp_index.display().to_string(),
+    )];
 
     let build = (|| -> Result<SnapshotResult, GitError> {
         if head.is_some() {
@@ -123,7 +130,10 @@ pub fn create_snapshot<R: GitRunner>(
                 ],
             )
             .map_err(|error| snapshot_error("update-ref", error))?;
-        Ok(SnapshotResult { snapshot_ref, commit })
+        Ok(SnapshotResult {
+            snapshot_ref,
+            commit,
+        })
     })();
 
     let _ = std::fs::remove_file(&tmp_index);
@@ -136,10 +146,14 @@ pub fn create_snapshot<R: GitRunner>(
 
 /// 內部 ref 防呆:只接受我們自己的 namespace,杜絕任意 ref 注入。
 fn validate_snapshot_ref(reference: &str) -> Result<(), GitError> {
-    let suffix = reference.strip_prefix("refs/vapor/snapshots/").unwrap_or("");
+    let suffix = reference
+        .strip_prefix("refs/vapor/snapshots/")
+        .unwrap_or("");
     let valid = reference.starts_with("refs/vapor/snapshots/")
         && !suffix.is_empty()
-        && suffix.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+        && suffix
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-');
     if valid {
         Ok(())
     } else {
@@ -273,7 +287,7 @@ pub fn cleanup_snapshots<R: GitRunner>(
         &[
             "for-each-ref".to_string(),
             "refs/vapor/snapshots".to_string(),
-            "--sort=-refname".to_string(),     // 同秒建立的快照以 ID 降序決勝
+            "--sort=-refname".to_string(), // 同秒建立的快照以 ID 降序決勝
             "--sort=-creatordate".to_string(), // 主鍵:建立時間降序
             "--format=%(refname)%09%(creatordate:unix)".to_string(),
         ],

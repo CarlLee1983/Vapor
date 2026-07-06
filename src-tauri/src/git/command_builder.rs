@@ -1,10 +1,10 @@
 use super::models::{
-    AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CheckoutCommitRequest, CherryPickRequest, CloneRequest,
-    CommitRequest, CreateBranchRequest, CreateStashRequest, DeleteBranchRequest, DiffScope,
-    FetchRequest, GitCommandPreview, GitError, GitErrorCode, MergeBranchRequest, PullRequest,
-    PushRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
-    SetRemoteUrlRequest, StashRefRequest, TagPushMode, RevertRequest, ResetRequest, ResetMode,
-    ConflictResolution, ResolveConflictRequest, RebaseRequest,
+    AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CheckoutCommitRequest, CherryPickRequest,
+    CloneRequest, CommitRequest, ConflictResolution, CreateBranchRequest, CreateStashRequest,
+    DeleteBranchRequest, DiffScope, FetchRequest, GitCommandPreview, GitError, GitErrorCode,
+    MergeBranchRequest, PullRequest, PushRequest, RebaseRequest, RemoveRemoteRequest,
+    RenameBranchRequest, RepositoryOperationKind, ResetMode, ResetRequest, ResolveConflictRequest,
+    RevertRequest, SetRemoteUrlRequest, StashRefRequest, TagPushMode,
 };
 
 pub fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -89,7 +89,11 @@ pub fn lfs_track_args(pattern: &str) -> Result<Vec<String>, GitError> {
             stderr: String::new(),
         });
     }
-    Ok(vec!["lfs".to_string(), "track".to_string(), pattern.to_string()])
+    Ok(vec![
+        "lfs".to_string(),
+        "track".to_string(),
+        pattern.to_string(),
+    ])
 }
 
 pub fn clone_preview(request: &CloneRequest) -> Result<GitCommandPreview, GitError> {
@@ -262,7 +266,11 @@ pub fn commit_preview(request: &CommitRequest) -> Result<GitCommandPreview, GitE
 }
 
 pub fn last_commit_message_args() -> Vec<String> {
-    vec!["log".to_string(), "-1".to_string(), "--pretty=%B".to_string()]
+    vec![
+        "log".to_string(),
+        "-1".to_string(),
+        "--pretty=%B".to_string(),
+    ]
 }
 
 pub const COMMIT_LOG_FORMAT: &str = "%H%x1f%P%x1f%an%x1f%aI%x1f%s%x1f%D%x1e";
@@ -314,12 +322,14 @@ pub fn diff_args(
 ) -> Result<Vec<String>, GitError> {
     let mut args = match scope {
         DiffScope::Commit => {
-            let hash = commit_hash.filter(|value| !value.trim().is_empty()).ok_or_else(|| GitError {
-                code: GitErrorCode::CommandFailed,
-                message: "No commit selected.".to_string(),
-                hint: "Select a commit before requesting a commit diff.".to_string(),
-                stderr: String::new(),
-            })?;
+            let hash = commit_hash
+                .filter(|value| !value.trim().is_empty())
+                .ok_or_else(|| GitError {
+                    code: GitErrorCode::CommandFailed,
+                    message: "No commit selected.".to_string(),
+                    hint: "Select a commit before requesting a commit diff.".to_string(),
+                    stderr: String::new(),
+                })?;
             vec!["show".to_string(), "--patch".to_string(), hash.to_string()]
         }
         DiffScope::Staged => vec!["diff".to_string(), "--cached".to_string()],
@@ -362,11 +372,18 @@ pub fn list_tags_args() -> Vec<String> {
     vec!["tag".to_string(), "--list".to_string()]
 }
 
-pub fn create_tag_preview(request: &super::models::CreateTagRequest) -> Result<GitCommandPreview, GitError> {
+pub fn create_tag_preview(
+    request: &super::models::CreateTagRequest,
+) -> Result<GitCommandPreview, GitError> {
     validate_tag_name(&request.tag_name)?;
 
     let mut args = vec!["tag".to_string()];
-    if let Some(message) = request.message.as_ref().map(|value| value.trim()).filter(|value| !value.is_empty()) {
+    if let Some(message) = request
+        .message
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
         args.push("-a".to_string());
         args.push(request.tag_name.clone());
         args.push("-m".to_string());
@@ -378,10 +395,7 @@ pub fn create_tag_preview(request: &super::models::CreateTagRequest) -> Result<G
     Ok(preview(args))
 }
 
-pub fn push_tag_preview(
-    tag_name: &str,
-    remote: &str,
-) -> Result<GitCommandPreview, GitError> {
+pub fn push_tag_preview(tag_name: &str, remote: &str) -> Result<GitCommandPreview, GitError> {
     validate_tag_name(tag_name)?;
     validate_ref_part(remote, "remote")?;
     Ok(preview(vec![
@@ -424,7 +438,9 @@ fn validate_start_point(value: &str) -> Result<(), GitError> {
     Ok(())
 }
 
-pub fn checkout_branch_preview(request: &CheckoutBranchRequest) -> Result<GitCommandPreview, GitError> {
+pub fn checkout_branch_preview(
+    request: &CheckoutBranchRequest,
+) -> Result<GitCommandPreview, GitError> {
     validate_ref_part(&request.branch_name, "branch name")?;
     Ok(preview(vec![
         "checkout".to_string(),
@@ -449,7 +465,11 @@ pub fn create_branch_preview(request: &CreateBranchRequest) -> Result<GitCommand
     }
 
     if request.checkout {
-        let mut args = vec!["checkout".to_string(), "-b".to_string(), request.branch_name.clone()];
+        let mut args = vec![
+            "checkout".to_string(),
+            "-b".to_string(),
+            request.branch_name.clone(),
+        ];
         if let Some(start_point) = request.start_point.as_ref() {
             args.push(start_point.clone());
         }
@@ -574,9 +594,8 @@ pub fn drop_stash_preview(request: &StashRefRequest) -> Result<GitCommandPreview
 }
 
 pub fn validate_commit_hash(value: &str) -> Result<(), GitError> {
-    let is_valid = !value.is_empty()
-        && value.len() <= 40
-        && value.chars().all(|ch| ch.is_ascii_hexdigit());
+    let is_valid =
+        !value.is_empty() && value.len() <= 40 && value.chars().all(|ch| ch.is_ascii_hexdigit());
 
     if is_valid {
         Ok(())
@@ -628,12 +647,19 @@ pub fn reset_preview(request: &ResetRequest) -> Result<GitCommandPreview, GitErr
 /// `git rebase <upstream>`. History rewrite → the service wraps this in the safety net.
 pub fn rebase_preview(request: &RebaseRequest) -> Result<GitCommandPreview, GitError> {
     validate_ref_part(&request.upstream, "upstream")?;
-    Ok(preview(vec!["rebase".to_string(), request.upstream.clone()]))
+    Ok(preview(vec![
+        "rebase".to_string(),
+        request.upstream.clone(),
+    ]))
 }
 
-pub fn abort_operation_preview(kind: RepositoryOperationKind) -> Result<GitCommandPreview, GitError> {
+pub fn abort_operation_preview(
+    kind: RepositoryOperationKind,
+) -> Result<GitCommandPreview, GitError> {
     let args = match kind {
-        RepositoryOperationKind::CherryPick => vec!["cherry-pick".to_string(), "--abort".to_string()],
+        RepositoryOperationKind::CherryPick => {
+            vec!["cherry-pick".to_string(), "--abort".to_string()]
+        }
         RepositoryOperationKind::Merge => vec!["merge".to_string(), "--abort".to_string()],
         RepositoryOperationKind::Rebase => vec!["rebase".to_string(), "--abort".to_string()],
         RepositoryOperationKind::Revert => vec!["revert".to_string(), "--abort".to_string()],
@@ -641,16 +667,23 @@ pub fn abort_operation_preview(kind: RepositoryOperationKind) -> Result<GitComma
     Ok(preview(args))
 }
 
-pub fn continue_operation_preview(kind: RepositoryOperationKind) -> Result<GitCommandPreview, GitError> {
+pub fn continue_operation_preview(
+    kind: RepositoryOperationKind,
+) -> Result<GitCommandPreview, GitError> {
     let args = match kind {
-        RepositoryOperationKind::CherryPick => vec!["cherry-pick".to_string(), "--continue".to_string()],
+        RepositoryOperationKind::CherryPick => {
+            vec!["cherry-pick".to_string(), "--continue".to_string()]
+        }
         RepositoryOperationKind::Rebase => vec!["rebase".to_string(), "--continue".to_string()],
         RepositoryOperationKind::Revert => vec!["revert".to_string(), "--continue".to_string()],
         RepositoryOperationKind::Merge => {
             return Err(GitError {
                 code: GitErrorCode::CommandFailed,
-                message: "Merge operations cannot be continued with a single Git command.".to_string(),
-                hint: "Resolve conflicts, stage the files, and create a commit to finish the merge.".to_string(),
+                message: "Merge operations cannot be continued with a single Git command."
+                    .to_string(),
+                hint:
+                    "Resolve conflicts, stage the files, and create a commit to finish the merge."
+                        .to_string(),
                 stderr: String::new(),
             });
         }
@@ -739,11 +772,21 @@ pub fn resolve_conflict_previews(
     let path = request.path.clone();
     let previews = match request.resolution {
         ConflictResolution::Ours => vec![
-            preview(vec!["checkout".to_string(), "--ours".to_string(), "--".to_string(), path.clone()]),
+            preview(vec![
+                "checkout".to_string(),
+                "--ours".to_string(),
+                "--".to_string(),
+                path.clone(),
+            ]),
             preview(vec!["add".to_string(), "--".to_string(), path]),
         ],
         ConflictResolution::Theirs => vec![
-            preview(vec!["checkout".to_string(), "--theirs".to_string(), "--".to_string(), path.clone()]),
+            preview(vec![
+                "checkout".to_string(),
+                "--theirs".to_string(),
+                "--".to_string(),
+                path.clone(),
+            ]),
             preview(vec!["add".to_string(), "--".to_string(), path]),
         ],
         ConflictResolution::KeepDeleted => {
@@ -758,9 +801,9 @@ pub fn resolve_conflict_previews(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::models::ApplyMode;
     use super::super::models::SafetyNetMode;
+    use super::*;
     use std::path::PathBuf;
 
     #[test]
@@ -1245,7 +1288,10 @@ mod tests {
             checkout: true,
         };
         let preview = create_branch_preview(&request).expect("preview");
-        assert_eq!(preview.args, vec!["checkout", "-b", "feature/track", "origin/main"]);
+        assert_eq!(
+            preview.args,
+            vec!["checkout", "-b", "feature/track", "origin/main"]
+        );
     }
 
     #[test]
@@ -1384,7 +1430,8 @@ mod tests {
 
     #[test]
     fn builds_abort_cherry_pick_args() {
-        let preview = abort_operation_preview(RepositoryOperationKind::CherryPick).expect("preview");
+        let preview =
+            abort_operation_preview(RepositoryOperationKind::CherryPick).expect("preview");
         assert_eq!(preview.args, vec!["cherry-pick", "--abort"]);
     }
 
@@ -1473,7 +1520,10 @@ mod tests {
     fn builds_discard_tracked_args() {
         let preview =
             discard_tracked_preview(&["src/a.ts".to_string(), "-rf".to_string()]).expect("preview");
-        assert_eq!(preview.args, vec!["restore", "--worktree", "--", "src/a.ts", "-rf"]);
+        assert_eq!(
+            preview.args,
+            vec!["restore", "--worktree", "--", "src/a.ts", "-rf"]
+        );
     }
 
     #[test]
@@ -1510,21 +1560,30 @@ mod tests {
 
     #[test]
     fn clone_preview_rejects_empty_url() {
-        let request = CloneRequest { url: "  ".to_string(), target_dir: "/tmp/x".to_string() };
+        let request = CloneRequest {
+            url: "  ".to_string(),
+            target_dir: "/tmp/x".to_string(),
+        };
         let error = clone_preview(&request).unwrap_err();
         assert_eq!(error.code, GitErrorCode::InvalidInput);
     }
 
     #[test]
     fn clone_preview_rejects_empty_target() {
-        let request = CloneRequest { url: "https://x/y.git".to_string(), target_dir: "".to_string() };
+        let request = CloneRequest {
+            url: "https://x/y.git".to_string(),
+            target_dir: "".to_string(),
+        };
         let error = clone_preview(&request).unwrap_err();
         assert_eq!(error.code, GitErrorCode::InvalidInput);
     }
 
     #[test]
     fn clone_preview_rejects_whitespace_target() {
-        let request = CloneRequest { url: "https://x/y.git".to_string(), target_dir: "   ".to_string() };
+        let request = CloneRequest {
+            url: "https://x/y.git".to_string(),
+            target_dir: "   ".to_string(),
+        };
         let error = clone_preview(&request).unwrap_err();
         assert_eq!(error.code, GitErrorCode::InvalidInput);
     }
@@ -1589,15 +1648,21 @@ mod tests {
     fn builds_reset_args_for_each_mode() {
         use super::super::models::ResetMode;
         assert_eq!(
-            reset_preview(&reset_request(ResetMode::Soft)).expect("preview").args,
+            reset_preview(&reset_request(ResetMode::Soft))
+                .expect("preview")
+                .args,
             vec!["reset", "--soft", "abc1234"]
         );
         assert_eq!(
-            reset_preview(&reset_request(ResetMode::Mixed)).expect("preview").args,
+            reset_preview(&reset_request(ResetMode::Mixed))
+                .expect("preview")
+                .args,
             vec!["reset", "--mixed", "abc1234"]
         );
         assert_eq!(
-            reset_preview(&reset_request(ResetMode::Hard)).expect("preview").args,
+            reset_preview(&reset_request(ResetMode::Hard))
+                .expect("preview")
+                .args,
             vec!["reset", "--hard", "abc1234"]
         );
     }
@@ -1611,7 +1676,9 @@ mod tests {
         assert_eq!(error.code, GitErrorCode::InvalidRef);
     }
 
-    fn resolve_request(resolution: super::super::models::ConflictResolution) -> super::super::models::ResolveConflictRequest {
+    fn resolve_request(
+        resolution: super::super::models::ConflictResolution,
+    ) -> super::super::models::ResolveConflictRequest {
         super::super::models::ResolveConflictRequest {
             repository_path: PathBuf::from("/tmp/repo"),
             path: "conflict.txt".to_string(),
@@ -1623,19 +1690,29 @@ mod tests {
     #[test]
     fn builds_resolve_conflict_command_sequences() {
         use super::super::models::ConflictResolution;
-        let ours = resolve_conflict_previews(&resolve_request(ConflictResolution::Ours)).expect("ours");
+        let ours =
+            resolve_conflict_previews(&resolve_request(ConflictResolution::Ours)).expect("ours");
         assert_eq!(ours.len(), 2);
-        assert_eq!(ours[0].args, vec!["checkout", "--ours", "--", "conflict.txt"]);
+        assert_eq!(
+            ours[0].args,
+            vec!["checkout", "--ours", "--", "conflict.txt"]
+        );
         assert_eq!(ours[1].args, vec!["add", "--", "conflict.txt"]);
 
-        let theirs = resolve_conflict_previews(&resolve_request(ConflictResolution::Theirs)).expect("theirs");
-        assert_eq!(theirs[0].args, vec!["checkout", "--theirs", "--", "conflict.txt"]);
+        let theirs = resolve_conflict_previews(&resolve_request(ConflictResolution::Theirs))
+            .expect("theirs");
+        assert_eq!(
+            theirs[0].args,
+            vec!["checkout", "--theirs", "--", "conflict.txt"]
+        );
 
-        let deleted = resolve_conflict_previews(&resolve_request(ConflictResolution::KeepDeleted)).expect("del");
+        let deleted = resolve_conflict_previews(&resolve_request(ConflictResolution::KeepDeleted))
+            .expect("del");
         assert_eq!(deleted.len(), 1);
         assert_eq!(deleted[0].args, vec!["rm", "--", "conflict.txt"]);
 
-        let mark = resolve_conflict_previews(&resolve_request(ConflictResolution::MarkResolved)).expect("mark");
+        let mark = resolve_conflict_previews(&resolve_request(ConflictResolution::MarkResolved))
+            .expect("mark");
         assert_eq!(mark.len(), 1);
         assert_eq!(mark[0].args, vec!["add", "--", "conflict.txt"]);
     }

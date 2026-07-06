@@ -1,32 +1,30 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
     AddRemoteRequest, BlameRequest, BlameResponse, BranchMutationResponse, CheckoutBranchRequest,
-    CheckoutCommitRequest,
-    CherryPickRequest, CherryPickResponse,
-    RevertRequest, RevertResponse, ResetRequest, ResetResponse,
-    CloneRequest, CloneResponse,
-    CommitLogRequest, CommitRequest, CommitResponse, CommitSummary,
-    ConflictedFile, CreateBranchRequest, CreateStashRequest,
-    CreateTagRequest, CreateTagResponse, DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest,
-    DiffResponse, DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse,
-    FetchRequest, FetchResponse, FileHistoryRequest,
-    GitCommandPreview, GitError, ListConflictsRequest, ListStashesRequest, ListStashesResponse,
-    ListTagsRequest, ListTagsResponse,
-    MergeBranchRequest, MergeBranchResponse,
-    ResolveConflictRequest, ResolveConflictResponse,
-    LfsTrackRequest, LfsTrackResponse,
-    PartialApplyRequest, PartialApplyResponse,
-    PullRequest, PullResponse, PushRequest, PushResponse, RebaseRequest, RebaseResponse,
-    RemoteMutationResponse, RemoveRemoteRequest,
-    RenameBranchRequest, RepositoryRequest, RepositoryState, SetRemoteUrlRequest, StageRequest, StageResponse,
-    StashMutationResponse, StashRefRequest, TagsmithConfigRequest, TagsmithConfigResponse,
-    RestoreSnapshotFileRequest, SnapshotFilesResponse, SnapshotRefRequest, TimelineRequest,
-    TimelineResponse, UndoPlan, UndoPlanRequest, UndoRequest,
+    CheckoutCommitRequest, CherryPickRequest, CherryPickResponse, CloneRequest, CloneResponse,
+    CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, ConflictedFile,
+    CreateBranchRequest, CreateStashRequest, CreateTagRequest, CreateTagResponse,
+    DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest, DiffResponse,
+    DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse, FetchRequest,
+    FetchResponse, FileHistoryRequest, GitCommandPreview, GitError, LfsTrackRequest,
+    LfsTrackResponse, ListConflictsRequest, ListStashesRequest, ListStashesResponse,
+    ListTagsRequest, ListTagsResponse, MergeBranchRequest, MergeBranchResponse,
+    PartialApplyRequest, PartialApplyResponse, PullRequest, PullResponse, PushRequest,
+    PushResponse, RebaseRequest, RebaseResponse, RemoteMutationResponse, RemoveRemoteRequest,
+    RenameBranchRequest, RepositoryRequest, RepositoryState, ResetRequest, ResetResponse,
+    ResolveConflictRequest, ResolveConflictResponse, RestoreSnapshotFileRequest, RevertRequest,
+    RevertResponse, SetRemoteUrlRequest, SnapshotFilesResponse, SnapshotRefRequest, StageRequest,
+    StageResponse, StashMutationResponse, StashRefRequest, TagsmithConfigRequest,
+    TagsmithConfigResponse, TimelineRequest, TimelineResponse, UndoPlan, UndoPlanRequest,
+    UndoRequest,
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
-use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use crate::git::watcher::WatcherRegistry;
 use crate::window::{next_window_label, repo_title};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 /// 解析目前執行檔路徑;找不到時回傳一致的 GitError。
 fn resolve_binary() -> Result<std::path::PathBuf, GitError> {
@@ -45,7 +43,11 @@ pub fn get_repository_state(request: RepositoryRequest) -> Result<RepositoryStat
 
 #[tauri::command]
 pub fn get_commit_log(request: CommitLogRequest) -> Result<Vec<CommitSummary>, GitError> {
-    GitService::new(SystemGitRunner).commit_log(&request.repository_path, request.limit, request.skip)
+    GitService::new(SystemGitRunner).commit_log(
+        &request.repository_path,
+        request.limit,
+        request.skip,
+    )
 }
 
 #[tauri::command]
@@ -105,9 +107,7 @@ pub async fn push_branch(request: PushRequest) -> Result<PushResponse, GitError>
 }
 
 #[tauri::command]
-pub fn preview_clone(
-    request: CloneRequest,
-) -> Result<GitCommandPreview, GitError> {
+pub fn preview_clone(request: CloneRequest) -> Result<GitCommandPreview, GitError> {
     crate::git::command_builder::clone_preview(&request)
 }
 
@@ -175,26 +175,30 @@ pub fn unstage_files(request: StageRequest) -> Result<StageResponse, GitError> {
 
 #[tauri::command]
 pub async fn apply_partial(request: PartialApplyRequest) -> Result<PartialApplyResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).apply_partial(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Apply task failed before Git completed.".to_string(),
-            hint: "Try the apply again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).apply_partial(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Apply task failed before Git completed.".to_string(),
+        hint: "Try the apply again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
 pub async fn lfs_track(request: LfsTrackRequest) -> Result<LfsTrackResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).lfs_track(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "LFS track task failed before Git completed.".to_string(),
-            hint: "Try again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).lfs_track(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "LFS track task failed before Git completed.".to_string(),
+        hint: "Try again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -204,14 +208,16 @@ pub fn preview_commit(request: CommitRequest) -> Result<GitCommandPreview, GitEr
 
 #[tauri::command]
 pub async fn create_commit(request: CommitRequest) -> Result<CommitResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).create_commit(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Commit task failed before Git completed.".to_string(),
-            hint: "Try committing again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).create_commit(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Commit task failed before Git completed.".to_string(),
+        hint: "Try committing again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -226,7 +232,9 @@ pub fn list_git_tags(request: ListTagsRequest) -> Result<ListTagsResponse, GitEr
 }
 
 #[tauri::command]
-pub fn read_tagsmith_config(request: TagsmithConfigRequest) -> Result<TagsmithConfigResponse, GitError> {
+pub fn read_tagsmith_config(
+    request: TagsmithConfigRequest,
+) -> Result<TagsmithConfigResponse, GitError> {
     GitService::new(SystemGitRunner).read_tagsmith_config(&request.repository_path)
 }
 
@@ -237,14 +245,16 @@ pub fn preview_create_tag(request: CreateTagRequest) -> Result<GitCommandPreview
 
 #[tauri::command]
 pub async fn create_git_tag(request: CreateTagRequest) -> Result<CreateTagResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).create_tag(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Create tag task failed before Git completed.".to_string(),
-            hint: "Try creating the tag again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).create_tag(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Create tag task failed before Git completed.".to_string(),
+        hint: "Try creating the tag again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -254,18 +264,22 @@ pub fn preview_delete_tag(request: DeleteTagRequest) -> Result<GitCommandPreview
 
 #[tauri::command]
 pub async fn delete_git_tag(request: DeleteTagRequest) -> Result<DeleteTagResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).delete_tag(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Delete tag task failed before Git completed.".to_string(),
-            hint: "Try deleting the tag again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).delete_tag(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Delete tag task failed before Git completed.".to_string(),
+        hint: "Try deleting the tag again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
-pub fn preview_checkout_branch(request: CheckoutBranchRequest) -> Result<GitCommandPreview, GitError> {
+pub fn preview_checkout_branch(
+    request: CheckoutBranchRequest,
+) -> Result<GitCommandPreview, GitError> {
     crate::git::command_builder::checkout_branch_preview(&request)
 }
 
@@ -277,27 +291,35 @@ pub fn preview_checkout_commit(
 }
 
 #[tauri::command]
-pub async fn checkout_branch(request: CheckoutBranchRequest) -> Result<BranchMutationResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).checkout_branch(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Checkout task failed before Git completed.".to_string(),
-            hint: "Try checking out again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+pub async fn checkout_branch(
+    request: CheckoutBranchRequest,
+) -> Result<BranchMutationResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).checkout_branch(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Checkout task failed before Git completed.".to_string(),
+        hint: "Try checking out again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
-pub async fn checkout_commit(request: CheckoutCommitRequest) -> Result<BranchMutationResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).checkout_commit(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Checkout task failed before Git completed.".to_string(),
-            hint: "Try checking out again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+pub async fn checkout_commit(
+    request: CheckoutCommitRequest,
+) -> Result<BranchMutationResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).checkout_commit(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Checkout task failed before Git completed.".to_string(),
+        hint: "Try checking out again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -306,15 +328,19 @@ pub fn preview_create_branch(request: CreateBranchRequest) -> Result<GitCommandP
 }
 
 #[tauri::command]
-pub async fn create_branch(request: CreateBranchRequest) -> Result<BranchMutationResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).create_branch(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Create branch task failed before Git completed.".to_string(),
-            hint: "Try creating the branch again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+pub async fn create_branch(
+    request: CreateBranchRequest,
+) -> Result<BranchMutationResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).create_branch(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Create branch task failed before Git completed.".to_string(),
+        hint: "Try creating the branch again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -323,15 +349,19 @@ pub fn preview_rename_branch(request: RenameBranchRequest) -> Result<GitCommandP
 }
 
 #[tauri::command]
-pub async fn rename_branch(request: RenameBranchRequest) -> Result<BranchMutationResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).rename_branch(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Rename branch task failed before Git completed.".to_string(),
-            hint: "Try renaming again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+pub async fn rename_branch(
+    request: RenameBranchRequest,
+) -> Result<BranchMutationResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).rename_branch(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Rename branch task failed before Git completed.".to_string(),
+        hint: "Try renaming again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -340,15 +370,19 @@ pub fn preview_delete_branch(request: DeleteBranchRequest) -> Result<GitCommandP
 }
 
 #[tauri::command]
-pub async fn delete_branch(request: DeleteBranchRequest) -> Result<BranchMutationResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).delete_branch(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Delete branch task failed before Git completed.".to_string(),
-            hint: "Try deleting again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+pub async fn delete_branch(
+    request: DeleteBranchRequest,
+) -> Result<BranchMutationResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).delete_branch(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Delete branch task failed before Git completed.".to_string(),
+        hint: "Try deleting again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -364,14 +398,16 @@ pub fn preview_create_stash(request: CreateStashRequest) -> Result<GitCommandPre
 
 #[tauri::command]
 pub async fn create_stash(request: CreateStashRequest) -> Result<StashMutationResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).create_stash(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Create stash task failed before Git completed.".to_string(),
-            hint: "Try stashing again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).create_stash(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Create stash task failed before Git completed.".to_string(),
+        hint: "Try stashing again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -381,14 +417,16 @@ pub fn preview_apply_stash(request: StashRefRequest) -> Result<GitCommandPreview
 
 #[tauri::command]
 pub async fn apply_stash(request: StashRefRequest) -> Result<StashMutationResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).apply_stash(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Apply stash task failed before Git completed.".to_string(),
-            hint: "Try applying again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).apply_stash(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Apply stash task failed before Git completed.".to_string(),
+        hint: "Try applying again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -398,14 +436,16 @@ pub fn preview_pop_stash(request: StashRefRequest) -> Result<GitCommandPreview, 
 
 #[tauri::command]
 pub async fn pop_stash(request: StashRefRequest) -> Result<StashMutationResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).pop_stash(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Pop stash task failed before Git completed.".to_string(),
-            hint: "Try popping again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).pop_stash(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Pop stash task failed before Git completed.".to_string(),
+        hint: "Try popping again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -415,14 +455,16 @@ pub fn preview_drop_stash(request: StashRefRequest) -> Result<GitCommandPreview,
 
 #[tauri::command]
 pub async fn drop_stash(request: StashRefRequest) -> Result<StashMutationResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).drop_stash(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Drop stash task failed before Git completed.".to_string(),
-            hint: "Try dropping again. If it keeps failing, restart Vapor.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).drop_stash(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Drop stash task failed before Git completed.".to_string(),
+        hint: "Try dropping again. If it keeps failing, restart Vapor.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -431,15 +473,19 @@ pub fn preview_cherry_pick(request: CherryPickRequest) -> Result<GitCommandPrevi
 }
 
 #[tauri::command]
-pub async fn cherry_pick_commit(request: CherryPickRequest) -> Result<CherryPickResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).cherry_pick(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Cherry-pick task failed before Git completed.".to_string(),
-            hint: "Try again after refreshing the repository.".to_string(),
-            stderr: error.to_string(),
-        })?
+pub async fn cherry_pick_commit(
+    request: CherryPickRequest,
+) -> Result<CherryPickResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).cherry_pick(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Cherry-pick task failed before Git completed.".to_string(),
+        hint: "Try again after refreshing the repository.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -486,14 +532,16 @@ pub fn preview_resolve_conflict(
 pub async fn resolve_conflict(
     request: ResolveConflictRequest,
 ) -> Result<ResolveConflictResponse, GitError> {
-    tauri::async_runtime::spawn_blocking(move || GitService::new(SystemGitRunner).resolve_conflict(&request))
-        .await
-        .map_err(|error| GitError {
-            code: crate::git::models::GitErrorCode::CommandFailed,
-            message: "Resolve task failed before Git completed.".to_string(),
-            hint: "Try again after refreshing the repository.".to_string(),
-            stderr: error.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).resolve_conflict(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Resolve task failed before Git completed.".to_string(),
+        hint: "Try again after refreshing the repository.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -531,7 +579,9 @@ pub async fn rebase_branch(request: RebaseRequest) -> Result<RebaseResponse, Git
 }
 
 #[tauri::command]
-pub async fn abort_git_operation(request: RepositoryRequest) -> Result<CherryPickResponse, GitError> {
+pub async fn abort_git_operation(
+    request: RepositoryRequest,
+) -> Result<CherryPickResponse, GitError> {
     tauri::async_runtime::spawn_blocking(move || {
         GitService::new(SystemGitRunner).abort_operation(&request.path)
     })
@@ -545,7 +595,9 @@ pub async fn abort_git_operation(request: RepositoryRequest) -> Result<CherryPic
 }
 
 #[tauri::command]
-pub async fn continue_git_operation(request: RepositoryRequest) -> Result<CherryPickResponse, GitError> {
+pub async fn continue_git_operation(
+    request: RepositoryRequest,
+) -> Result<CherryPickResponse, GitError> {
     tauri::async_runtime::spawn_blocking(move || {
         GitService::new(SystemGitRunner).continue_operation(&request.path)
     })
@@ -623,6 +675,30 @@ pub fn get_launch_path(launch: State<'_, LaunchPath>) -> Option<String> {
 }
 
 #[tauri::command]
+pub fn watch_repository(
+    app: AppHandle,
+    registry: State<'_, WatcherRegistry>,
+    path: String,
+) -> bool {
+    let event_path = path.clone();
+    let handle = app.clone();
+    registry
+        .watch(
+            PathBuf::from(&path),
+            Duration::from_millis(500),
+            move || {
+                let _ = handle.emit("repo-changed", event_path.clone());
+            },
+        )
+        .is_ok()
+}
+
+#[tauri::command]
+pub fn unwatch_repository(registry: State<'_, WatcherRegistry>, path: String) {
+    registry.unwatch(Path::new(&path));
+}
+
+#[tauri::command]
 pub fn install_cli() -> Result<String, GitError> {
     let binary = resolve_binary()?;
     cli::install_cli(&binary)
@@ -672,7 +748,11 @@ pub fn plan_undo(request: UndoPlanRequest) -> Result<UndoPlan, GitError> {
 #[tauri::command]
 pub async fn execute_undo(request: UndoRequest) -> Result<UndoPlan, GitError> {
     tauri::async_runtime::spawn_blocking(move || {
-        crate::git::undo::execute_undo(&SystemGitRunner, &request.repository_path, &request.entry_id)
+        crate::git::undo::execute_undo(
+            &SystemGitRunner,
+            &request.repository_path,
+            &request.entry_id,
+        )
     })
     .await
     .map_err(|error| GitError {
@@ -683,7 +763,10 @@ pub async fn execute_undo(request: UndoRequest) -> Result<UndoPlan, GitError> {
     })?
 }
 
-fn snapshot_ref_for_entry(request_path: &std::path::Path, entry_id: &str) -> Result<String, GitError> {
+fn snapshot_ref_for_entry(
+    request_path: &std::path::Path,
+    entry_id: &str,
+) -> Result<String, GitError> {
     let git_dir = crate::git::snapshot::resolve_git_dir(&SystemGitRunner, request_path)?;
     let entries = crate::git::journal::read_journal(&git_dir)?;
     entries
@@ -702,14 +785,22 @@ fn snapshot_ref_for_entry(request_path: &std::path::Path, entry_id: &str) -> Res
 #[tauri::command]
 pub fn get_snapshot_diff(request: SnapshotRefRequest) -> Result<DiffResponse, GitError> {
     let reference = snapshot_ref_for_entry(&request.repository_path, &request.entry_id)?;
-    let text = crate::git::snapshot::snapshot_diff(&SystemGitRunner, &request.repository_path, &reference)?;
+    let text = crate::git::snapshot::snapshot_diff(
+        &SystemGitRunner,
+        &request.repository_path,
+        &reference,
+    )?;
     Ok(DiffResponse { text })
 }
 
 #[tauri::command]
 pub fn list_snapshot_files(request: SnapshotRefRequest) -> Result<SnapshotFilesResponse, GitError> {
     let reference = snapshot_ref_for_entry(&request.repository_path, &request.entry_id)?;
-    let files = crate::git::snapshot::list_snapshot_files(&SystemGitRunner, &request.repository_path, &reference)?;
+    let files = crate::git::snapshot::list_snapshot_files(
+        &SystemGitRunner,
+        &request.repository_path,
+        &reference,
+    )?;
     Ok(SnapshotFilesResponse { files })
 }
 

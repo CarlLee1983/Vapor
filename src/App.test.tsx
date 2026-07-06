@@ -29,6 +29,9 @@ const closeRepository = vi.fn();
 const pickRepositoryFolder = vi.fn();
 const getLaunchPath = vi.fn();
 const onOpenRepo = vi.fn();
+const watchRepository = vi.fn();
+const unwatchRepository = vi.fn();
+const onRepoChanged = vi.fn();
 
 vi.mock("./lib/launch", () => ({
   pickRepositoryFolder: () => pickRepositoryFolder(),
@@ -36,6 +39,9 @@ vi.mock("./lib/launch", () => ({
   installCli: vi.fn(),
   cliStatus: () => Promise.resolve(true),
   onOpenRepo: (handler: (path: string) => void) => onOpenRepo(handler),
+  watchRepository: (path: string) => watchRepository(path),
+  unwatchRepository: (path: string) => unwatchRepository(path),
+  onRepoChanged: (handler: (path: string) => void) => onRepoChanged(handler),
 }));
 
 const checkForUpdate = vi.fn();
@@ -95,6 +101,9 @@ beforeEach(() => {
   pickRepositoryFolder.mockReset();
   getLaunchPath.mockReset().mockResolvedValue(null);
   onOpenRepo.mockReset().mockResolvedValue(() => {});
+  watchRepository.mockReset().mockResolvedValue(true);
+  unwatchRepository.mockReset().mockResolvedValue(undefined);
+  onRepoChanged.mockReset().mockResolvedValue(() => {});
   checkForUpdate.mockReset().mockResolvedValue(null);
   getRepoParamMock.mockReset().mockReturnValue(null);
 });
@@ -178,9 +187,25 @@ describe("App", () => {
     expect(refreshRepository).toHaveBeenCalledOnce();
   });
 
-  it("refreshes the open repository on an interval", async () => {
+  it("does not poll on an interval while the filesystem watcher is active", async () => {
     vi.useFakeTimers();
     render(<App />);
+    refreshRepository.mockClear();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_REFRESH_INTERVAL_MS * 2);
+    });
+
+    expect(refreshRepository).not.toHaveBeenCalled();
+  });
+
+  it("falls back to interval polling when the watcher fails to start", async () => {
+    watchRepository.mockResolvedValue(false);
+    vi.useFakeTimers();
+    render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
     refreshRepository.mockClear();
 
     await act(async () => {
@@ -188,6 +213,26 @@ describe("App", () => {
     });
 
     expect(refreshRepository).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes when a repo-changed event targets the active repository", async () => {
+    let emit: ((path: string) => void) | undefined;
+    onRepoChanged.mockImplementation(async (handler: (path: string) => void) => {
+      emit = handler;
+      return () => {};
+    });
+    render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    refreshRepository.mockClear();
+
+    await act(async () => {
+      emit?.("/repo");
+      await Promise.resolve();
+    });
+
+    expect(refreshRepository).toHaveBeenCalled();
   });
 
   it("有新版時顯示更新橫幅", async () => {

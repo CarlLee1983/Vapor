@@ -94,7 +94,10 @@ pub fn set_after_head(
         .into_iter()
         .map(|entry| {
             if entry.id == id {
-                JournalEntry { after_head: after_head.clone(), ..entry }
+                JournalEntry {
+                    after_head: after_head.clone(),
+                    ..entry
+                }
             } else {
                 entry
             }
@@ -119,10 +122,8 @@ mod tests {
     fn temp_git_dir() -> std::path::PathBuf {
         static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "vapor-journal-test-{}-{count}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("vapor-journal-test-{}-{count}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -144,7 +145,10 @@ mod tests {
 
     #[test]
     fn read_missing_journal_returns_empty() {
-        assert_eq!(read_journal(&temp_git_dir()).unwrap(), Vec::<JournalEntry>::new());
+        assert_eq!(
+            read_journal(&temp_git_dir()).unwrap(),
+            Vec::<JournalEntry>::new()
+        );
     }
 
     #[test]
@@ -162,7 +166,10 @@ mod tests {
         let dir = temp_git_dir();
         append_entry(&dir, entry("a")).unwrap();
         set_after_head(&dir, "a", Some("def".to_string())).unwrap();
-        assert_eq!(read_journal(&dir).unwrap()[0].after_head, Some("def".to_string()));
+        assert_eq!(
+            read_journal(&dir).unwrap()[0].after_head,
+            Some("def".to_string())
+        );
     }
 
     #[test]
