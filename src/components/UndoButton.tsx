@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { isEditableTarget } from "../lib/actions";
 import type { GitErrorCode, UndoPlan } from "../types/git";
 
 interface UndoButtonProps {
@@ -27,15 +28,6 @@ const UndoIcon = () => (
     <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
   </svg>
 );
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target.isContentEditable
-  );
-}
 
 export function UndoButton({ lastDescription, disabled, onPlan, onUndo, onCompleted }: UndoButtonProps) {
   const [plan, setPlan] = useState<UndoPlan | null>(null);
