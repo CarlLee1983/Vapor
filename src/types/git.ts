@@ -545,3 +545,33 @@ export interface SubmoduleUpdateResponse {
   stdout: string;
   stderr: string;
 }
+
+export interface WorktreeInfo {
+  path: string;
+  head: string;
+  branch: string | null;
+  isBare: boolean;
+  isDetached: boolean;
+  isLocked: boolean;
+}
+
+export interface ListWorktreesRequest {
+  repositoryPath: string;
+}
+
+export interface AddWorktreeRequest {
+  repositoryPath: string;
+  worktreePath: string;
+  branch: string;
+}
+
+export interface RemoveWorktreeRequest {
+  repositoryPath: string;
+  worktreePath: string;
+}
+
+export interface WorktreeMutationResponse {
+  preview: GitCommandPreview;
+  stdout: string;
+  stderr: string;
+}

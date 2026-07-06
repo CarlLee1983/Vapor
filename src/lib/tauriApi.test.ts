@@ -43,6 +43,11 @@ import {
   getSubmodules,
   updateSubmodule,
   updateAllSubmodules,
+  listWorktrees,
+  previewAddWorktree,
+  addWorktree,
+  previewRemoveWorktree,
+  removeWorktree,
 } from "./tauriApi";
 import type { AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest } from "../types/git";
 
@@ -446,5 +451,41 @@ describe("tauriApi", () => {
     expect(invoke).toHaveBeenCalledWith("update_all_submodules", {
       request: { repositoryPath: "/repo" },
     });
+  });
+
+  it("listWorktrees invokes list_worktrees with the repository path", async () => {
+    vi.mocked(invoke).mockResolvedValue([]);
+    await listWorktrees("/repo");
+    expect(invoke).toHaveBeenCalledWith("list_worktrees", {
+      request: { repositoryPath: "/repo" },
+    });
+  });
+
+  it("addWorktree invokes add_worktree with the request", async () => {
+    vi.mocked(invoke).mockResolvedValue({ preview: {}, stdout: "", stderr: "" });
+    const request = { repositoryPath: "/repo", worktreePath: "/tmp/wt", branch: "feature" };
+    await addWorktree(request);
+    expect(invoke).toHaveBeenCalledWith("add_worktree", { request });
+  });
+
+  it("previewAddWorktree invokes preview_add_worktree with the request", async () => {
+    vi.mocked(invoke).mockResolvedValue({ program: "git", args: [], display: "" });
+    const request = { repositoryPath: "/repo", worktreePath: "/tmp/wt", branch: "feature" };
+    await previewAddWorktree(request);
+    expect(invoke).toHaveBeenCalledWith("preview_add_worktree", { request });
+  });
+
+  it("removeWorktree invokes remove_worktree with the request", async () => {
+    vi.mocked(invoke).mockResolvedValue({ preview: {}, stdout: "", stderr: "" });
+    const request = { repositoryPath: "/repo", worktreePath: "/tmp/wt" };
+    await removeWorktree(request);
+    expect(invoke).toHaveBeenCalledWith("remove_worktree", { request });
+  });
+
+  it("previewRemoveWorktree invokes preview_remove_worktree with the request", async () => {
+    vi.mocked(invoke).mockResolvedValue({ program: "git", args: [], display: "" });
+    const request = { repositoryPath: "/repo", worktreePath: "/tmp/wt" };
+    await previewRemoveWorktree(request);
+    expect(invoke).toHaveBeenCalledWith("preview_remove_worktree", { request });
   });
 });

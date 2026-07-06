@@ -1,23 +1,24 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
-    AddRemoteRequest, BlameRequest, BlameResponse, BranchMutationResponse, CheckoutBranchRequest,
-    CheckoutCommitRequest, CherryPickRequest, CherryPickResponse, CloneRequest, CloneResponse,
-    CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, ConflictedFile,
-    CreateBranchRequest, CreateStashRequest, CreateTagRequest, CreateTagResponse,
+    AddRemoteRequest, AddWorktreeRequest, BlameRequest, BlameResponse, BranchMutationResponse,
+    CheckoutBranchRequest, CheckoutCommitRequest, CherryPickRequest, CherryPickResponse,
+    CloneRequest, CloneResponse, CommitLogRequest, CommitRequest, CommitResponse, CommitSummary,
+    ConflictedFile, CreateBranchRequest, CreateStashRequest, CreateTagRequest, CreateTagResponse,
     DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest, DiffResponse,
     DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse, FetchRequest,
-    FetchResponse, FileHistoryRequest, GitCommandPreview, GitError, GetSubmodulesRequest,
+    FetchResponse, FileHistoryRequest, GitCommandPreview, GitError, GitErrorCode, GetSubmodulesRequest,
     InteractiveRebaseRequest, InteractiveRebaseResponse, LfsTrackRequest, LfsTrackResponse,
     ListConflictsRequest, ListStashesRequest, ListStashesResponse, ListTagsRequest,
-    ListTagsResponse, MergeBranchRequest, MergeBranchResponse, PartialApplyRequest,
+    ListTagsResponse, ListWorktreesRequest, MergeBranchRequest, MergeBranchResponse, PartialApplyRequest,
     PartialApplyResponse, PullRequest, PullResponse, PushRequest, PushResponse, RebaseRequest,
     RebaseResponse, RebaseTodoCommitsRequest, RemoteMutationResponse, RemoveRemoteRequest,
-    RenameBranchRequest, RepositoryRequest, RepositoryState, ResetRequest, ResetResponse,
-    ResolveConflictRequest, ResolveConflictResponse, RestoreSnapshotFileRequest, RevertRequest,
-    RevertResponse, SetRemoteUrlRequest, SnapshotFilesResponse, SnapshotRefRequest, StageRequest,
-    StageResponse, SubmoduleStatus, StashMutationResponse, StashRefRequest, TagsmithConfigRequest,
-    TagsmithConfigResponse, TimelineRequest, TimelineResponse, UndoPlan, UndoPlanRequest,
-    UndoRequest, UpdateAllSubmodulesRequest, UpdateSubmoduleRequest, SubmoduleUpdateResponse,
+    RemoveWorktreeRequest, RenameBranchRequest, RepositoryRequest, RepositoryState, ResetRequest,
+    ResetResponse, ResolveConflictRequest, ResolveConflictResponse, RestoreSnapshotFileRequest,
+    RevertRequest, RevertResponse, SetRemoteUrlRequest, SnapshotFilesResponse, SnapshotRefRequest,
+    StageRequest, StageResponse, SubmoduleStatus, StashMutationResponse, StashRefRequest,
+    TagsmithConfigRequest, TagsmithConfigResponse, TimelineRequest, TimelineResponse, UndoPlan,
+    UndoPlanRequest, UndoRequest, UpdateAllSubmodulesRequest, UpdateSubmoduleRequest,
+    SubmoduleUpdateResponse, WorktreeInfo, WorktreeMutationResponse,
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
@@ -736,6 +737,55 @@ pub async fn discard_changes(
         code: crate::git::models::GitErrorCode::CommandFailed,
         message: "Discard task failed before Git completed.".to_string(),
         hint: "Refresh the repository and try again.".to_string(),
+        stderr: error.to_string(),
+    })?
+}
+
+#[tauri::command]
+pub fn preview_add_worktree(request: AddWorktreeRequest) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::add_worktree_preview(&request)
+}
+
+#[tauri::command]
+pub fn preview_remove_worktree(
+    request: RemoveWorktreeRequest,
+) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::remove_worktree_preview(&request)
+}
+
+#[tauri::command]
+pub fn list_worktrees(request: ListWorktreesRequest) -> Result<Vec<WorktreeInfo>, GitError> {
+    GitService::new(SystemGitRunner).list_worktrees(&request)
+}
+
+#[tauri::command]
+pub async fn add_worktree(
+    request: AddWorktreeRequest,
+) -> Result<WorktreeMutationResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).add_worktree(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: GitErrorCode::CommandFailed,
+        message: "Add worktree task failed to run.".to_string(),
+        hint: "Try again.".to_string(),
+        stderr: error.to_string(),
+    })?
+}
+
+#[tauri::command]
+pub async fn remove_worktree(
+    request: RemoveWorktreeRequest,
+) -> Result<WorktreeMutationResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).remove_worktree(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: GitErrorCode::CommandFailed,
+        message: "Remove worktree task failed to run.".to_string(),
+        hint: "Try again.".to_string(),
         stderr: error.to_string(),
     })?
 }

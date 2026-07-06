@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import type { BranchInfo, RepoEntry, RepositoryState } from "../types/git";
+import type { BranchInfo, RepoEntry, RepositoryState, WorktreeInfo } from "../types/git";
 import { FolderIcon, GlobeIcon, HistoryIcon } from "./sidebarIcons";
 import { BranchTree } from "./BranchTree";
 import { SearchInput } from "./SearchInput";
 import { SubmodulesSection } from "./SubmodulesSection";
+import { WorktreeList } from "./WorktreeList";
 import { filterBranches } from "../lib/branchFilter";
 
 interface Props {
@@ -23,6 +24,10 @@ interface Props {
   onInteractiveRebase?: (branch: BranchInfo) => void;
   onOpenBranches?: () => void;
   onSubmodulesChanged?: () => void;
+  worktrees: WorktreeInfo[];
+  onAddWorktree: () => void;
+  onOpenWorktree: (worktreePath: string) => void;
+  onRemoveWorktree: (worktree: WorktreeInfo) => void;
 }
 
 const VaporLogo = () => (
@@ -62,6 +67,10 @@ export function RepositorySidebar({
   onInteractiveRebase,
   onOpenBranches,
   onSubmodulesChanged,
+  worktrees,
+  onAddWorktree,
+  onOpenWorktree,
+  onRemoveWorktree,
 }: Props) {
   const [branchQuery, setBranchQuery] = useState("");
   const visibleBranches = useMemo(
@@ -215,6 +224,13 @@ export function RepositorySidebar({
             <SubmodulesSection
               repositoryPath={repository.root}
               onChanged={onSubmodulesChanged}
+            />
+
+            <WorktreeList
+              worktrees={worktrees}
+              onAdd={onAddWorktree}
+              onOpen={onOpenWorktree}
+              onRemove={onRemoveWorktree}
             />
           </>
         ) : (
