@@ -2459,3 +2459,69 @@ button.danger:not(:disabled):hover {
   color: var(--text-secondary);
   font-size: 0.85rem;
 }
+
+.command-palette-backdrop {
+  align-items: start;
+}
+.command-palette {
+  width: min(560px, calc(100vw - 32px));
+  margin-top: 12vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-dialog);
+  color: var(--text-primary);
+}
+.command-palette__input {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border-color-light);
+  border-radius: 6px;
+}
+.command-palette__input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+.command-palette__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.command-palette__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.command-palette__item--active {
+  background: var(--bg-active);
+}
+.command-palette__item[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.command-palette__hint,
+.command-palette__empty {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.command-palette__empty {
+  padding: 8px 10px;
+}
