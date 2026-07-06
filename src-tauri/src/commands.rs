@@ -6,11 +6,12 @@ use crate::git::models::{
     CreateBranchRequest, CreateStashRequest, CreateTagRequest, CreateTagResponse,
     DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest, DiffResponse,
     DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse, FetchRequest,
-    FetchResponse, FileHistoryRequest, GitCommandPreview, GitError, LfsTrackRequest,
-    LfsTrackResponse, ListConflictsRequest, ListStashesRequest, ListStashesResponse,
-    ListTagsRequest, ListTagsResponse, MergeBranchRequest, MergeBranchResponse,
-    PartialApplyRequest, PartialApplyResponse, PullRequest, PullResponse, PushRequest,
-    PushResponse, RebaseRequest, RebaseResponse, RemoteMutationResponse, RemoveRemoteRequest,
+    FetchResponse, FileHistoryRequest, GitCommandPreview, GitError, InteractiveRebaseRequest,
+    InteractiveRebaseResponse, LfsTrackRequest, LfsTrackResponse, ListConflictsRequest,
+    ListStashesRequest, ListStashesResponse, ListTagsRequest, ListTagsResponse,
+    MergeBranchRequest, MergeBranchResponse, PartialApplyRequest, PartialApplyResponse,
+    PullRequest, PullResponse, PushRequest, PushResponse, RebaseRequest,
+    RebaseResponse, RebaseTodoCommitsRequest, RemoteMutationResponse, RemoveRemoteRequest,
     RenameBranchRequest, RepositoryRequest, RepositoryState, ResetRequest, ResetResponse,
     ResolveConflictRequest, ResolveConflictResponse, RestoreSnapshotFileRequest, RevertRequest,
     RevertResponse, SetRemoteUrlRequest, SnapshotFilesResponse, SnapshotRefRequest, StageRequest,
@@ -576,6 +577,37 @@ pub async fn rebase_branch(request: RebaseRequest) -> Result<RebaseResponse, Git
             hint: "Try again after refreshing the repository.".to_string(),
             stderr: error.to_string(),
         })?
+}
+
+#[tauri::command]
+pub fn list_rebase_todo_commits(
+    request: RebaseTodoCommitsRequest,
+) -> Result<Vec<CommitSummary>, GitError> {
+    GitService::new(SystemGitRunner)
+        .list_rebase_todo_commits(&request.repository_path, &request.upstream)
+}
+
+#[tauri::command]
+pub fn preview_interactive_rebase(
+    request: InteractiveRebaseRequest,
+) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::interactive_rebase_preview(&request)
+}
+
+#[tauri::command]
+pub async fn interactive_rebase(
+    request: InteractiveRebaseRequest,
+) -> Result<InteractiveRebaseResponse, GitError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        GitService::new(SystemGitRunner).interactive_rebase(&request)
+    })
+    .await
+    .map_err(|error| GitError {
+        code: crate::git::models::GitErrorCode::CommandFailed,
+        message: "Interactive rebase task failed before Git completed.".to_string(),
+        hint: "Try again after refreshing the repository.".to_string(),
+        stderr: error.to_string(),
+    })?
 }
 
 #[tauri::command]

@@ -37,6 +37,9 @@ import {
   resolveConflict,
   previewRebase,
   rebaseBranch,
+  listRebaseTodoCommits,
+  previewInteractiveRebase,
+  interactiveRebase,
 } from "./tauriApi";
 import type { AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest } from "../types/git";
 
@@ -391,5 +394,30 @@ describe("tauriApi", () => {
     const request = { repositoryPath: "/repo", upstream: "main" };
     await previewRebase(request);
     expect(invokeMock).toHaveBeenCalledWith("preview_rebase", { request });
+  });
+
+  it("listRebaseTodoCommits forwards the request to list_rebase_todo_commits", async () => {
+    invokeMock.mockResolvedValue([]);
+    const request = { repositoryPath: "/repo", upstream: "main" };
+    await listRebaseTodoCommits(request);
+    expect(invokeMock).toHaveBeenCalledWith("list_rebase_todo_commits", { request });
+  });
+
+  it("previewInteractiveRebase forwards the request to preview_interactive_rebase", async () => {
+    invokeMock.mockResolvedValue({ program: "git", args: [], display: "git rebase -i main" });
+    const request = { repositoryPath: "/repo", upstream: "main", items: [] };
+    await previewInteractiveRebase(request);
+    expect(invokeMock).toHaveBeenCalledWith("preview_interactive_rebase", { request });
+  });
+
+  it("interactiveRebase forwards the request to interactive_rebase", async () => {
+    invokeMock.mockResolvedValue({ preview: {}, stdout: "", stderr: "" });
+    const request = {
+      repositoryPath: "/repo",
+      upstream: "main",
+      items: [{ commitHash: "abc1234", action: "pick" as const }],
+    };
+    await interactiveRebase(request);
+    expect(invokeMock).toHaveBeenCalledWith("interactive_rebase", { request });
   });
 });

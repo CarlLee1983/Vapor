@@ -7,7 +7,13 @@ pub mod window;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let launch_path = cli::parse_launch_path(&std::env::args().collect::<Vec<_>>());
+    let raw_args: Vec<String> = std::env::args().collect();
+    // Intercept the hidden rebase-editor subcommands git invokes via GIT_SEQUENCE_EDITOR /
+    // GIT_EDITOR. These run in a child process, do their file edit, and exit before Tauri.
+    if let Some(code) = cli::run_editor_subcommand(&raw_args) {
+        std::process::exit(code);
+    }
+    let launch_path = cli::parse_launch_path(&raw_args);
 
     let builder = tauri::Builder::default();
 
@@ -86,6 +92,9 @@ pub fn run() {
             commands::resolve_conflict,
             commands::preview_rebase,
             commands::rebase_branch,
+            commands::list_rebase_todo_commits,
+            commands::preview_interactive_rebase,
+            commands::interactive_rebase,
             commands::abort_git_operation,
             commands::continue_git_operation,
             commands::preview_fetch,

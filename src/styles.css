@@ -2412,3 +2412,50 @@ button.danger:not(:disabled):hover {
   background: var(--accent-red-bg);
   color: var(--accent-red-text);
 }
+
+.rebase-todo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.rebase-todo__row {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  cursor: grab;
+}
+.rebase-todo__handle {
+  color: var(--text-muted);
+}
+.rebase-todo__hash {
+  color: var(--text-secondary);
+  font-family: ui-monospace, monospace;
+}
+.rebase-todo__subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rebase-todo__message {
+  grid-column: 1 / -1;
+  min-height: 48px;
+  resize: vertical;
+  font: inherit;
+}
+.dialog-hint {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  background: var(--bg-active);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}

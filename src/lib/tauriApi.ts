@@ -40,6 +40,9 @@ import type {
   RevertResponse,
   ResetRequest,
   ResetResponse,
+  RebaseTodoCommitsRequest,
+  InteractiveRebaseRequest,
+  InteractiveRebaseResponse,
   CreateStashRequest,
   DiscardChangesRequest,
   DiscardChangesResponse,
@@ -281,6 +284,24 @@ export async function previewReset(request: ResetRequest): Promise<GitCommandPre
 
 export async function resetToCommit(request: ResetRequest): Promise<ResetResponse> {
   return invoke<ResetResponse>("reset_to_commit", { request });
+}
+
+export async function listRebaseTodoCommits(
+  request: RebaseTodoCommitsRequest,
+): Promise<CommitSummary[]> {
+  return invoke<CommitSummary[]>("list_rebase_todo_commits", { request });
+}
+
+export async function previewInteractiveRebase(
+  request: InteractiveRebaseRequest,
+): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_interactive_rebase", { request });
+}
+
+export async function interactiveRebase(
+  request: InteractiveRebaseRequest,
+): Promise<InteractiveRebaseResponse> {
+  return invoke<InteractiveRebaseResponse>("interactive_rebase", { request });
 }
 
 export async function abortGitOperation(repositoryPath: string): Promise<CherryPickResponse> {

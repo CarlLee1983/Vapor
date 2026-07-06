@@ -21,6 +21,7 @@ import { SshDiagnosticsDialog } from "./components/SshDiagnosticsDialog";
 import { DoctorDialog } from "./components/DoctorDialog";
 import { TimeMachineDialog } from "./components/TimeMachineDialog";
 import { RebaseDialog } from "./components/RebaseDialog";
+import { InteractiveRebaseDialog } from "./components/InteractiveRebaseDialog";
 import { UndoButton } from "./components/UndoButton";
 import { SafetyNetErrorActions } from "./components/SafetyNetErrorActions";
 import { RepositorySidebar } from "./components/RepositorySidebar";
@@ -83,6 +84,7 @@ export default function App() {
   const [isCloneOpen, setIsCloneOpen] = useState(false);
   const [isSshOpen, setIsSshOpen] = useState(false);
   const [rebaseTarget, setRebaseTarget] = useState<BranchInfo | null>(null);
+  const [interactiveRebaseUpstream, setInteractiveRebaseUpstream] = useState<string | null>(null);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
   const [historyTarget, setHistoryTarget] = useState<string | null>(null);
   // 記住最後一次 discard 的目標,供安全網逃生口(force/skip)重送。
@@ -162,6 +164,7 @@ export default function App() {
     setBlameTarget(null);
     setHistoryTarget(null);
     setPreviousBranch(null);
+    setInteractiveRebaseUpstream(null);
   }, [workspace.activePath]);
 
   const refreshActiveRepository = () => {
@@ -275,6 +278,18 @@ export default function App() {
     setIsCherryPickOpen(true);
   };
 
+  const handleInteractiveRebaseOnto = (branch: BranchInfo) => {
+    if (!repoView.repository || branch.isCurrent) return;
+    setInteractiveRebaseUpstream(branch.name);
+  };
+
+  // The GitActionsMenu entry rebases the current branch onto its upstream tracking ref.
+  // If the branch has no upstream, git errors and the dialog surfaces it.
+  const handleInteractiveRebaseUpstream = () => {
+    if (!repoView.repository) return;
+    setInteractiveRebaseUpstream("@{upstream}");
+  };
+
   const handleRevertCommit = (commit: CommitSummary) => {
     repoView.selectCommit(commit);
     setIsRevertOpen(true);
@@ -367,6 +382,7 @@ export default function App() {
         onDeleteBranch={handleDeleteBranch}
         onMergeBranch={handleMergeBranch}
         onRebaseBranch={handleRebaseOnto}
+        onInteractiveRebase={handleInteractiveRebaseOnto}
         onOpenBranches={() => setIsBranchesOpen(true)}
       />
       <section className="workspace" aria-label="Git workbench">
@@ -430,6 +446,7 @@ export default function App() {
               onOpenBranches={() => setIsBranchesOpen(true)}
               onOpenStash={() => setIsStashOpen(true)}
               onOpenCherryPick={() => setIsCherryPickOpen(true)}
+              onOpenInteractiveRebase={handleInteractiveRebaseUpstream}
             />
             <span className="toolbar-divider" aria-hidden="true" />
             <LayoutControls
@@ -604,6 +621,14 @@ export default function App() {
           upstream={rebaseTarget.name}
           currentBranch={repoView.repository.currentBranch}
           onClose={() => setRebaseTarget(null)}
+          onCompleted={refreshActiveRepository}
+        />
+      ) : null}
+      {interactiveRebaseUpstream && repoView.repository ? (
+        <InteractiveRebaseDialog
+          repositoryPath={repoView.repository.root}
+          upstream={interactiveRebaseUpstream}
+          onClose={() => setInteractiveRebaseUpstream(null)}
           onCompleted={refreshActiveRepository}
         />
       ) : null}

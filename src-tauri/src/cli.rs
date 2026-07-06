@@ -114,6 +114,59 @@ pub fn install_cli(app_binary: &Path) -> Result<String, GitError> {
     Ok(format!("Installed `vapor` to {}.{hint}", target.display()))
 }
 
+/// git invokes `$GIT_SEQUENCE_EDITOR <todo-file>`. We overwrite that file with the todo
+/// vapor prepared in the GUI, so git never opens an interactive editor.
+pub fn apply_sequence_editor(prepared_todo: &Path, git_todo_target: &Path) -> std::io::Result<()> {
+    let contents = std::fs::read(prepared_todo)?;
+    std::fs::write(git_todo_target, contents)
+}
+
+/// git invokes `$GIT_EDITOR <message-file>` once per reword/squash step, in todo order.
+/// We hand back prepared messages `msg-0`, `msg-1`, … in sequence, tracking the next index
+/// in a `next` counter file inside `messages_dir`. A missing `msg-<n>` leaves git's own
+/// default message untouched (but still advances the counter).
+pub fn apply_message_editor(messages_dir: &Path, git_msg_target: &Path) -> std::io::Result<()> {
+    let counter_path = messages_dir.join("next");
+    let index: usize = std::fs::read_to_string(&counter_path)
+        .ok()
+        .and_then(|value| value.trim().parse().ok())
+        .unwrap_or(0);
+    let message_path = messages_dir.join(format!("msg-{index}"));
+    if let Ok(message) = std::fs::read(&message_path) {
+        std::fs::write(git_msg_target, message)?;
+    }
+    std::fs::write(&counter_path, (index + 1).to_string())
+}
+
+/// Recognizes the two hidden editor subcommands vapor sets via GIT_SEQUENCE_EDITOR /
+/// GIT_EDITOR. git appends the file it wants edited as the LAST argument.
+/// Returns `Some(exit_code)` when handled, `None` when argv is a normal launch.
+pub fn run_editor_subcommand(args: &[String]) -> Option<i32> {
+    match args.get(1)?.as_str() {
+        "--sequence-editor" => {
+            let prepared = args.get(2)?;
+            let target = args.last()?;
+            Some(
+                match apply_sequence_editor(Path::new(prepared), Path::new(target)) {
+                    Ok(()) => 0,
+                    Err(_) => 1,
+                },
+            )
+        }
+        "--message-editor" => {
+            let dir = args.get(2)?;
+            let target = args.last()?;
+            Some(
+                match apply_message_editor(Path::new(dir), Path::new(target)) {
+                    Ok(()) => 0,
+                    Err(_) => 1,
+                },
+            )
+        }
+        _ => None,
+    }
+}
+
 fn io_error(detail: &str) -> GitError {
     GitError {
         code: GitErrorCode::CommandFailed,
@@ -177,6 +230,73 @@ mod status_tests {
         fs::write(&wrapper, wrapper_script(&old)).expect("write wrapper");
         let current = PathBuf::from("/Applications/Vapor.app/Contents/MacOS/vapor");
         assert!(!cli_installed_in(&[wrapper], &current));
+    }
+}
+
+#[cfg(test)]
+mod editor_tests {
+    use super::{apply_message_editor, apply_sequence_editor, run_editor_subcommand};
+    use tempfile::TempDir;
+
+    #[test]
+    fn sequence_editor_overwrites_target() {
+        let dir = TempDir::new().expect("tempdir");
+        let prepared = dir.path().join("todo");
+        let target = dir.path().join("git-rebase-todo");
+        std::fs::write(&prepared, "pick abc123\ndrop def456\n").expect("write prepared");
+        std::fs::write(&target, "pick abc123\npick def456\n").expect("write target");
+        apply_sequence_editor(&prepared, &target).expect("apply");
+        assert_eq!(
+            std::fs::read_to_string(&target).unwrap(),
+            "pick abc123\ndrop def456\n"
+        );
+    }
+
+    #[test]
+    fn message_editor_consumes_messages_in_order() {
+        let dir = TempDir::new().expect("tempdir");
+        std::fs::write(dir.path().join("msg-0"), "first message\n").expect("msg-0");
+        std::fs::write(dir.path().join("msg-1"), "second message\n").expect("msg-1");
+        let target = dir.path().join("COMMIT_EDITMSG");
+
+        apply_message_editor(dir.path(), &target).expect("first");
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "first message\n");
+        apply_message_editor(dir.path(), &target).expect("second");
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "second message\n");
+        assert_eq!(std::fs::read_to_string(dir.path().join("next")).unwrap(), "2");
+    }
+
+    #[test]
+    fn message_editor_leaves_target_when_message_missing() {
+        let dir = TempDir::new().expect("tempdir");
+        let target = dir.path().join("COMMIT_EDITMSG");
+        std::fs::write(&target, "git default\n").expect("write target");
+        apply_message_editor(dir.path(), &target).expect("apply");
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "git default\n");
+        assert_eq!(std::fs::read_to_string(dir.path().join("next")).unwrap(), "1");
+    }
+
+    #[test]
+    fn dispatcher_ignores_a_normal_launch() {
+        let args = vec!["vapor".to_string(), "/repo".to_string()];
+        assert_eq!(run_editor_subcommand(&args), None);
+    }
+
+    #[test]
+    fn dispatcher_runs_the_sequence_editor() {
+        let dir = TempDir::new().expect("tempdir");
+        let prepared = dir.path().join("todo");
+        let target = dir.path().join("git-rebase-todo");
+        std::fs::write(&prepared, "drop abc123\n").expect("write");
+        std::fs::write(&target, "pick abc123\n").expect("write");
+        let args = vec![
+            "vapor".to_string(),
+            "--sequence-editor".to_string(),
+            prepared.display().to_string(),
+            target.display().to_string(),
+        ];
+        assert_eq!(run_editor_subcommand(&args), Some(0));
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "drop abc123\n");
     }
 }
 
