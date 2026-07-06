@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
 import { BranchesDialog } from "./components/BranchesDialog";
@@ -25,6 +25,7 @@ import { InteractiveRebaseDialog } from "./components/InteractiveRebaseDialog";
 import { UndoButton } from "./components/UndoButton";
 import { SafetyNetErrorActions } from "./components/SafetyNetErrorActions";
 import { RepositorySidebar } from "./components/RepositorySidebar";
+import { AddWorktreeDialog } from "./components/AddWorktreeDialog";
 import { type ThemeMode } from "./components/ThemeToggle";
 import { GitActionsMenu } from "./components/GitActionsMenu";
 import { buildAppActions, type ActionContext } from "./lib/actions";
@@ -55,11 +56,13 @@ import {
   checkoutBranch,
   createBranch,
   deleteBranch,
+  listWorktrees,
   mergeBranch,
   previewCommit,
+  removeWorktree,
   renameBranch,
 } from "./lib/tauriApi";
-import type { BranchInfo, CommitSummary } from "./types/git";
+import type { BranchInfo, CommitSummary, WorktreeInfo } from "./types/git";
 import "./styles.css";
 
 export const AUTO_REFRESH_INTERVAL_MS = 5000;
@@ -87,6 +90,8 @@ export default function App() {
   const [isTimeMachineOpen, setIsTimeMachineOpen] = useState(false);
   const [isCloneOpen, setIsCloneOpen] = useState(false);
   const [isSshOpen, setIsSshOpen] = useState(false);
+  const [worktrees, setWorktrees] = useState<WorktreeInfo[]>([]);
+  const [isAddWorktreeOpen, setIsAddWorktreeOpen] = useState(false);
   const [rebaseTarget, setRebaseTarget] = useState<BranchInfo | null>(null);
   const [interactiveRebaseUpstream, setInteractiveRebaseUpstream] = useState<string | null>(null);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -208,7 +213,24 @@ export default function App() {
     setPreviousBranch(null);
     setInteractiveRebaseUpstream(null);
     setIsPaletteOpen(false);
+    setIsAddWorktreeOpen(false);
   }, [workspace.activePath]);
+
+  const loadWorktrees = useCallback(async () => {
+    if (!repoView.repository) {
+      setWorktrees([]);
+      return;
+    }
+    try {
+      setWorktrees(await listWorktrees(repoView.repository.root));
+    } catch {
+      setWorktrees([]);
+    }
+  }, [repoView.repository]);
+
+  useEffect(() => {
+    void loadWorktrees();
+  }, [loadWorktrees]);
 
   const refreshActiveRepository = () => {
     if (repoView.repositoryPath) {
@@ -346,6 +368,29 @@ export default function App() {
     }
   };
 
+  const handleAddWorktree = () => setIsAddWorktreeOpen(true);
+
+  const handleOpenWorktree = (worktreePath: string) => {
+    void openRepoWindow(worktreePath);
+  };
+
+  const handleRemoveWorktree = (worktree: WorktreeInfo) => {
+    if (!repoView.repository) return;
+    if (
+      !window.confirm(
+        `Remove the worktree at ${worktree.path}? The linked working directory will be deleted.`,
+      )
+    ) {
+      return;
+    }
+    void removeWorktree({
+      repositoryPath: repoView.repository.root,
+      worktreePath: worktree.path,
+    })
+      .then(() => void loadWorktrees())
+      .catch(() => void loadWorktrees());
+  };
+
   useEffect(() => {
     if (!repoView.repositoryPath) {
       return;
@@ -421,6 +466,10 @@ export default function App() {
         onInteractiveRebase={handleInteractiveRebaseOnto}
         onOpenBranches={() => setIsBranchesOpen(true)}
         onSubmodulesChanged={refreshActiveRepository}
+        worktrees={worktrees}
+        onAddWorktree={handleAddWorktree}
+        onOpenWorktree={handleOpenWorktree}
+        onRemoveWorktree={handleRemoveWorktree}
       />
       <section className="workspace" aria-label="Git workbench">
         <header className="toolbar">
@@ -721,6 +770,17 @@ export default function App() {
         />
       )}
       {isSshOpen && <SshDiagnosticsDialog onClose={() => setIsSshOpen(false)} />}
+      {isAddWorktreeOpen && repoView.repository ? (
+        <AddWorktreeDialog
+          repositoryPath={repoView.repository.root}
+          branches={repoView.repository.branches}
+          onClose={() => setIsAddWorktreeOpen(false)}
+          onCompleted={() => {
+            refreshActiveRepository();
+            void loadWorktrees();
+          }}
+        />
+      ) : null}
       {isAboutOpen ? <AboutDialog onClose={() => setIsAboutOpen(false)} /> : null}
       {isDoctorOpen ? <DoctorDialog onClose={() => setIsDoctorOpen(false)} /> : null}
       {isTimeMachineOpen && repoView.repositoryPath ? (

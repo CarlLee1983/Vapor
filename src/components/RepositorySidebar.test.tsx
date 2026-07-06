@@ -45,6 +45,10 @@ describe("RepositorySidebar", () => {
         onActivate={vi.fn()}
         onClose={vi.fn()}
         onOpen={vi.fn()}
+      worktrees={[]}
+      onAddWorktree={vi.fn()}
+      onOpenWorktree={vi.fn()}
+      onRemoveWorktree={vi.fn()}
       />,
     );
 
@@ -67,6 +71,10 @@ describe("RepositorySidebar", () => {
         onActivate={vi.fn()}
         onClose={vi.fn()}
         onOpen={vi.fn()}
+      worktrees={[]}
+      onAddWorktree={vi.fn()}
+      onOpenWorktree={vi.fn()}
+      onRemoveWorktree={vi.fn()}
       />,
     );
 
@@ -90,6 +98,10 @@ describe("RepositorySidebar", () => {
         onActivate={vi.fn()}
         onClose={vi.fn()}
         onOpen={vi.fn()}
+      worktrees={[]}
+      onAddWorktree={vi.fn()}
+      onOpenWorktree={vi.fn()}
+      onRemoveWorktree={vi.fn()}
       />,
     );
 
@@ -118,6 +130,10 @@ describe("RepositorySidebar", () => {
         onActivate={onActivate}
         onClose={vi.fn()}
         onOpen={vi.fn()}
+      worktrees={[]}
+      onAddWorktree={vi.fn()}
+      onOpenWorktree={vi.fn()}
+      onRemoveWorktree={vi.fn()}
       />,
     );
     expect(screen.getByText("other")).toBeInTheDocument();
@@ -138,6 +154,10 @@ describe("RepositorySidebar", () => {
         onActivate={vi.fn()}
         onClose={vi.fn()}
         onOpen={onOpen}
+      worktrees={[]}
+      onAddWorktree={vi.fn()}
+      onOpenWorktree={vi.fn()}
+      onRemoveWorktree={vi.fn()}
       />,
     );
     await user.click(screen.getByRole("button", { name: /open repository/i }));
@@ -163,6 +183,10 @@ describe("RepositorySidebar", () => {
         onActivate={vi.fn()}
         onClose={vi.fn()}
         onOpen={vi.fn()}
+      worktrees={[]}
+      onAddWorktree={vi.fn()}
+      onOpenWorktree={vi.fn()}
+      onRemoveWorktree={vi.fn()}
       />,
     );
     expect(screen.getByText("feat")).toBeInTheDocument();
@@ -180,6 +204,10 @@ describe("RepositorySidebar", () => {
         onActivate={vi.fn()}
         onClose={vi.fn()}
         onOpen={vi.fn()}
+      worktrees={[]}
+      onAddWorktree={vi.fn()}
+      onOpenWorktree={vi.fn()}
+      onRemoveWorktree={vi.fn()}
       />,
     );
     expect(container.querySelector(".sidebar__scroll")).not.toBeNull();
@@ -208,6 +236,10 @@ describe("RepositorySidebar", () => {
         onOpen={vi.fn()}
         onCheckoutBranch={vi.fn()}
         onMergeBranch={onMergeBranch}
+      worktrees={[]}
+      onAddWorktree={vi.fn()}
+      onOpenWorktree={vi.fn()}
+      onRemoveWorktree={vi.fn()}
       />,
     );
 
@@ -231,6 +263,10 @@ describe("RepositorySidebar", () => {
         onActivate={vi.fn()}
         onClose={vi.fn()}
         onOpen={vi.fn()}
+      worktrees={[]}
+      onAddWorktree={vi.fn()}
+      onOpenWorktree={vi.fn()}
+      onRemoveWorktree={vi.fn()}
       />,
     );
 
