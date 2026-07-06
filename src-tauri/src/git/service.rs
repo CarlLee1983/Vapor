@@ -843,6 +843,51 @@ impl<R: GitRunner> GitService<R> {
         Ok(super::parsers::parse_worktree_list(&output.stdout))
     }
 
+    pub fn add_worktree(
+        &self,
+        request: &super::models::AddWorktreeRequest,
+    ) -> Result<super::models::WorktreeMutationResponse, GitError> {
+        let preview = super::command_builder::add_worktree_preview(request)?;
+        // Adding a worktree does not rewrite history → no safety-net snapshot.
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::WorktreeMutationResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn remove_worktree(
+        &self,
+        request: &super::models::RemoveWorktreeRequest,
+    ) -> Result<super::models::WorktreeMutationResponse, GitError> {
+        // Block removal when the target worktree has uncommitted changes.
+        // We check status *inside the worktree's own directory* (not the primary repo).
+        let worktree_dir = Path::new(&request.worktree_path);
+        let status = self.runner.run(
+            worktree_dir,
+            &["status".to_string(), "--porcelain".to_string()],
+        )?;
+        if !status.stdout.trim().is_empty() {
+            return Err(GitError {
+                code: super::models::GitErrorCode::CommandFailed,
+                message: "Worktree has uncommitted changes.".to_string(),
+                hint: "Commit or discard the changes in that worktree before removing it."
+                    .to_string(),
+                stderr: String::new(),
+            });
+        }
+
+        let preview = super::command_builder::remove_worktree_preview(request)?;
+        // Removal does not rewrite history → no safety-net snapshot; no `--force`.
+        let output = self.runner.run(&request.repository_path, &preview.args)?;
+        Ok(super::models::WorktreeMutationResponse {
+            preview,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
     pub fn resolve_conflict(
         &self,
         request: &super::models::ResolveConflictRequest,

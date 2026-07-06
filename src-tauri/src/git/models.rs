@@ -971,3 +971,11 @@ pub struct RemoveWorktreeRequest {
     pub repository_path: PathBuf,
     pub worktree_path: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeMutationResponse {
+    pub preview: GitCommandPreview,
+    pub stdout: String,
+    pub stderr: String,
+}

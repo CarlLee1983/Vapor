@@ -2,13 +2,13 @@ use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 use vapor_lib::git::models::{
-    AddRemoteRequest, ApplyMode, BlameRequest, CheckoutBranchRequest,
+    AddRemoteRequest, AddWorktreeRequest, ApplyMode, BlameRequest, CheckoutBranchRequest,
     CheckoutCommitRequest, CherryPickRequest,
     CommitRequest, ConflictKind, ConflictResolution, CreateBranchRequest, CreateStashRequest,
     DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest, GitErrorCode,
     FileHistoryRequest, HunkSelection, InteractiveRebaseRequest, ListWorktreesRequest, MergeBranchRequest,
     PartialApplyRequest, PullRequest, PushRequest,
-    RebaseAction, RebaseRequest, RebaseTodoItem, RemoveRemoteRequest, RenameBranchRequest,
+    RebaseAction, RebaseRequest, RebaseTodoItem, RemoveRemoteRequest, RemoveWorktreeRequest, RenameBranchRequest,
     RepositoryOperationKind, ResolveConflictRequest, SafetyNetMode, SetRemoteUrlRequest,
     StageRequest, StashRefRequest, SubmoduleState, TagPushMode, UpdateSubmoduleRequest,
 };
@@ -1506,4 +1506,57 @@ fn lists_the_primary_worktree() {
         .expect("list worktrees");
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].branch.as_deref(), Some("main"));
+}
+
+#[test]
+fn add_and_remove_worktree_updates_list_and_blocks_when_dirty() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    // `main` is already checked out in the primary worktree, so create a spare branch
+    // to place in the second worktree.
+    git(work.path(), &["branch", "feature"]);
+    let holder = TempDir::new().expect("worktree holder temp");
+    let wt_path = holder.path().join("feature-wt");
+    let wt_path_str = wt_path.to_string_lossy().to_string();
+
+    service
+        .add_worktree(&AddWorktreeRequest {
+            repository_path: work.path().to_path_buf(),
+            worktree_path: wt_path_str.clone(),
+            branch: "feature".to_string(),
+        })
+        .expect("add worktree");
+
+    let list = service
+        .list_worktrees(&ListWorktreesRequest {
+            repository_path: work.path().to_path_buf(),
+        })
+        .expect("list");
+    assert_eq!(list.len(), 2);
+
+    // Dirty the second worktree → removal must be blocked.
+    std::fs::write(wt_path.join("README.md"), "dirty\n").expect("write dirty");
+    let error = service
+        .remove_worktree(&RemoveWorktreeRequest {
+            repository_path: work.path().to_path_buf(),
+            worktree_path: wt_path_str.clone(),
+        })
+        .expect_err("dirty worktree must block removal");
+    assert!(error.message.to_lowercase().contains("uncommitted"));
+
+    // Revert the change, then removal succeeds and the list shrinks back to 1.
+    git(wt_path.as_path(), &["checkout", "--", "README.md"]);
+    service
+        .remove_worktree(&RemoveWorktreeRequest {
+            repository_path: work.path().to_path_buf(),
+            worktree_path: wt_path_str,
+        })
+        .expect("remove worktree");
+    let list = service
+        .list_worktrees(&ListWorktreesRequest {
+            repository_path: work.path().to_path_buf(),
+        })
+        .expect("list");
+    assert_eq!(list.len(), 1);
 }
