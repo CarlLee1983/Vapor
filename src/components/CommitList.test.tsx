@@ -314,6 +314,63 @@ describe("CommitList", () => {
     fireEvent.keyDown(window, { key: "k" });
     expect(onSelectCommit).not.toHaveBeenCalled(); // already at the top
   });
+
+  it("navigates the filtered list with j/k, not the unfiltered commits", () => {
+    const filterable: CommitSummary[] = [
+      { hash: "h-alpha", parents: [], author: "Carl", date: "2026-06-08T10:00:00+08:00", subject: "alpha", refs: [] },
+      {
+        hash: "h-fix-beta",
+        parents: [],
+        author: "Carl",
+        date: "2026-06-08T10:00:00+08:00",
+        subject: "fix-beta",
+        refs: [],
+      },
+      { hash: "h-gamma", parents: [], author: "Carl", date: "2026-06-08T10:00:00+08:00", subject: "gamma", refs: [] },
+      {
+        hash: "h-fix-delta",
+        parents: [],
+        author: "Carl",
+        date: "2026-06-08T10:00:00+08:00",
+        subject: "fix-delta",
+        refs: [],
+      },
+    ];
+    const [alpha, fixBeta, gamma, fixDelta] = filterable;
+    const onSelectCommit = vi.fn();
+
+    const { rerender } = render(
+      <CommitList commits={filterable} selectedCommit={fixBeta} onSelectCommit={onSelectCommit} />,
+    );
+    fireEvent.change(screen.getByLabelText("Search commits"), { target: { value: "fix" } });
+
+    // j from the first filtered ("fix-beta") match must jump to the next filtered
+    // match ("fix-delta"), skipping the filtered-out "gamma" in between.
+    fireEvent.keyDown(window, { key: "j" });
+    expect(onSelectCommit).toHaveBeenLastCalledWith(fixDelta);
+    expect(onSelectCommit).not.toHaveBeenCalledWith(gamma);
+    expect(onSelectCommit).not.toHaveBeenCalledWith(alpha);
+
+    onSelectCommit.mockClear();
+    rerender(<CommitList commits={filterable} selectedCommit={fixDelta} onSelectCommit={onSelectCommit} />);
+    fireEvent.change(screen.getByLabelText("Search commits"), { target: { value: "fix" } });
+    fireEvent.keyDown(window, { key: "k" });
+    expect(onSelectCommit).toHaveBeenLastCalledWith(fixBeta);
+
+    // At the bottom of the filtered list, j is a no-op (bounds check).
+    onSelectCommit.mockClear();
+    rerender(<CommitList commits={filterable} selectedCommit={fixDelta} onSelectCommit={onSelectCommit} />);
+    fireEvent.change(screen.getByLabelText("Search commits"), { target: { value: "fix" } });
+    fireEvent.keyDown(window, { key: "j" });
+    expect(onSelectCommit).not.toHaveBeenCalled();
+
+    // At the top of the filtered list, k is a no-op (bounds check).
+    onSelectCommit.mockClear();
+    rerender(<CommitList commits={filterable} selectedCommit={fixBeta} onSelectCommit={onSelectCommit} />);
+    fireEvent.change(screen.getByLabelText("Search commits"), { target: { value: "fix" } });
+    fireEvent.keyDown(window, { key: "k" });
+    expect(onSelectCommit).not.toHaveBeenCalled();
+  });
 });
 
 describe("CommitList helpers", () => {

@@ -132,10 +132,15 @@ export default function App() {
 
   useKeyboardShortcuts([
     { key: "k", meta: true, allowWhenDialogOpen: true, handler: () => setIsPaletteOpen((open) => !open) },
-    { key: "f", meta: true, handler: () => historySearchRef.current?.focus() },
+    {
+      key: "f",
+      meta: true,
+      enabled: viewMode === "history",
+      handler: () => historySearchRef.current?.focus(),
+    },
     { key: "r", meta: true, enabled: !!repoView.repository, handler: () => void refreshRepository() },
-    { key: "1", meta: true, handler: () => setViewMode("history") },
-    { key: "2", meta: true, handler: () => setViewMode("status") },
+    { key: "1", meta: true, enabled: !!repoView.repository, handler: () => setViewMode("history") },
+    { key: "2", meta: true, enabled: !!repoView.repository, handler: () => setViewMode("status") },
   ]);
 
   useEffect(() => {

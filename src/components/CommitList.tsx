@@ -142,14 +142,14 @@ export function CommitList({
       if (document.querySelector(".dialog-backdrop") !== null) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key !== "j" && event.key !== "k" && event.key !== "Enter") return;
-      if (commits.length === 0) return;
+      if (filtered.length === 0) return;
 
-      const currentIndex = commits.findIndex((commit) => commit.hash === selectedCommit?.hash);
+      const currentIndex = filtered.findIndex((commit) => commit.hash === selectedCommit?.hash);
 
       if (event.key === "Enter") {
         if (currentIndex >= 0) {
           event.preventDefault();
-          onSelectCommit(commits[currentIndex]);
+          onSelectCommit(filtered[currentIndex]);
         }
         return;
       }
@@ -157,15 +157,18 @@ export function CommitList({
       const delta = event.key === "j" ? 1 : -1;
       const base = currentIndex < 0 ? 0 : currentIndex;
       const nextIndex = base + delta;
-      if (nextIndex < 0 || nextIndex >= commits.length) return; // respect bounds
+      if (nextIndex < 0 || nextIndex >= filtered.length) return; // respect bounds
 
       event.preventDefault();
-      onSelectCommit(commits[nextIndex]);
+      onSelectCommit(filtered[nextIndex]);
 
       // The list is virtualized — scroll the container so the row is in view.
+      // buildCommitGraph prepends an uncommitted row, so filtered[i] renders at
+      // graph row i + (hasUncommittedChanges ? 1 : 0).
       const container = scrollRef.current;
       if (container) {
-        const rowTop = nextIndex * ROW_HEIGHT;
+        const graphRow = nextIndex + (hasUncommittedChanges ? 1 : 0);
+        const rowTop = graphRow * ROW_HEIGHT;
         const rowBottom = rowTop + ROW_HEIGHT;
         if (rowTop < container.scrollTop) {
           container.scrollTop = rowTop;
@@ -176,7 +179,7 @@ export function CommitList({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [commits, selectedCommit, onSelectCommit]);
+  }, [filtered, selectedCommit, onSelectCommit, hasUncommittedChanges]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
