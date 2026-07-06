@@ -1,9 +1,9 @@
 use crate::cli::{self, LaunchPath};
 use crate::git::models::{
-    AddRemoteRequest, BlameRequest, BlameResponse, BranchMutationResponse, CheckoutBranchRequest,
-    CheckoutCommitRequest, CherryPickRequest, CherryPickResponse, CloneRequest, CloneResponse,
-    CommitLogRequest, CommitRequest, CommitResponse, CommitSummary, ConflictedFile,
-    CreateBranchRequest, CreateStashRequest, CreateTagRequest, CreateTagResponse,
+    AddRemoteRequest, AddWorktreeRequest, BlameRequest, BlameResponse, BranchMutationResponse,
+    CheckoutBranchRequest, CheckoutCommitRequest, CherryPickRequest, CherryPickResponse,
+    CloneRequest, CloneResponse, CommitLogRequest, CommitRequest, CommitResponse, CommitSummary,
+    ConflictedFile, CreateBranchRequest, CreateStashRequest, CreateTagRequest, CreateTagResponse,
     DeleteBranchRequest, DeleteTagRequest, DeleteTagResponse, DiffRequest, DiffResponse,
     DiscardChangesRequest, DiscardChangesResponse, DiscardPreviewResponse, FetchRequest,
     FetchResponse, FileHistoryRequest, GitCommandPreview, GitError, GetSubmodulesRequest,
@@ -12,12 +12,13 @@ use crate::git::models::{
     ListTagsResponse, MergeBranchRequest, MergeBranchResponse, PartialApplyRequest,
     PartialApplyResponse, PullRequest, PullResponse, PushRequest, PushResponse, RebaseRequest,
     RebaseResponse, RebaseTodoCommitsRequest, RemoteMutationResponse, RemoveRemoteRequest,
-    RenameBranchRequest, RepositoryRequest, RepositoryState, ResetRequest, ResetResponse,
-    ResolveConflictRequest, ResolveConflictResponse, RestoreSnapshotFileRequest, RevertRequest,
-    RevertResponse, SetRemoteUrlRequest, SnapshotFilesResponse, SnapshotRefRequest, StageRequest,
-    StageResponse, SubmoduleStatus, StashMutationResponse, StashRefRequest, TagsmithConfigRequest,
-    TagsmithConfigResponse, TimelineRequest, TimelineResponse, UndoPlan, UndoPlanRequest,
-    UndoRequest, UpdateAllSubmodulesRequest, UpdateSubmoduleRequest, SubmoduleUpdateResponse,
+    RemoveWorktreeRequest, RenameBranchRequest, RepositoryRequest, RepositoryState, ResetRequest,
+    ResetResponse, ResolveConflictRequest, ResolveConflictResponse, RestoreSnapshotFileRequest,
+    RevertRequest, RevertResponse, SetRemoteUrlRequest, SnapshotFilesResponse, SnapshotRefRequest,
+    StageRequest, StageResponse, SubmoduleStatus, StashMutationResponse, StashRefRequest,
+    TagsmithConfigRequest, TagsmithConfigResponse, TimelineRequest, TimelineResponse, UndoPlan,
+    UndoPlanRequest, UndoRequest, UpdateAllSubmodulesRequest, UpdateSubmoduleRequest,
+    SubmoduleUpdateResponse,
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
@@ -738,6 +739,18 @@ pub async fn discard_changes(
         hint: "Refresh the repository and try again.".to_string(),
         stderr: error.to_string(),
     })?
+}
+
+#[tauri::command]
+pub fn preview_add_worktree(request: AddWorktreeRequest) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::add_worktree_preview(&request)
+}
+
+#[tauri::command]
+pub fn preview_remove_worktree(
+    request: RemoveWorktreeRequest,
+) -> Result<GitCommandPreview, GitError> {
+    crate::git::command_builder::remove_worktree_preview(&request)
 }
 
 #[tauri::command]

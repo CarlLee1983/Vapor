@@ -1,11 +1,11 @@
 use super::models::{
-    AddRemoteRequest, ApplyMode, CheckoutBranchRequest, CheckoutCommitRequest, CherryPickRequest,
-    CloneRequest, CommitRequest, ConflictResolution, CreateBranchRequest, CreateStashRequest,
-    DeleteBranchRequest, DiffScope, FetchRequest, GitCommandPreview, GitError, GitErrorCode,
-    InteractiveRebaseRequest, MergeBranchRequest, PullRequest, PushRequest, RebaseAction,
-    RebaseRequest, RebaseTodoItem, RemoveRemoteRequest, RenameBranchRequest,
-    RepositoryOperationKind, ResetMode, ResetRequest, ResolveConflictRequest, RevertRequest,
-    SetRemoteUrlRequest, StashRefRequest, TagPushMode,
+    AddRemoteRequest, AddWorktreeRequest, ApplyMode, CheckoutBranchRequest, CheckoutCommitRequest,
+    CherryPickRequest, CloneRequest, CommitRequest, ConflictResolution, CreateBranchRequest,
+    CreateStashRequest, DeleteBranchRequest, DiffScope, FetchRequest, GitCommandPreview, GitError,
+    GitErrorCode, InteractiveRebaseRequest, MergeBranchRequest, PullRequest, PushRequest,
+    RebaseAction, RebaseRequest, RebaseTodoItem, RemoveRemoteRequest, RemoveWorktreeRequest,
+    RenameBranchRequest, RepositoryOperationKind, ResetMode, ResetRequest, ResolveConflictRequest,
+    RevertRequest, SetRemoteUrlRequest, StashRefRequest, TagPushMode,
 };
 
 pub fn validate_ref_part(value: &str, label: &str) -> Result<(), GitError> {
@@ -133,6 +133,44 @@ pub fn worktree_list_args() -> Vec<String> {
         "list".to_string(),
         "--porcelain".to_string(),
     ]
+}
+
+/// The worktree path is a filesystem path (may contain `/`, `.`, spaces), so it is
+/// only checked for the two things that would let it be mistaken for a flag or be empty.
+fn validate_worktree_path(value: &str) -> Result<(), GitError> {
+    if value.trim().is_empty() || value.starts_with('-') {
+        return Err(GitError {
+            code: GitErrorCode::InvalidRef,
+            message: "Invalid worktree path.".to_string(),
+            hint: "Provide a non-empty path that does not start with '-'.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    Ok(())
+}
+
+pub fn add_worktree_preview(
+    request: &AddWorktreeRequest,
+) -> Result<GitCommandPreview, GitError> {
+    validate_worktree_path(&request.worktree_path)?;
+    validate_ref_part(&request.branch, "branch")?;
+    Ok(preview(vec![
+        "worktree".to_string(),
+        "add".to_string(),
+        request.worktree_path.clone(),
+        request.branch.clone(),
+    ]))
+}
+
+pub fn remove_worktree_preview(
+    request: &RemoveWorktreeRequest,
+) -> Result<GitCommandPreview, GitError> {
+    validate_worktree_path(&request.worktree_path)?;
+    Ok(preview(vec![
+        "worktree".to_string(),
+        "remove".to_string(),
+        request.worktree_path.clone(),
+    ]))
 }
 
 pub fn clone_preview(request: &CloneRequest) -> Result<GitCommandPreview, GitError> {
@@ -1916,5 +1954,50 @@ mod tests {
 
         let flag = submodule_update_args("--recursive").expect_err("leading dash");
         assert_eq!(flag.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_add_worktree_args() {
+        let request = AddWorktreeRequest {
+            repository_path: std::path::PathBuf::from("/repo"),
+            worktree_path: "/tmp/feature-wt".to_string(),
+            branch: "feature".to_string(),
+        };
+        let preview = add_worktree_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["worktree", "add", "/tmp/feature-wt", "feature"]);
+        assert_eq!(preview.display, "git worktree add /tmp/feature-wt feature");
+    }
+
+    #[test]
+    fn rejects_add_worktree_branch_injection() {
+        let request = AddWorktreeRequest {
+            repository_path: std::path::PathBuf::from("/repo"),
+            worktree_path: "/tmp/feature-wt".to_string(),
+            branch: "--upload-pack=evil".to_string(),
+        };
+        let error = add_worktree_preview(&request).expect_err("invalid branch");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn rejects_add_worktree_path_starting_with_dash() {
+        let request = AddWorktreeRequest {
+            repository_path: std::path::PathBuf::from("/repo"),
+            worktree_path: "-evil".to_string(),
+            branch: "feature".to_string(),
+        };
+        let error = add_worktree_preview(&request).expect_err("invalid path");
+        assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_remove_worktree_args() {
+        let request = RemoveWorktreeRequest {
+            repository_path: std::path::PathBuf::from("/repo"),
+            worktree_path: "/tmp/feature-wt".to_string(),
+        };
+        let preview = remove_worktree_preview(&request).expect("preview");
+        assert_eq!(preview.args, vec!["worktree", "remove", "/tmp/feature-wt"]);
+        assert_eq!(preview.display, "git worktree remove /tmp/feature-wt");
     }
 }

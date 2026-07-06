@@ -956,3 +956,18 @@ pub struct WorktreeInfo {
 pub struct ListWorktreesRequest {
     pub repository_path: PathBuf,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AddWorktreeRequest {
+    pub repository_path: PathBuf,
+    pub worktree_path: String,
+    pub branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoveWorktreeRequest {
+    pub repository_path: PathBuf,
+    pub worktree_path: String,
+}
