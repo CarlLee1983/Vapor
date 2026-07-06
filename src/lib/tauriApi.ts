@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AddRemoteRequest,
+  AddWorktreeRequest,
   BlameRequest,
   BlameResponse,
   BranchMutationResponse,
@@ -24,6 +25,7 @@ import type {
   PushResponse,
   RemoteMutationResponse,
   RemoveRemoteRequest,
+  RemoveWorktreeRequest,
   RenameBranchRequest,
   RepositoryState,
   ResolveConflictRequest,
@@ -61,6 +63,8 @@ import type {
   SnapshotFileEntry,
   SubmoduleStatus,
   SubmoduleUpdateResponse,
+  WorktreeInfo,
+  WorktreeMutationResponse,
 } from "../types/git";
 import type {
   CreateTagRequest,
@@ -432,4 +436,32 @@ export async function updateAllSubmodules(
   return invoke<SubmoduleUpdateResponse>("update_all_submodules", {
     request: { repositoryPath },
   });
+}
+
+export async function listWorktrees(repositoryPath: string): Promise<WorktreeInfo[]> {
+  return invoke<WorktreeInfo[]>("list_worktrees", { request: { repositoryPath } });
+}
+
+export async function previewAddWorktree(
+  request: AddWorktreeRequest,
+): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_add_worktree", { request });
+}
+
+export async function addWorktree(
+  request: AddWorktreeRequest,
+): Promise<WorktreeMutationResponse> {
+  return invoke<WorktreeMutationResponse>("add_worktree", { request });
+}
+
+export async function previewRemoveWorktree(
+  request: RemoveWorktreeRequest,
+): Promise<GitCommandPreview> {
+  return invoke<GitCommandPreview>("preview_remove_worktree", { request });
+}
+
+export async function removeWorktree(
+  request: RemoveWorktreeRequest,
+): Promise<WorktreeMutationResponse> {
+  return invoke<WorktreeMutationResponse>("remove_worktree", { request });
 }
