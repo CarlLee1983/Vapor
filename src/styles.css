@@ -2525,3 +2525,41 @@ button.danger:not(:disabled):hover {
 .command-palette__empty {
   padding: 8px 10px;
 }
+
+.submodule-row {
+  justify-content: space-between;
+  align-items: center;
+}
+.submodule-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.submodule-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.submodule-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.submodule-sha {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #888);
+}
+.submodule-badge {
+  font-size: 0.7rem;
+  padding: 0 0.35rem;
+  border-radius: 0.25rem;
+  background: var(--warning, #f59e0b);
+  color: #1e1e1e;
+}
+.submodule-badge--uninitialized {
+  background: var(--text-secondary, #888);
+  color: #fff;
+}
+.submodule-update {
+  flex-shrink: 0;
+}
