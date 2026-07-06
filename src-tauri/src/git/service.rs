@@ -834,6 +834,15 @@ impl<R: GitRunner> GitService<R> {
         Ok(super::parsers::parse_conflicted_files(&output.stdout))
     }
 
+    pub fn list_worktrees(
+        &self,
+        request: &super::models::ListWorktreesRequest,
+    ) -> Result<Vec<super::models::WorktreeInfo>, GitError> {
+        let args = super::command_builder::worktree_list_args();
+        let output = self.runner.run(&request.repository_path, &args)?;
+        Ok(super::parsers::parse_worktree_list(&output.stdout))
+    }
+
     pub fn resolve_conflict(
         &self,
         request: &super::models::ResolveConflictRequest,

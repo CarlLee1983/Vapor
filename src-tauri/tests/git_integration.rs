@@ -6,7 +6,7 @@ use vapor_lib::git::models::{
     CheckoutCommitRequest, CherryPickRequest,
     CommitRequest, ConflictKind, ConflictResolution, CreateBranchRequest, CreateStashRequest,
     DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest, GitErrorCode,
-    FileHistoryRequest, HunkSelection, InteractiveRebaseRequest, MergeBranchRequest,
+    FileHistoryRequest, HunkSelection, InteractiveRebaseRequest, ListWorktreesRequest, MergeBranchRequest,
     PartialApplyRequest, PullRequest, PushRequest,
     RebaseAction, RebaseRequest, RebaseTodoItem, RemoveRemoteRequest, RenameBranchRequest,
     RepositoryOperationKind, ResolveConflictRequest, SafetyNetMode, SetRemoteUrlRequest,
@@ -1493,4 +1493,17 @@ fn lists_and_updates_submodules() {
         .expect("update submodule");
     let updated = service.submodules(work.path()).expect("updated status");
     assert_eq!(updated[0].state, SubmoduleState::InSync);
+}
+
+#[test]
+fn lists_the_primary_worktree() {
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+    let list = service
+        .list_worktrees(&ListWorktreesRequest {
+            repository_path: work.path().to_path_buf(),
+        })
+        .expect("list worktrees");
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].branch.as_deref(), Some("main"));
 }

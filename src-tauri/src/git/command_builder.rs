@@ -127,6 +127,14 @@ pub fn submodule_update_args(path: &str) -> Result<Vec<String>, GitError> {
     ])
 }
 
+pub fn worktree_list_args() -> Vec<String> {
+    vec![
+        "worktree".to_string(),
+        "list".to_string(),
+        "--porcelain".to_string(),
+    ]
+}
+
 pub fn clone_preview(request: &CloneRequest) -> Result<GitCommandPreview, GitError> {
     if request.url.trim().is_empty() {
         return Err(GitError {

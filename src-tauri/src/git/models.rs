@@ -939,3 +939,20 @@ pub struct SubmoduleUpdateResponse {
     pub stdout: String,
     pub stderr: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeInfo {
+    pub path: PathBuf,
+    pub head: String,
+    pub branch: Option<String>,
+    pub is_bare: bool,
+    pub is_detached: bool,
+    pub is_locked: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ListWorktreesRequest {
+    pub repository_path: PathBuf,
+}

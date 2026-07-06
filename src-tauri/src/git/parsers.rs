@@ -427,6 +427,63 @@ pub fn parse_conflicted_files(stdout: &str) -> Vec<ConflictedFile> {
     files
 }
 
+/// Parse `git worktree list --porcelain`. Blocks are separated by a blank line.
+/// Each block starts with `worktree <abs-path>`, then `HEAD <sha>`, then either
+/// `branch refs/heads/<name>` or `detached`; `bare` / `locked [<reason>]` are optional.
+pub fn parse_worktree_list(stdout: &str) -> Vec<super::models::WorktreeInfo> {
+    let mut worktrees = Vec::new();
+    let mut current: Option<super::models::WorktreeInfo> = None;
+
+    let flush = |current: &mut Option<super::models::WorktreeInfo>,
+                 worktrees: &mut Vec<super::models::WorktreeInfo>| {
+        if let Some(worktree) = current.take() {
+            worktrees.push(worktree);
+        }
+    };
+
+    for line in stdout.lines() {
+        if line.is_empty() {
+            flush(&mut current, &mut worktrees);
+            continue;
+        }
+        if let Some(path) = line.strip_prefix("worktree ") {
+            // A new block header without a preceding blank line still starts a new entry.
+            flush(&mut current, &mut worktrees);
+            current = Some(super::models::WorktreeInfo {
+                path: std::path::PathBuf::from(path),
+                head: String::new(),
+                branch: None,
+                is_bare: false,
+                is_detached: false,
+                is_locked: false,
+            });
+        } else if let Some(head) = line.strip_prefix("HEAD ") {
+            if let Some(worktree) = current.as_mut() {
+                worktree.head = head.to_string();
+            }
+        } else if let Some(branch) = line.strip_prefix("branch ") {
+            if let Some(worktree) = current.as_mut() {
+                worktree.branch =
+                    Some(branch.strip_prefix("refs/heads/").unwrap_or(branch).to_string());
+            }
+        } else if line == "detached" {
+            if let Some(worktree) = current.as_mut() {
+                worktree.is_detached = true;
+            }
+        } else if line == "bare" {
+            if let Some(worktree) = current.as_mut() {
+                worktree.is_bare = true;
+            }
+        } else if line == "locked" || line.starts_with("locked ") {
+            if let Some(worktree) = current.as_mut() {
+                worktree.is_locked = true;
+            }
+        }
+    }
+    flush(&mut current, &mut worktrees);
+    worktrees
+}
+
 #[cfg(test)]
 mod repository_parser_tests {
     use super::*;
@@ -597,5 +654,26 @@ filename x.txt
         assert_eq!(segments[0].author, "Alice");
         assert_eq!(segments[0].line_start, 1);
         assert_eq!(segments[0].line_count, 1);
+    }
+
+    #[test]
+    fn parses_worktree_list_porcelain() {
+        let stdout = "worktree /Users/carl/Dev/CMG/Vapor\n\
+HEAD cdfd080e5ba38d842d63d48d78e6740ee9f59015\n\
+branch refs/heads/main\n\
+\n\
+worktree /tmp/feature-wt\n\
+HEAD aaaa1111bbbb2222cccc3333dddd4444eeee5555\n\
+detached\n\
+\n";
+        let list = parse_worktree_list(stdout);
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].path, std::path::PathBuf::from("/Users/carl/Dev/CMG/Vapor"));
+        assert_eq!(list[0].head, "cdfd080e5ba38d842d63d48d78e6740ee9f59015");
+        assert_eq!(list[0].branch.as_deref(), Some("main"));
+        assert!(!list[0].is_detached);
+        assert!(list[1].is_detached);
+        assert_eq!(list[1].branch, None);
+        assert_eq!(list[1].head, "aaaa1111bbbb2222cccc3333dddd4444eeee5555");
     }
 }
