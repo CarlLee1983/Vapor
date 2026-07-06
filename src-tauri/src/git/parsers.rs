@@ -1,6 +1,6 @@
 use super::models::{
     BlameSegment, BranchInfo, CommitSummary, ConflictKind, ConflictedFile, FileStatus, GitError,
-    GitErrorCode, RemoteInfo, StashEntry,
+    GitErrorCode, RemoteInfo, StashEntry, SubmoduleState,
 };
 use std::collections::HashMap;
 
@@ -89,6 +89,69 @@ mod tests {
         );
         assert_eq!(error.code, GitErrorCode::AuthenticationFailed);
     }
+
+    #[test]
+    fn parses_submodule_status_states_and_describe() {
+        let stdout = " e1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0 libs/foo (v1.0-3-ge1b2c3d)\n\
+-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0 libs/bar\n\
++f1e2d3c4b5a6978869504132a3b4c5d6e7f8a9b0 libs/baz (heads/main)\n";
+        let subs = parse_submodule_status(stdout);
+        assert_eq!(subs.len(), 3);
+
+        assert_eq!(subs[0].path, "libs/foo");
+        assert_eq!(subs[0].sha, "e1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0");
+        assert_eq!(subs[0].state, SubmoduleState::InSync);
+        assert_eq!(subs[0].describe.as_deref(), Some("v1.0-3-ge1b2c3d"));
+
+        assert_eq!(subs[1].path, "libs/bar");
+        assert_eq!(subs[1].state, SubmoduleState::Uninitialized);
+        assert_eq!(subs[1].describe, None);
+
+        assert_eq!(subs[2].path, "libs/baz");
+        assert_eq!(subs[2].state, SubmoduleState::Modified);
+        assert_eq!(subs[2].describe.as_deref(), Some("heads/main"));
+    }
+
+    #[test]
+    fn parses_empty_submodule_status_as_no_submodules() {
+        assert!(parse_submodule_status("").is_empty());
+        assert!(parse_submodule_status("\n  \n").is_empty());
+    }
+}
+
+/// Parses `git submodule status` output. Each non-empty line is
+/// `<marker><sha> <path>[ (<describe>)]` where marker `-` = uninitialized,
+/// `+` = checked-out SHA differs from index, ` ` (space) = in sync.
+pub fn parse_submodule_status(stdout: &str) -> Vec<super::models::SubmoduleStatus> {
+    stdout
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .filter_map(|line| {
+            let marker = line.chars().next()?;
+            let state = match marker {
+                '-' => super::models::SubmoduleState::Uninitialized,
+                '+' | 'U' => super::models::SubmoduleState::Modified,
+                _ => super::models::SubmoduleState::InSync,
+            };
+            let rest = &line[marker.len_utf8()..];
+            let mut fields = rest.splitn(2, ' ');
+            let sha = fields.next()?.to_string();
+            let remainder = fields.next()?.trim();
+            let (path, describe) = match remainder.rfind(" (") {
+                Some(index) if remainder.ends_with(')') => (
+                    remainder[..index].to_string(),
+                    Some(remainder[index + 2..remainder.len() - 1].to_string()),
+                ),
+                _ => (remainder.to_string(), None),
+            };
+            Some(super::models::SubmoduleStatus {
+                path,
+                sha,
+                state,
+                describe,
+            })
+        })
+        .collect()
 }
 
 /// Porcelain v2 emits `# branch.head (detached)` when HEAD is not on a branch.

@@ -896,3 +896,46 @@ pub struct LfsTrackResponse {
     pub stdout: String,
     pub stderr: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SubmoduleState {
+    InSync,
+    Uninitialized,
+    Modified,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmoduleStatus {
+    pub path: String,
+    pub sha: String,
+    pub state: SubmoduleState,
+    pub describe: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GetSubmodulesRequest {
+    pub repository_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateSubmoduleRequest {
+    pub repository_path: PathBuf,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateAllSubmodulesRequest {
+    pub repository_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmoduleUpdateResponse {
+    pub stdout: String,
+    pub stderr: String,
+}
