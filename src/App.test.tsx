@@ -322,7 +322,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const { rerender } = render(<App />);
     await user.click(screen.getByRole("button", { name: "More Git actions" }));
-    await user.click(screen.getByRole("menuitem", { name: "Branches" }));
+    await user.click(screen.getByRole("menuitem", { name: "Branches…" }));
     expect(screen.getByRole("dialog", { name: "Manage branches" })).toBeInTheDocument();
     useWorkspaceMock.mockReturnValue(workspaceValue({ activePath: "/repo/other" }));
     rerender(<App />);
@@ -333,7 +333,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const { rerender } = render(<App />);
     await user.click(screen.getByRole("button", { name: "More Git actions" }));
-    await user.click(screen.getByRole("menuitem", { name: "Stash" }));
+    await user.click(screen.getByRole("menuitem", { name: "Stash…" }));
     expect(screen.getByRole("dialog", { name: "Manage stashes" })).toBeInTheDocument();
     useWorkspaceMock.mockReturnValue(workspaceValue({ activePath: "/repo/other" }));
     rerender(<App />);

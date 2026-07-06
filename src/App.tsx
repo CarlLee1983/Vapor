@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CommitList } from "./components/CommitList";
 import { DiffViewer } from "./components/DiffViewer";
 import { BranchesDialog } from "./components/BranchesDialog";
@@ -27,6 +27,10 @@ import { SafetyNetErrorActions } from "./components/SafetyNetErrorActions";
 import { RepositorySidebar } from "./components/RepositorySidebar";
 import { type ThemeMode } from "./components/ThemeToggle";
 import { GitActionsMenu } from "./components/GitActionsMenu";
+import { buildAppActions, type ActionContext } from "./lib/actions";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { CommandPalette } from "./components/CommandPalette";
+import type { SearchInputHandle } from "./components/SearchInput";
 import { SettingsMenu } from "./components/SettingsMenu";
 import { LayoutControls } from "./components/LayoutControls";
 import { SplitPane } from "./components/SplitPane";
@@ -85,6 +89,8 @@ export default function App() {
   const [isSshOpen, setIsSshOpen] = useState(false);
   const [rebaseTarget, setRebaseTarget] = useState<BranchInfo | null>(null);
   const [interactiveRebaseUpstream, setInteractiveRebaseUpstream] = useState<string | null>(null);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const historySearchRef = useRef<SearchInputHandle>(null);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
   const [historyTarget, setHistoryTarget] = useState<string | null>(null);
   // 記住最後一次 discard 的目標,供安全網逃生口(force/skip)重送。
@@ -100,6 +106,37 @@ export default function App() {
     return (localStorage.getItem("vapor-theme") as ThemeMode) || "system";
   });
   const [viewMode, setViewMode] = useState<"history" | "status">("history");
+
+  const actionCtx: ActionContext = {
+    repository: repoView.repository,
+    viewMode,
+    selectedCommit: repoView.selectedCommit,
+  };
+  const appActions = useMemo(
+    () =>
+      buildAppActions({
+        openTags: () => setIsTagsOpen(true),
+        openBranches: () => setIsBranchesOpen(true),
+        openStash: () => setIsStashOpen(true),
+        openCherryPick: () => setIsCherryPickOpen(true),
+        openPush: () => setIsPushOpen(true),
+        openPull: () => setIsPullOpen(true),
+        openFetch: () => setIsFetchOpen(true),
+        refresh: () => void refreshRepository(),
+        openPalette: () => setIsPaletteOpen(true),
+        openInteractiveRebase: () => setInteractiveRebaseUpstream("@{upstream}"),
+        setViewMode,
+      }),
+    [refreshRepository],
+  );
+
+  useKeyboardShortcuts([
+    { key: "k", meta: true, allowWhenDialogOpen: true, handler: () => setIsPaletteOpen((open) => !open) },
+    { key: "f", meta: true, handler: () => historySearchRef.current?.focus() },
+    { key: "r", meta: true, enabled: !!repoView.repository, handler: () => void refreshRepository() },
+    { key: "1", meta: true, handler: () => setViewMode("history") },
+    { key: "2", meta: true, handler: () => setViewMode("status") },
+  ]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -165,6 +202,7 @@ export default function App() {
     setHistoryTarget(null);
     setPreviousBranch(null);
     setInteractiveRebaseUpstream(null);
+    setIsPaletteOpen(false);
   }, [workspace.activePath]);
 
   const refreshActiveRepository = () => {
@@ -281,13 +319,6 @@ export default function App() {
   const handleInteractiveRebaseOnto = (branch: BranchInfo) => {
     if (!repoView.repository || branch.isCurrent) return;
     setInteractiveRebaseUpstream(branch.name);
-  };
-
-  // The GitActionsMenu entry rebases the current branch onto its upstream tracking ref.
-  // If the branch has no upstream, git errors and the dialog surfaces it.
-  const handleInteractiveRebaseUpstream = () => {
-    if (!repoView.repository) return;
-    setInteractiveRebaseUpstream("@{upstream}");
   };
 
   const handleRevertCommit = (commit: CommitSummary) => {
@@ -438,16 +469,7 @@ export default function App() {
               onUndo={timeline.undoEntry}
               onCompleted={refreshActiveRepository}
             />
-            <GitActionsMenu
-              repository={repoView.repository}
-              viewMode={viewMode}
-              selectedCommit={repoView.selectedCommit}
-              onOpenTags={() => setIsTagsOpen(true)}
-              onOpenBranches={() => setIsBranchesOpen(true)}
-              onOpenStash={() => setIsStashOpen(true)}
-              onOpenCherryPick={() => setIsCherryPickOpen(true)}
-              onOpenInteractiveRebase={handleInteractiveRebaseUpstream}
-            />
+            <GitActionsMenu actions={appActions} ctx={actionCtx} />
             <span className="toolbar-divider" aria-hidden="true" />
             <LayoutControls
               orientation={layout.prefs.orientation}
@@ -518,6 +540,7 @@ export default function App() {
               onCherryPick={handleCherryPickCommit}
               onRevert={handleRevertCommit}
               onReset={handleResetCommit}
+              searchRef={historySearchRef}
             />
           ) : (
             <WorkingTreePanel
@@ -630,6 +653,13 @@ export default function App() {
           upstream={interactiveRebaseUpstream}
           onClose={() => setInteractiveRebaseUpstream(null)}
           onCompleted={refreshActiveRepository}
+        />
+      ) : null}
+      {isPaletteOpen ? (
+        <CommandPalette
+          actions={appActions}
+          ctx={actionCtx}
+          onClose={() => setIsPaletteOpen(false)}
         />
       ) : null}
       {isCherryPickOpen && repoView.repository && repoView.selectedCommit ? (

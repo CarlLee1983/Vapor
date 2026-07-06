@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, Ref } from "react";
 import type { CommitSummary } from "../types/git";
 import { describeRef } from "../lib/refs";
 import { CommitGraph } from "./CommitGraph";
 import { buildCommitGraph, LANE_WIDTH, ROW_HEIGHT, UNCOMMITTED_HASH } from "../lib/commitGraph";
 import { computeVisibleRange, isNearBottom } from "../lib/virtualList";
 import { filterCommits } from "../lib/commitFilter";
-import { SearchInput } from "./SearchInput";
+import { SearchInput, type SearchInputHandle } from "./SearchInput";
 import { ContextMenu } from "./ContextMenu";
 import { useContextMenu } from "../hooks/useContextMenu";
 import { isEditableTarget } from "../lib/actions";
@@ -29,6 +29,7 @@ interface Props {
   onCherryPick?: (commit: CommitSummary) => void;
   onRevert?: (commit: CommitSummary) => void;
   onReset?: (commit: CommitSummary) => void;
+  searchRef?: Ref<SearchInputHandle>;
 }
 
 export function getInitials(name: string): string {
@@ -73,6 +74,7 @@ export function CommitList({
   onCherryPick,
   onRevert,
   onReset,
+  searchRef,
 }: Props) {
   const hasUncommittedChanges = uncommittedCount > 0;
   const menu = useContextMenu<CommitSummary>();
@@ -197,6 +199,7 @@ export function CommitList({
       <div className="panel__header">
         <h2>History</h2>
         <SearchInput
+          ref={searchRef}
           value={query}
           onChange={setQuery}
           placeholder="搜尋 commit(訊息 / 作者 / hash)"

@@ -1,27 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import type { CommitSummary, RepositoryState } from "../types/git";
+import type { ActionContext, AppAction } from "../lib/actions";
 
 interface Props {
-  repository: RepositoryState | null;
-  viewMode: "history" | "status";
-  selectedCommit: CommitSummary | null;
-  onOpenTags: () => void;
-  onOpenBranches: () => void;
-  onOpenStash: () => void;
-  onOpenCherryPick: () => void;
-  onOpenInteractiveRebase: () => void;
+  actions: AppAction[];
+  ctx: ActionContext;
 }
 
-export function GitActionsMenu({
-  repository,
-  viewMode,
-  selectedCommit,
-  onOpenTags,
-  onOpenBranches,
-  onOpenStash,
-  onOpenCherryPick,
-  onOpenInteractiveRebase,
-}: Props) {
+// The dropdown surfaces the "Git" group only; Sync/View actions live on the toolbar + palette.
+const MENU_GROUP = "Git";
+
+export function GitActionsMenu({ actions, ctx }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -43,14 +31,12 @@ export function GitActionsMenu({
     };
   }, [open]);
 
-  const runAndClose = (action: () => void) => {
-    setOpen(false);
-    action();
-  };
+  const menuActions = actions.filter((action) => action.group === MENU_GROUP);
 
-  const repoDisabled = !repository;
-  const cherryPickDisabled =
-    repoDisabled || !!repository?.operation || !selectedCommit || viewMode !== "history";
+  const runAndClose = (action: AppAction) => {
+    setOpen(false);
+    action.run();
+  };
 
   return (
     <div className="toolbar-menu" ref={containerRef}>
@@ -69,51 +55,18 @@ export function GitActionsMenu({
       </button>
       {open ? (
         <div className="toolbar-menu__dropdown" role="menu">
-          <button
-            type="button"
-            role="menuitem"
-            className="toolbar-menu__item"
-            disabled={repoDisabled}
-            onClick={() => runAndClose(onOpenTags)}
-          >
-            Tags
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="toolbar-menu__item"
-            disabled={repoDisabled}
-            onClick={() => runAndClose(onOpenBranches)}
-          >
-            Branches
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="toolbar-menu__item"
-            disabled={repoDisabled}
-            onClick={() => runAndClose(onOpenStash)}
-          >
-            Stash
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="toolbar-menu__item"
-            disabled={cherryPickDisabled}
-            onClick={() => runAndClose(onOpenCherryPick)}
-          >
-            Cherry-pick
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="toolbar-menu__item"
-            disabled={repoDisabled || !!repository?.operation}
-            onClick={() => runAndClose(onOpenInteractiveRebase)}
-          >
-            Interactive rebase…
-          </button>
+          {menuActions.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              role="menuitem"
+              className="toolbar-menu__item"
+              disabled={action.disabled(ctx)}
+              onClick={() => runAndClose(action)}
+            >
+              {action.title}
+            </button>
+          ))}
         </div>
       ) : null}
     </div>
