@@ -53,7 +53,12 @@ pub fn diagnostics() -> SshDiagnostics {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .filter(|s| !s.is_empty());
 
-    diagnose(config_exists, agent_socket.as_deref(), &key_files, credential_helper)
+    diagnose(
+        config_exists,
+        agent_socket.as_deref(),
+        &key_files,
+        credential_helper,
+    )
 }
 
 #[cfg(test)]

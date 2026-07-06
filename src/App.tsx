@@ -37,7 +37,14 @@ import { useWorkspace } from "./hooks/useWorkspace";
 import { useTimeline } from "./hooks/useTimeline";
 import { RepoTabs } from "./components/RepoTabs";
 import { useLayoutPreferences } from "./hooks/useLayoutPreferences";
-import { getLaunchPath, onOpenRepo, pickRepositoryFolder } from "./lib/launch";
+import {
+  getLaunchPath,
+  onOpenRepo,
+  onRepoChanged,
+  pickRepositoryFolder,
+  unwatchRepository,
+  watchRepository,
+} from "./lib/launch";
 import { getRepoParam, openRepoWindow } from "./lib/window";
 import {
   checkoutBranch,
@@ -293,6 +300,11 @@ export default function App() {
       return;
     }
 
+    const path = repoView.repositoryPath;
+    let cancelled = false;
+    let intervalId: number | undefined;
+    let unlisten: (() => void) | undefined;
+
     const refreshOpenRepository = () => {
       void refreshRepository();
     };
@@ -302,14 +314,35 @@ export default function App() {
       }
     };
 
-    const intervalId = window.setInterval(refreshOpenRepository, AUTO_REFRESH_INTERVAL_MS);
     window.addEventListener("focus", refreshOpenRepository);
     document.addEventListener("visibilitychange", refreshWhenVisible);
 
+    void (async () => {
+      unlisten = await onRepoChanged((changedPath) => {
+        if (changedPath === path) {
+          refreshOpenRepository();
+        }
+      });
+
+      const watching = await watchRepository(path);
+      if (cancelled) {
+        return;
+      }
+
+      if (!watching) {
+        intervalId = window.setInterval(refreshOpenRepository, AUTO_REFRESH_INTERVAL_MS);
+      }
+    })();
+
     return () => {
-      window.clearInterval(intervalId);
+      cancelled = true;
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+      }
       window.removeEventListener("focus", refreshOpenRepository);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
+      unlisten?.();
+      void unwatchRepository(path);
     };
   }, [repoView.repositoryPath, refreshRepository]);
 

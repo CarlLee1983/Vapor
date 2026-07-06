@@ -82,19 +82,23 @@ pub fn parse_file_diff(diff: &str) -> Result<FileDiff, GitError> {
                 Some('\\') => LineKind::NoNewline,
                 _ => LineKind::Context,
             };
-            lines.push(DiffLine { kind, text: (*body).to_string() });
+            lines.push(DiffLine {
+                kind,
+                text: (*body).to_string(),
+            });
             iter.next();
         }
-        hunks.push(Hunk { old_start, new_start, lines });
+        hunks.push(Hunk {
+            old_start,
+            new_start,
+            lines,
+        });
     }
 
     Ok(FileDiff { header, hunks })
 }
 
-pub fn build_partial_patch(
-    diff: &FileDiff,
-    hunks: &[HunkSelection],
-) -> Result<String, GitError> {
+pub fn build_partial_patch(diff: &FileDiff, hunks: &[HunkSelection]) -> Result<String, GitError> {
     let mut out: Vec<String> = diff.header.clone();
     let mut emitted_any = false;
 
@@ -108,13 +112,9 @@ pub fn build_partial_patch(
         let selected: HashSet<usize> = sel.selected_lines.iter().copied().collect();
 
         // 該 hunk 是否有任何被勾選的變更行;沒有就整段排除。
-        let has_change = hunk
-            .lines
-            .iter()
-            .enumerate()
-            .any(|(i, line)| {
-                matches!(line.kind, LineKind::Add | LineKind::Del) && selected.contains(&i)
-            });
+        let has_change = hunk.lines.iter().enumerate().any(|(i, line)| {
+            matches!(line.kind, LineKind::Add | LineKind::Del) && selected.contains(&i)
+        });
         if !has_change {
             continue;
         }
@@ -215,7 +215,10 @@ mod tests {
     fn all_selected_equals_original() {
         let parsed = parse_file_diff(SAMPLE).expect("parse");
         // 選取全部變更行(1=del, 2=add, 3=add)。
-        let selection = vec![HunkSelection { index: 0, selected_lines: vec![1, 2, 3] }];
+        let selection = vec![HunkSelection {
+            index: 0,
+            selected_lines: vec![1, 2, 3],
+        }];
         let patch = build_partial_patch(&parsed, &selection).expect("build");
         assert_eq!(patch, SAMPLE);
     }
@@ -224,7 +227,10 @@ mod tests {
     fn selecting_one_add_drops_other_changes() {
         let parsed = parse_file_diff(SAMPLE).expect("parse");
         // 只選第 2 行(+line two changed),不選刪除與另一個新增。
-        let selection = vec![HunkSelection { index: 0, selected_lines: vec![2] }];
+        let selection = vec![HunkSelection {
+            index: 0,
+            selected_lines: vec![2],
+        }];
         let patch = build_partial_patch(&parsed, &selection).expect("build");
         let expected = "diff --git a/README.md b/README.md\nindex 1234567..89abcde 100644\n--- a/README.md\n+++ b/README.md\n@@ -1,3 +1,4 @@\n line one\n line two\n+line two changed\n line four\n";
         assert_eq!(patch, expected);
@@ -234,7 +240,10 @@ mod tests {
     fn selecting_only_deletion_keeps_minus_and_recounts() {
         let parsed = parse_file_diff(SAMPLE).expect("parse");
         // 只選刪除行(index 1),兩個新增都不選。
-        let selection = vec![HunkSelection { index: 0, selected_lines: vec![1] }];
+        let selection = vec![HunkSelection {
+            index: 0,
+            selected_lines: vec![1],
+        }];
         let patch = build_partial_patch(&parsed, &selection).expect("build");
         let expected = "diff --git a/README.md b/README.md\nindex 1234567..89abcde 100644\n--- a/README.md\n+++ b/README.md\n@@ -1,3 +1,2 @@\n line one\n-line two\n line four\n";
         assert_eq!(patch, expected);
@@ -243,7 +252,10 @@ mod tests {
     #[test]
     fn empty_selection_is_rejected() {
         let parsed = parse_file_diff(SAMPLE).expect("parse");
-        let selection = vec![HunkSelection { index: 0, selected_lines: vec![] }];
+        let selection = vec![HunkSelection {
+            index: 0,
+            selected_lines: vec![],
+        }];
         let error = build_partial_patch(&parsed, &selection).expect_err("empty");
         assert_eq!(error.code, GitErrorCode::InvalidInput);
     }
@@ -253,9 +265,15 @@ mod tests {
         let diff = "--- a/f\n+++ b/f\n@@ -1,1 +1,1 @@\n-old\n+new\n\\ No newline at end of file\n";
         let parsed = parse_file_diff(diff).expect("parse");
         // body: 0=-old, 1=+new, 2=\ No newline
-        let selection = vec![HunkSelection { index: 0, selected_lines: vec![0, 1] }];
+        let selection = vec![HunkSelection {
+            index: 0,
+            selected_lines: vec![0, 1],
+        }];
         let patch = build_partial_patch(&parsed, &selection).expect("build");
-        assert!(patch.contains("\\ No newline at end of file"), "marker kept: {patch}");
+        assert!(
+            patch.contains("\\ No newline at end of file"),
+            "marker kept: {patch}"
+        );
         assert!(patch.contains("+new"));
     }
 
@@ -264,9 +282,15 @@ mod tests {
         let diff = "--- a/f\n+++ b/f\n@@ -1,1 +1,1 @@\n-old\n+new\n\\ No newline at end of file\n";
         let parsed = parse_file_diff(diff).expect("parse");
         // 只選刪除(0),不選新增(1)→ 新增被丟,其後的 no-newline 標記也應被丟。
-        let selection = vec![HunkSelection { index: 0, selected_lines: vec![0] }];
+        let selection = vec![HunkSelection {
+            index: 0,
+            selected_lines: vec![0],
+        }];
         let patch = build_partial_patch(&parsed, &selection).expect("build");
-        assert!(!patch.contains("No newline"), "marker dropped with its owner: {patch}");
+        assert!(
+            !patch.contains("No newline"),
+            "marker dropped with its owner: {patch}"
+        );
     }
 
     #[test]
@@ -275,7 +299,10 @@ mod tests {
         let parsed = parse_file_diff(diff).expect("parse");
         assert_eq!(parsed.hunks.len(), 2);
         // 第一個 hunk body: 0=' a',1='-b',2='+B';只選第二個 hunk(index 1)的變更行。
-        let selection = vec![HunkSelection { index: 1, selected_lines: vec![1, 2] }];
+        let selection = vec![HunkSelection {
+            index: 1,
+            selected_lines: vec![1, 2],
+        }];
         let patch = build_partial_patch(&parsed, &selection).expect("build");
         assert!(patch.contains("+K"), "second hunk present: {patch}");
         assert!(!patch.contains("+B"), "first hunk excluded: {patch}");

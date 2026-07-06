@@ -27,8 +27,9 @@ pub fn evaluate_git(facts: &Facts) -> Check {
             status: CheckStatus::Fail,
             detail: "git executable not found.".to_string(),
             fix: Fix::Manual {
-                instructions: "Install Xcode Command Line Tools: xcode-select --install, or brew install git"
-                    .to_string(),
+                instructions:
+                    "Install Xcode Command Line Tools: xcode-select --install, or brew install git"
+                        .to_string(),
             },
         },
     }
@@ -120,8 +121,9 @@ pub fn evaluate_git_lfs(facts: &Facts) -> Check {
             id: CheckId::GitLfs,
             title: "Git LFS available".to_string(),
             status: CheckStatus::Warn,
-            detail: "git-lfs not found; repositories that use Git LFS won't check out binary content."
-                .to_string(),
+            detail:
+                "git-lfs not found; repositories that use Git LFS won't check out binary content."
+                    .to_string(),
             fix: Fix::Manual {
                 instructions: "brew install git-lfs && git lfs install".to_string(),
             },

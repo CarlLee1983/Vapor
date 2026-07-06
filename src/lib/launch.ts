@@ -25,6 +25,14 @@ export async function onOpenRepo(handler: (path: string) => void): Promise<() =>
   return listen<string>("open-repo", (event) => handler(event.payload));
 }
 
+export async function watchRepository(path: string): Promise<boolean> {
+  return invoke<boolean>("watch_repository", { path });
+}
+
+export async function unwatchRepository(path: string): Promise<void> {
+  await invoke("unwatch_repository", { path });
+}
+
 export async function doctorRun(): Promise<DoctorReport> {
   return invoke<DoctorReport>("doctor_run");
 }
@@ -41,4 +49,8 @@ export async function onCloneProgress(
   handler: (progress: CloneProgress) => void,
 ): Promise<() => void> {
   return listen<CloneProgress>("clone://progress", (event) => handler(event.payload));
+}
+
+export async function onRepoChanged(handler: (path: string) => void): Promise<() => void> {
+  return listen<string>("repo-changed", (event) => handler(event.payload));
 }

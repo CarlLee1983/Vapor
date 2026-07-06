@@ -26,7 +26,10 @@ impl<R: GitRunner> GitService<R> {
     }
 
     pub fn repository_state(&self, path: &Path) -> Result<RepositoryState, GitError> {
-        let root = self.runner.run(path, &["rev-parse".to_string(), "--show-toplevel".to_string()])?;
+        let root = self.runner.run(
+            path,
+            &["rev-parse".to_string(), "--show-toplevel".to_string()],
+        )?;
         let status = self.runner.run(
             path,
             &[
@@ -42,7 +45,9 @@ impl<R: GitRunner> GitService<R> {
                 "--format=%(refname:short)%09%(HEAD)%09%(upstream:short)".to_string(),
             ],
         )?;
-        let remotes = self.runner.run(path, &["remote".to_string(), "-v".to_string()])?;
+        let remotes = self
+            .runner
+            .run(path, &["remote".to_string(), "-v".to_string()])?;
 
         let (current_branch, ahead, behind, working_tree) = parse_porcelain_status(&status.stdout);
         let is_detached = super::parsers::head_is_detached(&status.stdout);
@@ -248,7 +253,10 @@ impl<R: GitRunner> GitService<R> {
         })
     }
 
-    pub fn push(&self, request: &super::models::PushRequest) -> Result<super::models::PushResponse, GitError> {
+    pub fn push(
+        &self,
+        request: &super::models::PushRequest,
+    ) -> Result<super::models::PushResponse, GitError> {
         let preview = super::command_builder::push_preview(request)?;
         let output = self.runner.run(&request.repository_path, &preview.args)?;
         Ok(super::models::PushResponse {
@@ -270,7 +278,9 @@ impl<R: GitRunner> GitService<R> {
             format!("Pull {}/{}", request.remote, request.remote_branch),
             None,
             |service| {
-                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                let output = service
+                    .runner
+                    .run(&request.repository_path, &preview.args)?;
                 Ok(super::models::PullResponse {
                     preview: preview.clone(),
                     stdout: output.stdout,
@@ -488,7 +498,9 @@ impl<R: GitRunner> GitService<R> {
         {
             let remote_delete =
                 super::command_builder::delete_remote_tag_preview(&request.tag_name, remote)?;
-            let remote_output = self.runner.run(&request.repository_path, &remote_delete.args)?;
+            let remote_output = self
+                .runner
+                .run(&request.repository_path, &remote_delete.args)?;
             remote_preview = Some(remote_delete);
             if !remote_output.stdout.is_empty() {
                 combined_stdout.push('\n');
@@ -632,7 +644,9 @@ impl<R: GitRunner> GitService<R> {
             format!("Delete branch {}", request.branch_name),
             deleted_branch,
             |service| {
-                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                let output = service
+                    .runner
+                    .run(&request.repository_path, &preview.args)?;
                 Ok(super::models::BranchMutationResponse {
                     preview: preview.clone(),
                     stdout: output.stdout,
@@ -684,7 +698,9 @@ impl<R: GitRunner> GitService<R> {
             format!("Apply stash {}", request.stash_ref),
             None,
             |service| {
-                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                let output = service
+                    .runner
+                    .run(&request.repository_path, &preview.args)?;
                 Ok(super::models::StashMutationResponse {
                     preview: preview.clone(),
                     stdout: output.stdout,
@@ -706,7 +722,9 @@ impl<R: GitRunner> GitService<R> {
             format!("Pop stash {}", request.stash_ref),
             None,
             |service| {
-                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                let output = service
+                    .runner
+                    .run(&request.repository_path, &preview.args)?;
                 Ok(super::models::StashMutationResponse {
                     preview: preview.clone(),
                     stdout: output.stdout,
@@ -737,7 +755,9 @@ impl<R: GitRunner> GitService<R> {
             format!("Cherry-pick {short_hash}"),
             None,
             |service| {
-                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                let output = service
+                    .runner
+                    .run(&request.repository_path, &preview.args)?;
                 Ok(super::models::CherryPickResponse {
                     preview: preview.clone(),
                     stdout: output.stdout,
@@ -760,7 +780,9 @@ impl<R: GitRunner> GitService<R> {
             format!("Revert {short_hash}"),
             None,
             |service| {
-                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                let output = service
+                    .runner
+                    .run(&request.repository_path, &preview.args)?;
                 Ok(super::models::RevertResponse {
                     preview: preview.clone(),
                     stdout: output.stdout,
@@ -826,7 +848,9 @@ impl<R: GitRunner> GitService<R> {
             format!("Reset ({mode_label}) to {short_hash}"),
             None,
             |service| {
-                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                let output = service
+                    .runner
+                    .run(&request.repository_path, &preview.args)?;
                 Ok(super::models::ResetResponse {
                     preview: preview.clone(),
                     stdout: output.stdout,
@@ -836,7 +860,10 @@ impl<R: GitRunner> GitService<R> {
         )
     }
 
-    pub fn abort_operation(&self, path: &Path) -> Result<super::models::CherryPickResponse, GitError> {
+    pub fn abort_operation(
+        &self,
+        path: &Path,
+    ) -> Result<super::models::CherryPickResponse, GitError> {
         let state = self.repository_state(path)?;
         let operation = state.operation.ok_or_else(|| GitError {
             code: super::models::GitErrorCode::CommandFailed,
@@ -853,7 +880,10 @@ impl<R: GitRunner> GitService<R> {
         })
     }
 
-    pub fn continue_operation(&self, path: &Path) -> Result<super::models::CherryPickResponse, GitError> {
+    pub fn continue_operation(
+        &self,
+        path: &Path,
+    ) -> Result<super::models::CherryPickResponse, GitError> {
         let state = self.repository_state(path)?;
         let operation = state.operation.ok_or_else(|| GitError {
             code: super::models::GitErrorCode::CommandFailed,
@@ -895,7 +925,9 @@ impl<R: GitRunner> GitService<R> {
             format!("Merge {}", request.branch_name),
             None,
             |service| {
-                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                let output = service
+                    .runner
+                    .run(&request.repository_path, &preview.args)?;
                 Ok(super::models::MergeBranchResponse {
                     preview: preview.clone(),
                     stdout: output.stdout,
@@ -908,9 +940,10 @@ impl<R: GitRunner> GitService<R> {
     /// True when there are no staged or unstaged changes (untracked files are ignored,
     /// matching `git rebase`'s own precondition).
     fn working_tree_is_clean(&self, repository_path: &Path) -> Result<bool, GitError> {
-        let output = self
-            .runner
-            .run(repository_path, &["status".to_string(), "--porcelain".to_string()])?;
+        let output = self.runner.run(
+            repository_path,
+            &["status".to_string(), "--porcelain".to_string()],
+        )?;
         let dirty = output
             .stdout
             .lines()
@@ -940,7 +973,9 @@ impl<R: GitRunner> GitService<R> {
             format!("Rebase onto {}", request.upstream),
             None,
             |service| {
-                let output = service.runner.run(&request.repository_path, &preview.args)?;
+                let output = service
+                    .runner
+                    .run(&request.repository_path, &preview.args)?;
                 Ok(super::models::RebaseResponse {
                     preview: preview.clone(),
                     stdout: output.stdout,
@@ -999,11 +1034,17 @@ impl<R: GitRunner> GitService<R> {
                 let mut stdout = String::new();
                 let mut stderr = String::new();
                 for preview in &previews {
-                    let output = service.runner.run(&request.repository_path, &preview.args)?;
+                    let output = service
+                        .runner
+                        .run(&request.repository_path, &preview.args)?;
                     stdout.push_str(&output.stdout);
                     stderr.push_str(&output.stderr);
                 }
-                Ok(super::models::DiscardChangesResponse { previews, stdout, stderr })
+                Ok(super::models::DiscardChangesResponse {
+                    previews,
+                    stdout,
+                    stderr,
+                })
             },
         )
     }

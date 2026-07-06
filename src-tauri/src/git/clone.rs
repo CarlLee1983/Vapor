@@ -115,7 +115,9 @@ pub fn run_clone(
     })?;
 
     if status.success() {
-        Ok(CloneResponse { path: request.target_dir.clone() })
+        Ok(CloneResponse {
+            path: request.target_dir.clone(),
+        })
     } else {
         Err(classify_git_error(&captured))
     }

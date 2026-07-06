@@ -12,3 +12,4 @@ pub mod service;
 pub mod snapshot;
 pub mod ssh_doctor;
 pub mod undo;
+pub mod watcher;

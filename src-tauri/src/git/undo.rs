@@ -10,7 +10,14 @@ use std::path::Path;
 
 fn current_head<R: GitRunner>(runner: &R, repo: &Path) -> Option<String> {
     runner
-        .run(repo, &["rev-parse".to_string(), "--verify".to_string(), "HEAD".to_string()])
+        .run(
+            repo,
+            &[
+                "rev-parse".to_string(),
+                "--verify".to_string(),
+                "HEAD".to_string(),
+            ],
+        )
         .ok()
         .map(|output| output.stdout.trim().to_string())
 }
@@ -46,7 +53,11 @@ fn build_plan(entry: &JournalEntry) -> UndoPlan {
     UndoPlan {
         entry_id: entry.id.clone(),
         description: format!("Undo: {}", entry.description),
-        head_target: if is_branch_restore { None } else { entry.before_head.clone() },
+        head_target: if is_branch_restore {
+            None
+        } else {
+            entry.before_head.clone()
+        },
         restore_worktree: !is_branch_restore && !entry.snapshot_ref.is_empty(),
         recreate_branch,
     }

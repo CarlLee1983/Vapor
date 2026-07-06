@@ -26,6 +26,7 @@ serde_json = "1"
 shell-words = "1"
 dirs = "5"
 urlencoding = "2"
+notify = "6"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"

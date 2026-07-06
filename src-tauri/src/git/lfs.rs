@@ -143,7 +143,13 @@ mod tests {
 
     #[test]
     fn track_pattern_falls_back_to_path_without_extension() {
-        assert_eq!(track_pattern("assets/LICENSE", &LfsTrackMode::Pattern), "assets/LICENSE");
-        assert_eq!(track_pattern("assets/.gitignore", &LfsTrackMode::Pattern), "assets/.gitignore");
+        assert_eq!(
+            track_pattern("assets/LICENSE", &LfsTrackMode::Pattern),
+            "assets/LICENSE"
+        );
+        assert_eq!(
+            track_pattern("assets/.gitignore", &LfsTrackMode::Pattern),
+            "assets/.gitignore"
+        );
     }
 }

@@ -62,7 +62,10 @@ mod tests {
 
     #[test]
     fn serializes_fix_with_kind_tag() {
-        let json = serde_json::to_string(&Fix::Auto { label: "x".to_string() }).expect("json");
+        let json = serde_json::to_string(&Fix::Auto {
+            label: "x".to_string(),
+        })
+        .expect("json");
         assert_eq!(json, r#"{"kind":"auto","label":"x"}"#);
     }
 

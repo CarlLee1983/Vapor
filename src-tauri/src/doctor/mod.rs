@@ -12,7 +12,10 @@ pub fn husky_init_path() -> Option<PathBuf> {
 }
 
 /// 純函式版本(可測):依 XDG_CONFIG_HOME 與家目錄推導 husky init.sh 路徑。
-fn husky_init_path_with(xdg_config_home: Option<OsString>, home: Option<PathBuf>) -> Option<PathBuf> {
+fn husky_init_path_with(
+    xdg_config_home: Option<OsString>,
+    home: Option<PathBuf>,
+) -> Option<PathBuf> {
     let config_home = match xdg_config_home {
         Some(value) if !value.is_empty() => PathBuf::from(value),
         _ => home?.join(".config"),
