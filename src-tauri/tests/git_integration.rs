@@ -6,11 +6,11 @@ use vapor_lib::git::models::{
     CheckoutCommitRequest, CherryPickRequest,
     CommitRequest, ConflictKind, ConflictResolution, CreateBranchRequest, CreateStashRequest,
     DeleteBranchRequest, DiffScope, DiscardChangesRequest, FetchRequest, GitErrorCode,
-    FileHistoryRequest, HunkSelection, MergeBranchRequest, PartialApplyRequest, PullRequest,
-    PushRequest,
-    RebaseRequest, RemoveRemoteRequest, RenameBranchRequest, RepositoryOperationKind,
-    ResolveConflictRequest, SafetyNetMode, SetRemoteUrlRequest, StageRequest, StashRefRequest,
-    TagPushMode,
+    FileHistoryRequest, HunkSelection, InteractiveRebaseRequest, MergeBranchRequest,
+    PartialApplyRequest, PullRequest, PushRequest,
+    RebaseAction, RebaseRequest, RebaseTodoItem, RemoveRemoteRequest, RenameBranchRequest,
+    RepositoryOperationKind, ResolveConflictRequest, SafetyNetMode, SetRemoteUrlRequest,
+    StageRequest, StashRefRequest, TagPushMode,
 };
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
@@ -1239,4 +1239,205 @@ fn checkout_commit_detaches_and_blocks_when_dirty() {
         })
         .expect_err("dirty tree must block checkout");
     assert!(error.hint.to_lowercase().contains("stash"));
+}
+
+#[test]
+fn interactive_rebase_squashes_two_commits() {
+    std::env::set_var("VAPOR_EDITOR_BIN", env!("CARGO_BIN_EXE_vapor"));
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("a.txt"), "a\n").expect("write");
+    git(work.path(), &["add", "a.txt"]);
+    git(work.path(), &["commit", "-m", "add a"]);
+    std::fs::write(work.path().join("b.txt"), "b\n").expect("write");
+    git(work.path(), &["add", "b.txt"]);
+    git(work.path(), &["commit", "-m", "add b"]);
+
+    let before: u32 = git_stdout(work.path(), &["rev-list", "--count", "HEAD"])
+        .trim()
+        .parse()
+        .expect("count");
+    let base = git_stdout(work.path(), &["rev-parse", "HEAD~2"]).trim().to_string();
+    let commits = service
+        .list_rebase_todo_commits(work.path(), &base)
+        .expect("todo commits");
+    assert_eq!(commits.len(), 2);
+    let add_a = commits[1].hash.clone(); // oldest
+    let add_b = commits[0].hash.clone(); // newest
+
+    service
+        .interactive_rebase(&InteractiveRebaseRequest {
+            repository_path: work.path().to_path_buf(),
+            upstream: base,
+            items: vec![
+                RebaseTodoItem { commit_hash: add_a, action: RebaseAction::Pick, message: None },
+                RebaseTodoItem {
+                    commit_hash: add_b,
+                    action: RebaseAction::Squash,
+                    message: Some("squashed a and b".to_string()),
+                },
+            ],
+            safety_net: SafetyNetMode::Auto,
+        })
+        .expect("interactive rebase");
+
+    let after: u32 = git_stdout(work.path(), &["rev-list", "--count", "HEAD"])
+        .trim()
+        .parse()
+        .expect("count");
+    assert_eq!(before - 1, after);
+    assert_eq!(
+        git_stdout(work.path(), &["log", "-1", "--pretty=%s"]).trim(),
+        "squashed a and b"
+    );
+    assert!(service.repository_state(work.path()).expect("state").operation.is_none());
+}
+
+#[test]
+fn interactive_rebase_drops_a_commit() {
+    std::env::set_var("VAPOR_EDITOR_BIN", env!("CARGO_BIN_EXE_vapor"));
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("a.txt"), "a\n").expect("write");
+    git(work.path(), &["add", "a.txt"]);
+    git(work.path(), &["commit", "-m", "keep me"]);
+    std::fs::write(work.path().join("b.txt"), "b\n").expect("write");
+    git(work.path(), &["add", "b.txt"]);
+    git(work.path(), &["commit", "-m", "drop me"]);
+
+    let base = git_stdout(work.path(), &["rev-parse", "HEAD~2"]).trim().to_string();
+    let commits = service.list_rebase_todo_commits(work.path(), &base).expect("commits");
+    let keep = commits[1].hash.clone();
+    let drop = commits[0].hash.clone();
+
+    service
+        .interactive_rebase(&InteractiveRebaseRequest {
+            repository_path: work.path().to_path_buf(),
+            upstream: base,
+            items: vec![
+                RebaseTodoItem { commit_hash: keep, action: RebaseAction::Pick, message: None },
+                RebaseTodoItem { commit_hash: drop, action: RebaseAction::Drop, message: None },
+            ],
+            safety_net: SafetyNetMode::Auto,
+        })
+        .expect("rebase");
+
+    let subjects = git_stdout(work.path(), &["log", "--pretty=%s"]);
+    assert!(subjects.contains("keep me"));
+    assert!(!subjects.contains("drop me"));
+}
+
+#[test]
+fn interactive_rebase_rewords_a_commit() {
+    std::env::set_var("VAPOR_EDITOR_BIN", env!("CARGO_BIN_EXE_vapor"));
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    std::fs::write(work.path().join("a.txt"), "a\n").expect("write");
+    git(work.path(), &["add", "a.txt"]);
+    git(work.path(), &["commit", "-m", "old subject"]);
+
+    let base = git_stdout(work.path(), &["rev-parse", "HEAD~1"]).trim().to_string();
+    let commits = service.list_rebase_todo_commits(work.path(), &base).expect("commits");
+    let target = commits[0].hash.clone();
+
+    service
+        .interactive_rebase(&InteractiveRebaseRequest {
+            repository_path: work.path().to_path_buf(),
+            upstream: base,
+            items: vec![RebaseTodoItem {
+                commit_hash: target,
+                action: RebaseAction::Reword,
+                message: Some("new subject".to_string()),
+            }],
+            safety_net: SafetyNetMode::Auto,
+        })
+        .expect("rebase");
+
+    assert_eq!(
+        git_stdout(work.path(), &["log", "-1", "--pretty=%s"]).trim(),
+        "new subject"
+    );
+}
+
+#[test]
+fn interactive_rebase_reorders_commits() {
+    std::env::set_var("VAPOR_EDITOR_BIN", env!("CARGO_BIN_EXE_vapor"));
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    // Independent files so reordering never conflicts.
+    std::fs::write(work.path().join("first.txt"), "1\n").expect("write");
+    git(work.path(), &["add", "first.txt"]);
+    git(work.path(), &["commit", "-m", "first"]);
+    std::fs::write(work.path().join("second.txt"), "2\n").expect("write");
+    git(work.path(), &["add", "second.txt"]);
+    git(work.path(), &["commit", "-m", "second"]);
+
+    let base = git_stdout(work.path(), &["rev-parse", "HEAD~2"]).trim().to_string();
+    let commits = service.list_rebase_todo_commits(work.path(), &base).expect("commits");
+    let first = commits[1].hash.clone();
+    let second = commits[0].hash.clone();
+
+    // Apply order swapped: second applied first, first applied last (ends up newest).
+    service
+        .interactive_rebase(&InteractiveRebaseRequest {
+            repository_path: work.path().to_path_buf(),
+            upstream: base,
+            items: vec![
+                RebaseTodoItem { commit_hash: second, action: RebaseAction::Pick, message: None },
+                RebaseTodoItem { commit_hash: first, action: RebaseAction::Pick, message: None },
+            ],
+            safety_net: SafetyNetMode::Auto,
+        })
+        .expect("rebase");
+
+    let subjects: Vec<String> = git_stdout(work.path(), &["log", "-2", "--pretty=%s"])
+        .lines()
+        .map(|line| line.to_string())
+        .collect();
+    assert_eq!(subjects, vec!["first".to_string(), "second".to_string()]);
+}
+
+#[test]
+fn interactive_rebase_conflict_surfaces_operation_and_aborts() {
+    std::env::set_var("VAPOR_EDITOR_BIN", env!("CARGO_BIN_EXE_vapor"));
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+
+    // Three commits all editing the same line, so swapping two of them conflicts.
+    std::fs::write(work.path().join("f.txt"), "base\n").expect("write");
+    git(work.path(), &["add", "f.txt"]);
+    git(work.path(), &["commit", "-m", "c1"]);
+    std::fs::write(work.path().join("f.txt"), "one\n").expect("write");
+    git(work.path(), &["commit", "-am", "c2"]);
+    std::fs::write(work.path().join("f.txt"), "two\n").expect("write");
+    git(work.path(), &["commit", "-am", "c3"]);
+
+    let base = git_stdout(work.path(), &["rev-parse", "HEAD~2"]).trim().to_string();
+    let commits = service.list_rebase_todo_commits(work.path(), &base).expect("commits");
+    let c2 = commits[1].hash.clone();
+    let c3 = commits[0].hash.clone();
+
+    let result = service.interactive_rebase(&InteractiveRebaseRequest {
+        repository_path: work.path().to_path_buf(),
+        upstream: base,
+        items: vec![
+            RebaseTodoItem { commit_hash: c3, action: RebaseAction::Pick, message: None },
+            RebaseTodoItem { commit_hash: c2, action: RebaseAction::Pick, message: None },
+        ],
+        safety_net: SafetyNetMode::Auto,
+    });
+    assert!(result.is_err(), "expected a rebase conflict");
+
+    let state = service.repository_state(work.path()).expect("state");
+    assert_eq!(
+        state.operation.as_ref().map(|op| &op.kind),
+        Some(&RepositoryOperationKind::Rebase)
+    );
+
+    service.abort_operation(work.path()).expect("abort");
+    assert!(service.repository_state(work.path()).expect("state").operation.is_none());
 }

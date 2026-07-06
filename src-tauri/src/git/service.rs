@@ -4,6 +4,39 @@ use super::parsers::{parse_branches, parse_porcelain_status, parse_remotes, pars
 use super::runner::GitRunner;
 use std::path::{Path, PathBuf};
 
+/// Resolves the executable git should invoke for the sequenced todo / message editors.
+/// Production uses the running vapor binary (its `run()` dispatches the hidden
+/// `--sequence-editor` / `--message-editor` subcommands). Integration tests set
+/// `VAPOR_EDITOR_BIN` to the compiled binary via `CARGO_BIN_EXE_*`.
+fn editor_binary() -> Result<String, GitError> {
+    if let Ok(path) = std::env::var("VAPOR_EDITOR_BIN") {
+        return Ok(path);
+    }
+    std::env::current_exe()
+        .map(|path| path.display().to_string())
+        .map_err(|error| GitError {
+            code: super::models::GitErrorCode::CommandFailed,
+            message: "Could not resolve the vapor executable for the rebase editor.".to_string(),
+            hint: "Reinstall vapor if this persists.".to_string(),
+            stderr: error.to_string(),
+        })
+}
+
+/// Disambiguates concurrent `interactive_rebase` scratch directories: `new_snapshot_id`
+/// only has millisecond resolution, so two rebases (e.g. separate windows, or two
+/// integration tests on parallel threads) started within the same millisecond would
+/// otherwise collide on the same scratch dir and corrupt each other's todo/messages.
+static SCRATCH_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+fn scratch_error(error: std::io::Error) -> GitError {
+    GitError {
+        code: super::models::GitErrorCode::CommandFailed,
+        message: "Could not write the rebase todo scratch files.".to_string(),
+        hint: "Check that the system temp directory is writable.".to_string(),
+        stderr: error.to_string(),
+    }
+}
+
 pub struct GitService<R: GitRunner> {
     runner: R,
 }
@@ -983,6 +1016,128 @@ impl<R: GitRunner> GitService<R> {
                 })
             },
         )
+    }
+
+    /// `<upstream>..HEAD` commits, newest-first (the frontend reverses to apply order).
+    pub fn list_rebase_todo_commits(
+        &self,
+        repository_path: &Path,
+        upstream: &str,
+    ) -> Result<Vec<super::models::CommitSummary>, GitError> {
+        let args = super::command_builder::rebase_todo_range_args(upstream)?;
+        let output = self.runner.run(repository_path, &args)?;
+        Ok(super::parsers::parse_commit_log(&output.stdout))
+    }
+
+    pub fn interactive_rebase(
+        &self,
+        request: &super::models::InteractiveRebaseRequest,
+    ) -> Result<super::models::InteractiveRebaseResponse, GitError> {
+        // Same precondition as non-interactive rebase (P2): a dirty tree is blocked, no autostash.
+        if !self.working_tree_is_clean(&request.repository_path)? {
+            return Err(GitError {
+                code: super::models::GitErrorCode::CommandFailed,
+                message: "Cannot rebase with uncommitted changes.".to_string(),
+                hint: "Commit or stash your changes first, then rebase.".to_string(),
+                stderr: String::new(),
+            });
+        }
+
+        let preview = super::command_builder::interactive_rebase_preview(request)?;
+        let todo = super::command_builder::render_rebase_todo(&request.items)?;
+
+        // Scratch dir holds the todo + ordered reword/squash messages. The sequence
+        // counter guarantees uniqueness even when two rebases start in the same
+        // millisecond (see SCRATCH_SEQUENCE doc comment).
+        let scratch = std::env::temp_dir().join(format!(
+            "{}-{}-{}",
+            super::snapshot::new_snapshot_id("rebase"),
+            std::process::id(),
+            SCRATCH_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&scratch).map_err(scratch_error)?;
+        std::fs::write(scratch.join("todo"), &todo).map_err(scratch_error)?;
+
+        // git invokes GIT_EDITOR for reword/squash steps in todo order, so write msg-<k>
+        // in that same order; the CLI's counter file hands them back in sequence.
+        //
+        // KNOWN LIMITATION: a run of CONSECUTIVE squash/fixup commits is a single git
+        // "squash group" for which git opens the editor only ONCE (for the combined
+        // message), whereas the loop below writes one msg file per squash item. For a
+        // group of size N this leaves N-1 messages unconsumed and the counter ahead by
+        // N-1, so a later message-bearing step could read the wrong file. Single squashes
+        // (the common case, covered by the integration tests) are correct. Collapsing
+        // consecutive squash messages into one file per group is deferred until the UI
+        // supports multi-squash message editing.
+        let mut message_index = 0usize;
+        for item in &request.items {
+            let needs_message = matches!(
+                item.action,
+                super::models::RebaseAction::Reword | super::models::RebaseAction::Squash
+            );
+            if needs_message {
+                if let Some(message) = &item.message {
+                    std::fs::write(scratch.join(format!("msg-{message_index}")), message)
+                        .map_err(scratch_error)?;
+                }
+                message_index += 1;
+            }
+        }
+        std::fs::write(scratch.join("next"), "0").map_err(scratch_error)?;
+
+        let binary = editor_binary()?;
+        let binary = shell_words::quote(&binary).to_string();
+        let sequence_editor = format!(
+            "{binary} --sequence-editor {}",
+            shell_words::quote(&scratch.join("todo").display().to_string())
+        );
+        let message_editor = format!(
+            "{binary} --message-editor {}",
+            shell_words::quote(&scratch.display().to_string())
+        );
+        let envs = vec![
+            ("GIT_SEQUENCE_EDITOR".to_string(), sequence_editor),
+            ("GIT_EDITOR".to_string(), message_editor),
+        ];
+
+        let result = self.with_safety_net(
+            &request.repository_path,
+            &request.safety_net,
+            super::journal::SafetyOpType::Rebase,
+            format!("Interactive rebase onto {}", request.upstream),
+            None,
+            |service| {
+                let output = service.runner.run_with_env(
+                    &request.repository_path,
+                    &[
+                        "rebase".to_string(),
+                        "-i".to_string(),
+                        request.upstream.clone(),
+                    ],
+                    &envs,
+                )?;
+                Ok(super::models::InteractiveRebaseResponse {
+                    preview: preview.clone(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                })
+            },
+        );
+
+        // Keep the scratch dir while a rebase is still in progress: a later `--continue`
+        // may still need an unconsumed reword/squash message. Only clean up once the rebase
+        // has fully finished (success) or errored WITHOUT leaving an operation.
+        let still_running = self
+            .repository_state(&request.repository_path)
+            .ok()
+            .and_then(|state| state.operation)
+            .map(|operation| operation.kind == super::models::RepositoryOperationKind::Rebase)
+            .unwrap_or(false);
+        if !still_running {
+            let _ = std::fs::remove_dir_all(&scratch);
+        }
+
+        result
     }
 
     fn discard_previews(
