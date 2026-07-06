@@ -1,6 +1,6 @@
 use super::models::{
     BlameSegment, BranchInfo, CommitSummary, ConflictKind, ConflictedFile, FileStatus, GitError,
-    GitErrorCode, RemoteInfo, StashEntry, SubmoduleState,
+    GitErrorCode, RemoteInfo, StashEntry, SubmoduleState, SubmoduleStatus,
 };
 use std::collections::HashMap;
 
@@ -122,16 +122,16 @@ mod tests {
 /// Parses `git submodule status` output. Each non-empty line is
 /// `<marker><sha> <path>[ (<describe>)]` where marker `-` = uninitialized,
 /// `+` = checked-out SHA differs from index, ` ` (space) = in sync.
-pub fn parse_submodule_status(stdout: &str) -> Vec<super::models::SubmoduleStatus> {
+pub fn parse_submodule_status(stdout: &str) -> Vec<SubmoduleStatus> {
     stdout
         .lines()
         .filter(|line| !line.trim().is_empty())
         .filter_map(|line| {
             let marker = line.chars().next()?;
             let state = match marker {
-                '-' => super::models::SubmoduleState::Uninitialized,
-                '+' | 'U' => super::models::SubmoduleState::Modified,
-                _ => super::models::SubmoduleState::InSync,
+                '-' => SubmoduleState::Uninitialized,
+                '+' | 'U' => SubmoduleState::Modified,
+                _ => SubmoduleState::InSync,
             };
             let rest = &line[marker.len_utf8()..];
             let mut fields = rest.splitn(2, ' ');
@@ -144,7 +144,7 @@ pub fn parse_submodule_status(stdout: &str) -> Vec<super::models::SubmoduleStatu
                 ),
                 _ => (remainder.to_string(), None),
             };
-            Some(super::models::SubmoduleStatus {
+            Some(SubmoduleStatus {
                 path,
                 sha,
                 state,
