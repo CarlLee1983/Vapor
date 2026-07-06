@@ -19,6 +19,7 @@ interface Props {
   onDeleteBranch?: (branch: BranchInfo) => void;
   onMergeBranch?: (branch: BranchInfo) => void;
   onRebaseBranch?: (branch: BranchInfo) => void;
+  onInteractiveRebase?: (branch: BranchInfo) => void;
   onOpenBranches?: () => void;
 }
 
@@ -56,6 +57,7 @@ export function RepositorySidebar({
   onDeleteBranch,
   onMergeBranch,
   onRebaseBranch,
+  onInteractiveRebase,
   onOpenBranches,
 }: Props) {
   const [branchQuery, setBranchQuery] = useState("");
@@ -187,6 +189,7 @@ export function RepositorySidebar({
                 onDelete={onDeleteBranch}
                 onMerge={onMergeBranch}
                 onRebaseOnto={onRebaseBranch}
+                onInteractiveRebase={onInteractiveRebase}
                 forceExpandAll={branchQuery.trim().length > 0}
               />
               {branchQuery.trim().length > 0 && visibleBranches.length === 0 ? (

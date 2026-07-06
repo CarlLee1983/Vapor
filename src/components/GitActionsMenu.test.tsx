@@ -38,6 +38,7 @@ describe("GitActionsMenu", () => {
         onOpenBranches={vi.fn()}
         onOpenStash={onOpenStash}
         onOpenCherryPick={vi.fn()}
+        onOpenInteractiveRebase={vi.fn()}
       />,
     );
 
@@ -58,9 +59,29 @@ describe("GitActionsMenu", () => {
         onOpenBranches={vi.fn()}
         onOpenStash={vi.fn()}
         onOpenCherryPick={vi.fn()}
+        onOpenInteractiveRebase={vi.fn()}
       />,
     );
     await user.click(screen.getByRole("button", { name: "More Git actions" }));
     expect(screen.getByRole("menuitem", { name: "Cherry-pick" })).toBeDisabled();
+  });
+
+  it("offers an Interactive rebase entry that fires onOpenInteractiveRebase", async () => {
+    const onOpenInteractiveRebase = vi.fn();
+    render(
+      <GitActionsMenu
+        repository={{ operation: null } as never}
+        viewMode="history"
+        selectedCommit={null}
+        onOpenTags={() => {}}
+        onOpenBranches={() => {}}
+        onOpenStash={() => {}}
+        onOpenCherryPick={() => {}}
+        onOpenInteractiveRebase={onOpenInteractiveRebase}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /more/i }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Interactive rebase…" }));
+    expect(onOpenInteractiveRebase).toHaveBeenCalled();
   });
 });

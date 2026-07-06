@@ -188,6 +188,32 @@ describe("BranchTree", () => {
     expect(screen.getByRole("menuitem", { name: "Rebase current branch onto this" })).toBeDisabled();
   });
 
+  it("offers Interactive rebase onto a non-current branch and disables it for the current branch", async () => {
+    const user = userEvent.setup();
+    const onInteractiveRebase = vi.fn();
+    const branches = [
+      { name: "main", isCurrent: true, upstream: null },
+      { name: "dev", isCurrent: false, upstream: null },
+    ];
+    render(
+      <BranchTree
+        branches={branches}
+        currentBranchName="main"
+        onCheckout={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onMerge={vi.fn()}
+        onInteractiveRebase={onInteractiveRebase}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByText("dev").closest(".sidebar-row")!);
+    const item = screen.getByRole("menuitem", { name: "Interactive rebase onto this" });
+    expect(item).not.toBeDisabled();
+    await user.click(item);
+    expect(onInteractiveRebase).toHaveBeenCalledWith(branches[1]);
+  });
+
   it("context menu works on a nested branch leaf", async () => {
     const user = userEvent.setup();
     const onMerge = vi.fn();

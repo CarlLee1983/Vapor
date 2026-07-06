@@ -9,6 +9,7 @@ interface Props {
   onOpenBranches: () => void;
   onOpenStash: () => void;
   onOpenCherryPick: () => void;
+  onOpenInteractiveRebase: () => void;
 }
 
 export function GitActionsMenu({
@@ -19,6 +20,7 @@ export function GitActionsMenu({
   onOpenBranches,
   onOpenStash,
   onOpenCherryPick,
+  onOpenInteractiveRebase,
 }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -102,6 +104,15 @@ export function GitActionsMenu({
             onClick={() => runAndClose(onOpenCherryPick)}
           >
             Cherry-pick
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="toolbar-menu__item"
+            disabled={repoDisabled || !!repository?.operation}
+            onClick={() => runAndClose(onOpenInteractiveRebase)}
+          >
+            Interactive rebase…
           </button>
         </div>
       ) : null}

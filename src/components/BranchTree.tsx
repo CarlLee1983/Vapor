@@ -15,6 +15,7 @@ interface Props {
   onDelete?: (branch: BranchInfo) => void;
   onMerge?: (branch: BranchInfo) => void;
   onRebaseOnto?: (branch: BranchInfo) => void;
+  onInteractiveRebase?: (branch: BranchInfo) => void;
   /** When true, render every folder expanded (used while filtering). */
   forceExpandAll?: boolean;
 }
@@ -39,6 +40,7 @@ export function BranchTree({
   onDelete,
   onMerge,
   onRebaseOnto,
+  onInteractiveRebase,
   forceExpandAll = false,
 }: Props) {
   const tree = useMemo(() => buildBranchTree(branches), [branches]);
@@ -90,6 +92,11 @@ export function BranchTree({
                     label: "Rebase current branch onto this",
                     disabled: !onRebaseOnto || branch.isCurrent,
                     onSelect: () => onRebaseOnto?.(branch),
+                  },
+                  {
+                    label: "Interactive rebase onto this",
+                    disabled: !onInteractiveRebase || branch.isCurrent,
+                    onSelect: () => onInteractiveRebase?.(branch),
                   },
                   {
                     label: "Rename branch…",
