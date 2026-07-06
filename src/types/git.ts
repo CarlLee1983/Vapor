@@ -531,3 +531,17 @@ export interface LfsTrackResponse {
   stdout: string;
   stderr: string;
 }
+
+export type SubmoduleState = "inSync" | "uninitialized" | "modified";
+
+export interface SubmoduleStatus {
+  path: string;
+  sha: string;
+  state: SubmoduleState;
+  describe: string | null;
+}
+
+export interface SubmoduleUpdateResponse {
+  stdout: string;
+  stderr: string;
+}
