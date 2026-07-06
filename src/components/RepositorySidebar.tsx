@@ -3,6 +3,7 @@ import type { BranchInfo, RepoEntry, RepositoryState } from "../types/git";
 import { FolderIcon, GlobeIcon, HistoryIcon } from "./sidebarIcons";
 import { BranchTree } from "./BranchTree";
 import { SearchInput } from "./SearchInput";
+import { SubmodulesSection } from "./SubmodulesSection";
 import { filterBranches } from "../lib/branchFilter";
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
   onRebaseBranch?: (branch: BranchInfo) => void;
   onInteractiveRebase?: (branch: BranchInfo) => void;
   onOpenBranches?: () => void;
+  onSubmodulesChanged?: () => void;
 }
 
 const VaporLogo = () => (
@@ -59,6 +61,7 @@ export function RepositorySidebar({
   onRebaseBranch,
   onInteractiveRebase,
   onOpenBranches,
+  onSubmodulesChanged,
 }: Props) {
   const [branchQuery, setBranchQuery] = useState("");
   const visibleBranches = useMemo(
@@ -208,6 +211,11 @@ export function RepositorySidebar({
                 </div>
               ))}
             </section>
+
+            <SubmodulesSection
+              repositoryPath={repository.root}
+              onChanged={onSubmodulesChanged}
+            />
           </>
         ) : (
           <p className="muted">No repository selected</p>

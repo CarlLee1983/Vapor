@@ -40,6 +40,9 @@ import {
   listRebaseTodoCommits,
   previewInteractiveRebase,
   interactiveRebase,
+  getSubmodules,
+  updateSubmodule,
+  updateAllSubmodules,
 } from "./tauriApi";
 import type { AddRemoteRequest, CommitRequest, PullRequest, PushRequest, RemoveRemoteRequest, SetRemoteUrlRequest } from "../types/git";
 
@@ -419,5 +422,29 @@ describe("tauriApi", () => {
     };
     await interactiveRebase(request);
     expect(invokeMock).toHaveBeenCalledWith("interactive_rebase", { request });
+  });
+
+  it("getSubmodules invokes get_submodules with the repository path", async () => {
+    vi.mocked(invoke).mockResolvedValue([]);
+    await getSubmodules("/repo");
+    expect(invoke).toHaveBeenCalledWith("get_submodules", {
+      request: { repositoryPath: "/repo" },
+    });
+  });
+
+  it("updateSubmodule invokes update_submodule with path", async () => {
+    vi.mocked(invoke).mockResolvedValue({ stdout: "", stderr: "" });
+    await updateSubmodule("/repo", "libs/foo");
+    expect(invoke).toHaveBeenCalledWith("update_submodule", {
+      request: { repositoryPath: "/repo", path: "libs/foo" },
+    });
+  });
+
+  it("updateAllSubmodules invokes update_all_submodules", async () => {
+    vi.mocked(invoke).mockResolvedValue({ stdout: "", stderr: "" });
+    await updateAllSubmodules("/repo");
+    expect(invoke).toHaveBeenCalledWith("update_all_submodules", {
+      request: { repositoryPath: "/repo" },
+    });
   });
 });

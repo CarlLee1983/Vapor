@@ -1204,6 +1204,39 @@ impl<R: GitRunner> GitService<R> {
         )
     }
 
+    pub fn submodules(
+        &self,
+        path: &Path,
+    ) -> Result<Vec<super::models::SubmoduleStatus>, GitError> {
+        let args = super::command_builder::submodule_status_args();
+        let output = self.runner.run(path, &args)?;
+        Ok(super::parsers::parse_submodule_status(&output.stdout))
+    }
+
+    pub fn update_submodule(
+        &self,
+        request: &super::models::UpdateSubmoduleRequest,
+    ) -> Result<super::models::SubmoduleUpdateResponse, GitError> {
+        let args = super::command_builder::submodule_update_args(&request.path)?;
+        let output = self.runner.run(&request.repository_path, &args)?;
+        Ok(super::models::SubmoduleUpdateResponse {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn update_all_submodules(
+        &self,
+        request: &super::models::UpdateAllSubmodulesRequest,
+    ) -> Result<super::models::SubmoduleUpdateResponse, GitError> {
+        let args = super::command_builder::submodule_update_all_args();
+        let output = self.runner.run(&request.repository_path, &args)?;
+        Ok(super::models::SubmoduleUpdateResponse {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
     /// 危險操作統一包裝:快照 → 寫日誌 → 執行 → 回填 after_head。
     /// 快照失敗時中止操作(SnapshotFailed),除非 mode 為 Skip。
     fn with_safety_net<T>(

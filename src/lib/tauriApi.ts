@@ -59,6 +59,8 @@ import type {
   TimelineResponse,
   UndoPlan,
   SnapshotFileEntry,
+  SubmoduleStatus,
+  SubmoduleUpdateResponse,
 } from "../types/git";
 import type {
   CreateTagRequest,
@@ -405,4 +407,29 @@ export async function resolveConflict(
   request: ResolveConflictRequest,
 ): Promise<ResolveConflictResponse> {
   return invoke<ResolveConflictResponse>("resolve_conflict", { request });
+}
+
+export async function getSubmodules(
+  repositoryPath: string,
+): Promise<SubmoduleStatus[]> {
+  return invoke<SubmoduleStatus[]>("get_submodules", {
+    request: { repositoryPath },
+  });
+}
+
+export async function updateSubmodule(
+  repositoryPath: string,
+  path: string,
+): Promise<SubmoduleUpdateResponse> {
+  return invoke<SubmoduleUpdateResponse>("update_submodule", {
+    request: { repositoryPath, path },
+  });
+}
+
+export async function updateAllSubmodules(
+  repositoryPath: string,
+): Promise<SubmoduleUpdateResponse> {
+  return invoke<SubmoduleUpdateResponse>("update_all_submodules", {
+    request: { repositoryPath },
+  });
 }

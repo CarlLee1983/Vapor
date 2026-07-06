@@ -10,7 +10,7 @@ use vapor_lib::git::models::{
     PartialApplyRequest, PullRequest, PushRequest,
     RebaseAction, RebaseRequest, RebaseTodoItem, RemoveRemoteRequest, RenameBranchRequest,
     RepositoryOperationKind, ResolveConflictRequest, SafetyNetMode, SetRemoteUrlRequest,
-    StageRequest, StashRefRequest, TagPushMode,
+    StageRequest, StashRefRequest, SubmoduleState, TagPushMode, UpdateSubmoduleRequest,
 };
 use vapor_lib::git::runner::SystemGitRunner;
 use vapor_lib::git::service::GitService;
@@ -1440,4 +1440,57 @@ fn interactive_rebase_conflict_surfaces_operation_and_aborts() {
 
     service.abort_operation(work.path()).expect("abort");
     assert!(service.repository_state(work.path()).expect("state").operation.is_none());
+}
+
+#[test]
+fn lists_and_updates_submodules() {
+    let (work, _remote) = setup_repo();
+
+    // Build a standalone repo to embed as a submodule.
+    let sub = TempDir::new().expect("sub temp");
+    git(sub.path(), &["init"]);
+    git(sub.path(), &["config", "user.email", "vapor@example.com"]);
+    git(sub.path(), &["config", "user.name", "Vapor Test"]);
+    std::fs::write(sub.path().join("lib.txt"), "lib\n").expect("write lib");
+    git(sub.path(), &["add", "lib.txt"]);
+    git(sub.path(), &["commit", "-m", "Sub initial"]);
+
+    let sub_url = sub.path().to_str().expect("sub path");
+    git(
+        work.path(),
+        &[
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "add",
+            sub_url,
+            "libs/foo",
+        ],
+    );
+    git(work.path(), &["commit", "-m", "Add submodule"]);
+
+    let service = GitService::new(SystemGitRunner);
+
+    // Empty repo (the bare remote temp) reports no submodules.
+    assert!(service.submodules(_remote.path()).unwrap_or_default().is_empty());
+
+    // The work repo lists exactly one submodule at libs/foo, already in sync.
+    let subs = service.submodules(work.path()).expect("submodules");
+    assert_eq!(subs.len(), 1);
+    assert_eq!(subs[0].path, "libs/foo");
+    assert!(!subs[0].sha.is_empty());
+
+    // Deinit it, confirm it reports Uninitialized, then update --init restores it.
+    git(work.path(), &["submodule", "deinit", "-f", "libs/foo"]);
+    let deinit = service.submodules(work.path()).expect("deinit status");
+    assert_eq!(deinit[0].state, SubmoduleState::Uninitialized);
+
+    service
+        .update_submodule(&UpdateSubmoduleRequest {
+            repository_path: work.path().to_path_buf(),
+            path: "libs/foo".to_string(),
+        })
+        .expect("update submodule");
+    let updated = service.submodules(work.path()).expect("updated status");
+    assert_eq!(updated[0].state, SubmoduleState::InSync);
 }

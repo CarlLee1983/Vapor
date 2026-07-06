@@ -97,6 +97,36 @@ pub fn lfs_track_args(pattern: &str) -> Result<Vec<String>, GitError> {
     ])
 }
 
+pub fn submodule_status_args() -> Vec<String> {
+    vec!["submodule".to_string(), "status".to_string()]
+}
+
+pub fn submodule_update_all_args() -> Vec<String> {
+    vec![
+        "submodule".to_string(),
+        "update".to_string(),
+        "--init".to_string(),
+    ]
+}
+
+pub fn submodule_update_args(path: &str) -> Result<Vec<String>, GitError> {
+    if path.trim().is_empty() || path.starts_with('-') {
+        return Err(GitError {
+            code: GitErrorCode::InvalidRef,
+            message: "Invalid submodule path.".to_string(),
+            hint: "Select a submodule from the list and try again.".to_string(),
+            stderr: String::new(),
+        });
+    }
+    Ok(vec![
+        "submodule".to_string(),
+        "update".to_string(),
+        "--init".to_string(),
+        "--".to_string(),
+        path.to_string(),
+    ])
+}
+
 pub fn clone_preview(request: &CloneRequest) -> Result<GitCommandPreview, GitError> {
     if request.url.trim().is_empty() {
         return Err(GitError {
@@ -1860,5 +1890,23 @@ mod tests {
         request.upstream = "main; rm -rf /".to_string();
         let error = rebase_preview(&request).expect_err("invalid upstream");
         assert_eq!(error.code, GitErrorCode::InvalidRef);
+    }
+
+    #[test]
+    fn builds_submodule_status_and_update_args() {
+        assert_eq!(submodule_status_args(), vec!["submodule", "status"]);
+        assert_eq!(submodule_update_all_args(), vec!["submodule", "update", "--init"]);
+
+        let args = submodule_update_args("libs/foo").expect("update args");
+        assert_eq!(args, vec!["submodule", "update", "--init", "--", "libs/foo"]);
+    }
+
+    #[test]
+    fn rejects_submodule_path_injection() {
+        let empty = submodule_update_args("").expect_err("empty path");
+        assert_eq!(empty.code, GitErrorCode::InvalidRef);
+
+        let flag = submodule_update_args("--recursive").expect_err("leading dash");
+        assert_eq!(flag.code, GitErrorCode::InvalidRef);
     }
 }
