@@ -4,10 +4,13 @@
 //! exposes the ignore rules used by the watcher pipeline so they can be tested
 //! independently.
 
-use std::collections::HashMap;
-use std::ffi::OsStr;
+use std::collections::{HashMap, HashSet};
+use std::ffi::{OsStr, OsString};
+use std::io::Write;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::Mutex;
 use std::thread::JoinHandle;
@@ -147,6 +150,78 @@ pub fn resolve_scope<R: GitRunner>(runner: &R, path: &Path) -> Result<WatchScope
     let common_dir = next("common git dir")?;
 
     Ok(parse_scope(&worktree_root, &git_dir, &common_dir))
+}
+
+/// Drop paths that `.gitignore` excludes — they cannot change anything Vapor renders,
+/// so refreshing for them is pure waste.
+///
+/// Paths inside a git dir, and paths outside `worktree_root`, bypass this filter: they
+/// are metadata, and `should_ignore` is what governs them. Everything else is handed to
+/// `git check-ignore` in one batch, which costs a single subprocess and gives us exactly
+/// the semantics `git status` uses (nested .gitignore, info/exclude, negations, and
+/// tracked-but-ignored files all handled for free).
+///
+/// Fails open: if git cannot answer, nothing is dropped.
+pub fn drop_ignored(worktree_root: &Path, paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let is_metadata = |path: &Path| {
+        !path.starts_with(worktree_root)
+            || path
+                .components()
+                .any(|component| component.as_os_str() == OsStr::new(".git"))
+    };
+
+    let candidates: Vec<&PathBuf> = paths.iter().filter(|path| !is_metadata(path)).collect();
+    if candidates.is_empty() {
+        return paths;
+    }
+
+    let Some(ignored) = ignored_paths(worktree_root, &candidates) else {
+        return paths;
+    };
+
+    paths
+        .into_iter()
+        .filter(|path| !ignored.contains(path.as_os_str()))
+        .collect()
+}
+
+/// Runs `git check-ignore -z --stdin` and returns the subset it reports as ignored.
+/// `None` means "could not determine" — callers must fail open.
+fn ignored_paths(worktree_root: &Path, candidates: &[&PathBuf]) -> Option<HashSet<OsString>> {
+    let mut child = std::process::Command::new("git")
+        .args(["check-ignore", "-z", "--stdin"])
+        .current_dir(worktree_root)
+        // GUI 啟動時 PATH 殘缺,與 runner.rs 的注入保持一致。
+        .env("PATH", super::login_env::effective_path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+
+    {
+        let mut stdin = child.stdin.take()?;
+        for candidate in candidates {
+            stdin.write_all(candidate.as_os_str().as_bytes()).ok()?;
+            stdin.write_all(&[0]).ok()?;
+        }
+    }
+
+    let output = child.wait_with_output().ok()?;
+    match output.status.code() {
+        // 0 = 至少一個路徑被忽略;1 = 沒有任何路徑被忽略(不是錯誤)。
+        Some(0) | Some(1) => {}
+        _ => return None,
+    }
+
+    Some(
+        output
+            .stdout
+            .split(|byte| *byte == 0)
+            .filter(|chunk| !chunk.is_empty())
+            .map(|chunk| OsString::from_vec(chunk.to_vec()))
+            .collect(),
+    )
 }
 
 struct WatchHandle {
@@ -352,6 +427,66 @@ mod tests {
             .paths
             .iter()
             .any(|path| path.ends_with("main/.git")));
+    }
+
+    #[test]
+    fn drop_ignored_removes_gitignored_paths_but_keeps_tracked_and_metadata() {
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let root = dir.path().canonicalize().expect("canonicalize");
+        run_git(&root, &["init", "-q", "."]);
+        std::fs::write(root.join(".gitignore"), "*.log\nnode_modules/\n").expect("write ignore");
+        std::fs::write(root.join("tracked.log"), "x\n").expect("write tracked");
+        run_git(&root, &["add", "-f", "tracked.log", ".gitignore"]);
+        run_git(&root, &["commit", "-q", "-m", "init"]);
+
+        let kept = drop_ignored(
+            &root,
+            vec![
+                root.join("node_modules/x"),
+                root.join("other.log"),
+                root.join("tracked.log"),
+                root.join("src/main.rs"),
+                root.join(".git/index"),
+                PathBuf::from("/elsewhere/HEAD"),
+            ],
+        );
+
+        assert_eq!(
+            kept,
+            vec![
+                root.join("tracked.log"),
+                root.join("src/main.rs"),
+                root.join(".git/index"),
+                PathBuf::from("/elsewhere/HEAD"),
+            ]
+        );
+    }
+
+    #[test]
+    fn check_ignore_exit_1_means_nothing_ignored_not_failure() {
+        // git check-ignore 在「沒有任何路徑被忽略」時回傳 exit code 1。把它當成錯誤會讓
+        // 過濾層退化成 fail-open——輸出恰好相同,所以只能在這一層驗證兩者的差別。
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let root = dir.path().canonicalize().expect("canonicalize");
+        run_git(&root, &["init", "-q", "."]);
+
+        let candidate = root.join("src/main.rs");
+        let ignored = ignored_paths(&root, &[&candidate]);
+        assert_eq!(
+            ignored,
+            Some(HashSet::new()),
+            "exit 1 must mean an empty ignored set, not an unknown answer"
+        );
+    }
+
+    #[test]
+    fn drop_ignored_keeps_everything_when_git_fails() {
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let root = dir.path().canonicalize().expect("canonicalize");
+        let paths = vec![root.join("a.txt"), root.join("b.txt")];
+
+        // 不是 repo → check-ignore 失敗 → fail-open,寧可多刷一次也不要漏掉真實變更。
+        assert_eq!(drop_ignored(&root, paths.clone()), paths);
     }
 
     #[test]
