@@ -1,5 +1,10 @@
 # R2b: Watcher Hardening 實作計畫
 
+> **狀態(2026-07-24):Task 1–9 已實作完成**,於分支 `feat/r2b-watcher-hardening`
+> (`cce982e`..`da65497`,8 個 commit)。後端 215 測試 + 前端 532 測試 + typecheck 全綠。
+> **Task 10(GUI smoke)尚未執行** —— 它需要實際啟動桌面 app 並在外部終端機操作。
+> 下方各 step 的 checkbox 未逐一勾選;以本段與 git log 為準。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** R2 的檔案系統監看已上線(merge `986ae27`),但它的行為從未被決策過。本計畫把

@@ -1,8 +1,14 @@
-//! Per-repository filesystem watcher noise filter.
+//! Filesystem watch subscriptions.
 //!
-//! This module will eventually own the per-repo notify registry. For now it only
-//! exposes the ignore rules used by the watcher pipeline so they can be tested
-//! independently.
+//! A subscription is one window watching one repository. Its scope comes from git
+//! (worktree root, git dir, common git dir), and every path in that scope feeds a single
+//! drain thread, so one logical change produces exactly one notification. The drain
+//! coalesces events until either silence or a max-wait ceiling, then filters them twice —
+//! static noise rules first, then `.gitignore` — before telling the caller anything
+//! happened.
+//!
+//! See `docs/adr/0001-repository-freshness-model.md` and
+//! `docs/adr/0002-watch-subscription-ownership-and-scope.md`.
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::{OsStr, OsString};
