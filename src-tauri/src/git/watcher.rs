@@ -15,6 +15,9 @@ use std::time::Duration;
 
 use notify::{recommended_watcher, Event, RecommendedWatcher, RecursiveMode, Watcher};
 
+use super::models::{GitError, GitErrorCode};
+use super::runner::GitRunner;
+
 /// Returns true for watcher noise that should not trigger a refresh.
 ///
 /// We ignore:
@@ -65,6 +68,85 @@ pub fn should_ignore(path: &Path) -> bool {
     }
 
     false
+}
+
+/// The set of paths a single watch subscription covers.
+///
+/// A plain repository collapses to just the worktree root, because its git dir sits
+/// underneath it. A linked worktree does not: its `HEAD`/`index`/`logs` live in
+/// `<main>/.git/worktrees/<name>` and its `refs/heads` in the common dir, so both have
+/// to be watched as well or external commits there are invisible.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WatchScope {
+    pub worktree_root: PathBuf,
+    pub paths: Vec<PathBuf>,
+}
+
+/// Reduce the three paths git reports into the minimal set worth watching:
+/// de-duplicated, with any path already covered by an ancestor in the set removed.
+pub fn parse_scope(worktree_root: &Path, git_dir: &Path, common_dir: &Path) -> WatchScope {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    for candidate in [worktree_root, git_dir, common_dir] {
+        if !candidates.iter().any(|kept| kept == candidate) {
+            candidates.push(candidate.to_path_buf());
+        }
+    }
+
+    let paths = candidates
+        .iter()
+        .filter(|candidate| {
+            !candidates
+                .iter()
+                .any(|other| other != *candidate && candidate.starts_with(other))
+        })
+        .cloned()
+        .collect();
+
+    WatchScope {
+        worktree_root: worktree_root.to_path_buf(),
+        paths,
+    }
+}
+
+/// Ask git itself where this repository keeps its worktree and metadata, rather than
+/// assuming `.git` sits under the worktree root.
+pub fn resolve_scope<R: GitRunner>(runner: &R, path: &Path) -> Result<WatchScope, GitError> {
+    let output = runner.run(
+        path,
+        &[
+            "rev-parse".to_string(),
+            "--show-toplevel".to_string(),
+            "--git-dir".to_string(),
+            "--git-common-dir".to_string(),
+        ],
+    )?;
+
+    let mut lines = output.stdout.lines();
+    let mut next = |label: &str| -> Result<PathBuf, GitError> {
+        let line = lines.next().unwrap_or_default().trim();
+        if line.is_empty() {
+            return Err(GitError {
+                code: GitErrorCode::NotRepository,
+                message: format!("Could not determine the repository {label}."),
+                hint: "Make sure the path is inside a Git repository.".to_string(),
+                stderr: output.stdout.clone(),
+            });
+        }
+        // git reports the git dir relative to the working directory it ran in.
+        let candidate = PathBuf::from(line);
+        let absolute = if candidate.is_absolute() {
+            candidate
+        } else {
+            path.join(candidate)
+        };
+        Ok(absolute.canonicalize().unwrap_or(absolute))
+    };
+
+    let worktree_root = next("worktree root")?;
+    let git_dir = next("git dir")?;
+    let common_dir = next("common git dir")?;
+
+    Ok(parse_scope(&worktree_root, &git_dir, &common_dir))
 }
 
 struct WatchHandle {
@@ -147,12 +229,26 @@ fn event_is_meaningful(result: &notify::Result<Event>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::should_ignore;
+    use super::*;
+    use crate::git::runner::SystemGitRunner;
     use super::WatcherRegistry;
     use std::path::Path;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
     use std::time::{Duration, Instant};
+
+    fn run_git(dir: &Path, args: &[&str]) {
+        let status = std::process::Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .env("GIT_AUTHOR_NAME", "vapor-test")
+            .env("GIT_AUTHOR_EMAIL", "vapor@test.local")
+            .env("GIT_COMMITTER_NAME", "vapor-test")
+            .env("GIT_COMMITTER_EMAIL", "vapor@test.local")
+            .status()
+            .expect("run git");
+        assert!(status.success(), "git {args:?} failed");
+    }
 
     fn poll_until<F: Fn() -> bool>(deadline: Duration, predicate: F) -> bool {
         let start = Instant::now();
@@ -196,6 +292,66 @@ mod tests {
         // 工作區裡剛好叫 objects/logs 的目錄不受影響。
         assert!(!should_ignore(Path::new("/repo/src/objects/thing.rs")));
         assert!(!should_ignore(Path::new("/repo/logs/app.log")));
+    }
+
+    #[test]
+    fn scope_collapses_to_root_for_a_plain_repository() {
+        let scope = parse_scope(
+            Path::new("/repo"),
+            Path::new("/repo/.git"),
+            Path::new("/repo/.git"),
+        );
+        assert_eq!(scope.paths, vec![PathBuf::from("/repo")]);
+        assert_eq!(scope.worktree_root, PathBuf::from("/repo"));
+    }
+
+    #[test]
+    fn scope_keeps_common_dir_for_a_linked_worktree() {
+        // 取自本 repo 的真實佈局:worktree 的 HEAD/index 在 .git/worktrees/r2 底下,
+        // refs/heads 則在共用的 .git 底下,兩者都不在 worktree root 之內。
+        let scope = parse_scope(
+            Path::new("/Vapor/.worktrees/r2"),
+            Path::new("/Vapor/.git/worktrees/r2"),
+            Path::new("/Vapor/.git"),
+        );
+        assert_eq!(
+            scope.paths,
+            vec![
+                PathBuf::from("/Vapor/.worktrees/r2"),
+                PathBuf::from("/Vapor/.git"),
+            ]
+        );
+    }
+
+    #[test]
+    fn resolve_scope_reads_a_real_linked_worktree() {
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let main = dir.path().join("main");
+        std::fs::create_dir_all(&main).expect("mkdir main");
+        run_git(&main, &["init", "-q", "."]);
+        run_git(&main, &["commit", "-q", "--allow-empty", "-m", "init"]);
+
+        let linked = dir.path().join("linked");
+        run_git(
+            &main,
+            &["worktree", "add", "-q", linked.to_str().expect("utf8")],
+        );
+
+        let runner = SystemGitRunner;
+        let main_scope = resolve_scope(&runner, &main).expect("main scope");
+        assert_eq!(main_scope.paths.len(), 1, "plain repo collapses to its root");
+
+        let linked_scope = resolve_scope(&runner, &linked).expect("linked scope");
+        assert_eq!(
+            linked_scope.paths.len(),
+            2,
+            "linked worktree also watches the common git dir: {:?}",
+            linked_scope.paths
+        );
+        assert!(linked_scope
+            .paths
+            .iter()
+            .any(|path| path.ends_with("main/.git")));
     }
 
     #[test]
