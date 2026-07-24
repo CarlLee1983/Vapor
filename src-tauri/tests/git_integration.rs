@@ -84,6 +84,30 @@ fn select_whole_hunk(diff: &str, hunk_index: usize) -> HunkSelection {
 }
 
 #[test]
+fn repository_state_does_not_rewrite_the_index() {
+    // `git status` 會把重新整理過的 stat cache 寫回 .git/index。.git/index 不是雜訊
+    // (外部 `git add` 只改它),所以 Vapor 自己的刷新會被 watcher 放大成第二次刷新。
+    // 唯讀路徑帶 GIT_OPTIONAL_LOCKS=0 之後,讀取對儲存庫必須完全沒有副作用。
+    let (work, _remote) = setup_repo();
+    let service = GitService::new(SystemGitRunner);
+    let index = work.path().join(".git/index");
+
+    // 觸發條件是「stat 變了但內容相同」——git 會把重新整理過的 stat cache 寫回 index,
+    // 省下一次雜湊。內容真的改變時反而不會改寫。
+    std::thread::sleep(std::time::Duration::from_millis(1200));
+    std::fs::write(work.path().join("README.md"), "hello\n").expect("rewrite readme");
+    // 跳出 racy-timestamp 視窗,否則每次 status 都會改寫,測不出差別。
+    std::thread::sleep(std::time::Duration::from_millis(1200));
+
+    let before = std::fs::metadata(&index).expect("index").modified().expect("mtime");
+    service.repository_state(work.path()).expect("state");
+    service.commit_log(work.path(), 20, 0).expect("log");
+    let after = std::fs::metadata(&index).expect("index").modified().expect("mtime");
+
+    assert_eq!(before, after, "reading repository state must not write .git/index");
+}
+
+#[test]
 fn reads_repository_state_and_log() {
     let (work, _remote) = setup_repo();
     let service = GitService::new(SystemGitRunner);

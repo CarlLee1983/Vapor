@@ -33,6 +33,16 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(cli::LaunchPath(launch_path))
         .manage(git::watcher::WatcherRegistry::default())
+        // 關閉視窗會直接銷毀 webview,前端的 cleanup 不會執行,因此監看訂閱的釋放
+        // 必須由後端負責,否則 watcher 與它的 drain thread 會留到 app 結束。
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                use tauri::Manager;
+                window
+                    .state::<git::watcher::WatcherRegistry>()
+                    .unwatch_window(window.label());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_repository_state,
             commands::get_commit_log,

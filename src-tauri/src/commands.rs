@@ -22,7 +22,7 @@ use crate::git::models::{
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
-use crate::git::watcher::WatcherRegistry;
+use crate::git::watcher::{SubscriptionKey, WatcherRegistry};
 use crate::window::{next_window_label, repo_title};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -795,28 +795,47 @@ pub fn get_launch_path(launch: State<'_, LaunchPath>) -> Option<String> {
     launch.0.as_ref().map(|path| path.display().to_string())
 }
 
+/// 合併視窗:最後一個事件之後再等這麼久才送出通知。
+const WATCH_DEBOUNCE: Duration = Duration::from_millis(500);
+/// 陳舊上限的第一道保證:持續 churn 時,合併視窗最長只能開這麼久。
+const WATCH_MAX_WAIT: Duration = Duration::from_secs(2);
+
 #[tauri::command]
 pub fn watch_repository(
-    app: AppHandle,
+    window: tauri::WebviewWindow,
     registry: State<'_, WatcherRegistry>,
     path: String,
 ) -> bool {
+    let repository_path = PathBuf::from(&path);
+    let Ok(scope) = crate::git::watcher::resolve_scope(&SystemGitRunner, &repository_path) else {
+        return false;
+    };
+
+    let label = window.label().to_string();
+    let handle = window.app_handle().clone();
+    // Payload 用呼叫端傳進來的原字串,前端的路徑比對因此必然成立;通知也只送給
+    // 發起訂閱的那個視窗,不再廣播。
     let event_path = path.clone();
-    let handle = app.clone();
     registry
         .watch(
-            PathBuf::from(&path),
-            Duration::from_millis(500),
+            SubscriptionKey::new(&label, &repository_path),
+            scope,
+            WATCH_DEBOUNCE,
+            WATCH_MAX_WAIT,
             move || {
-                let _ = handle.emit("repo-changed", event_path.clone());
+                let _ = handle.emit_to(label.as_str(), "repo-changed", event_path.clone());
             },
         )
         .is_ok()
 }
 
 #[tauri::command]
-pub fn unwatch_repository(registry: State<'_, WatcherRegistry>, path: String) {
-    registry.unwatch(Path::new(&path));
+pub fn unwatch_repository(
+    window: tauri::WebviewWindow,
+    registry: State<'_, WatcherRegistry>,
+    path: String,
+) {
+    registry.unwatch(&SubscriptionKey::new(window.label(), Path::new(&path)));
 }
 
 #[tauri::command]

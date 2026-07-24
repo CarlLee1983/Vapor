@@ -65,7 +65,10 @@ import {
 import type { BranchInfo, CommitSummary, WorktreeInfo } from "./types/git";
 import "./styles.css";
 
+/// 降級模式(監看起不來)的輪詢間隔。
 export const AUTO_REFRESH_INTERVAL_MS = 5000;
+/// 監看正常時仍維持的心跳間隔——陳舊上限的保證,不是加速手段。
+export const HEARTBEAT_INTERVAL_MS = 30000;
 
 export default function App() {
   const repoParam = getRepoParam();
@@ -232,10 +235,10 @@ export default function App() {
     void loadWorktrees();
   }, [loadWorktrees]);
 
+  // 動作完成後就地重讀,保留使用者選取的 commit、開著的檔案與 diff。
+  // loadRepository 是「換一個儲存庫」才用的,它會重置整個檢視狀態。
   const refreshActiveRepository = () => {
-    if (repoView.repositoryPath) {
-      void repoView.loadRepository(repoView.repositoryPath);
-    }
+    void repoView.refreshRepository();
   };
 
   const handleCheckoutBranch = (branch: BranchInfo) => {
@@ -425,9 +428,13 @@ export default function App() {
         return;
       }
 
-      if (!watching) {
-        intervalId = window.setInterval(refreshOpenRepository, AUTO_REFRESH_INTERVAL_MS);
-      }
+      // 監看正常時仍保留低頻心跳:它的失敗模式是安靜地不再送事件,不是回報錯誤,
+      // 只信任它等於把畫面正確性賭在一個不會叫的鬧鐘上。監看起不來則進降級模式,
+      // 以較短的間隔輪詢。
+      intervalId = window.setInterval(
+        refreshOpenRepository,
+        watching ? HEARTBEAT_INTERVAL_MS : AUTO_REFRESH_INTERVAL_MS,
+      );
     })();
 
     return () => {
@@ -647,22 +654,14 @@ export default function App() {
         <PushDialog
           repository={repoView.repository}
           onClose={() => setIsPushOpen(false)}
-          onPushed={() => {
-            if (repoView.repositoryPath) {
-              void repoView.loadRepository(repoView.repositoryPath);
-            }
-          }}
+          onPushed={refreshActiveRepository}
         />
       ) : null}
       {isPullOpen && repoView.repository ? (
         <PullDialog
           repository={repoView.repository}
           onClose={() => setIsPullOpen(false)}
-          onPulled={() => {
-            if (repoView.repositoryPath) {
-              void repoView.loadRepository(repoView.repositoryPath);
-            }
-          }}
+          onPulled={refreshActiveRepository}
         />
       ) : null}
       {isFetchOpen && repoView.repository ? (
@@ -753,11 +752,7 @@ export default function App() {
         <RemotesDialog
           repository={repoView.repository}
           onClose={() => setIsRemotesOpen(false)}
-          onChanged={() => {
-            if (repoView.repositoryPath) {
-              void repoView.loadRepository(repoView.repositoryPath);
-            }
-          }}
+          onChanged={refreshActiveRepository}
         />
       ) : null}
       {isCloneOpen && (

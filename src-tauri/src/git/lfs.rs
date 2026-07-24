@@ -43,7 +43,7 @@ pub fn enrich_files<R: GitRunner>(
         return Ok(files);
     }
     let paths: Vec<String> = files.iter().map(|f| f.path.clone()).collect();
-    let output = runner.run(root, &check_attr_args(&paths))?;
+    let output = runner.run_read_only(root, &check_attr_args(&paths))?;
     let filters = parse_check_attr_filter(&output.stdout);
 
     Ok(files

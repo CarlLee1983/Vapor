@@ -24,6 +24,17 @@ pub trait GitRunner: Send + Sync {
         envs: &[(String, String)],
     ) -> Result<GitOutput, GitError>;
 
+    /// 唯讀查詢專用:帶 `GIT_OPTIONAL_LOCKS=0`,git 便不會為了更新 stat cache 而回寫
+    /// `.git/index`。Vapor 的讀取因此對儲存庫零副作用,不會觸發自己的檔案系統監看。
+    /// 寫入指令**不得**走這條路徑——讀寫分界是刻意的。
+    fn run_read_only(&self, repository_path: &Path, args: &[String]) -> Result<GitOutput, GitError> {
+        self.run_with_env(
+            repository_path,
+            args,
+            &[("GIT_OPTIONAL_LOCKS".to_string(), "0".to_string())],
+        )
+    }
+
     /// 從 stdin 餵入內容執行 git(例如 `git apply` 讀 patch)。
     /// 注入 login-shell PATH,與 run_with_env 一致。
     /// 注意:採「先寫完 stdin 再 wait」的順序,僅適合小型輸入(單檔 patch);

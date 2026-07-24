@@ -132,6 +132,31 @@
 - [x] ✅ 自動化現況:完整 Vitest 套件 379 tests(56 files)+ `npm run typecheck` + `npm run build` 全綠 (2026-06-15)
 - [ ] 👤 **手動 GUI smoke 尚未驗證(owed)** — 啟動桌面版確認:三個搜尋框各自過濾清單、無相符的空狀態提示、分支搜尋自動展開資料夾、清除(×)還原完整清單。
 
+## R2b 檔案系統監看強化(陳舊上限模型)
+
+依 [ADR-0001](adr/0001-repository-freshness-model.md) 與 [ADR-0002](adr/0002-watch-subscription-ownership-and-scope.md)。
+
+- [x] ✅ 自動化現況:後端 271 tests + 前端 532 tests + `npm run typecheck` + `npm run build` 全綠 (2026-07-25)
+- [x] ✅ **GUI smoke 已驗證 (2026-07-25)** — `npm run tauri dev` 對暫存 repo(含 linked worktree),
+      以臨時 instrumentation 計數每次 git 呼叫,驗證結果:
+  - 外部 `git commit` → **1 次**刷新、History 立即出現新 commit(截圖確認)。端到端
+    watcher → `emit_to` → 前端 listener 通;且不再有 `GIT_OPTIONAL_LOCKS` 造成的雙重刷新。
+  - gitignore 目錄 churn(120 個檔案寫入 `target/`、`node_modules/`)→ **0 次**刷新。
+  - 追蹤目錄持續 churn(9 秒、每 0.1 秒)→ **5 次**刷新(約每 1.8 秒),2 秒上限生效;
+    修正前此情境為 churn 期間 0 次。
+  - 閒置 65 秒 → **2 次**刷新,30 秒心跳準確。
+  - linked worktree 分頁中外部 `git commit` → **1 次**刷新、History 出現新 commit(截圖確認)。
+    此情境在修正前完全收不到事件(HEAD/index 位於主 repo 的 `.git/worktrees/<name>/`)。
+- [ ] 👤 **雙視窗獨立性未經 GUI 驗證** — 「同一 repo 開兩個視窗、關掉其中一個,另一個仍持續刷新」
+      目前只有 Rust 單元測試覆蓋(`two_windows_on_the_same_repo_are_independent_subscriptions`)。
+      GUI 端需要點擊分頁的開新視窗圖示,自動化點擊不可靠,留待人工確認。
+- [ ] 👤 **降級模式未經 GUI 驗證** — watcher 啟動失敗時退回 5 秒輪詢,需要人為製造失敗
+      (例如網路磁碟)才能觀察;前端行為有 Vitest 覆蓋。
+
+> 附註(非本次改動造成):app 已有 session 時,`npm run tauri dev -- -- /path/to/repo` 的
+> 啟動路徑會被 session restore 蓋過;smoke 期間改以 `vapor <path>` 的 single-instance
+> 路徑開啟目標 repo。
+
 ## 已知尚未覆蓋(發版時標註為限制,非 blocker)
 
 - 內建三方 merge 編輯器
