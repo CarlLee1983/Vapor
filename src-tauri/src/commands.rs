@@ -22,7 +22,7 @@ use crate::git::models::{
 };
 use crate::git::runner::SystemGitRunner;
 use crate::git::service::GitService;
-use crate::git::watcher::WatcherRegistry;
+use crate::git::watcher::{SubscriptionKey, WatcherRegistry};
 use crate::window::{next_window_label, repo_title};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -802,32 +802,40 @@ const WATCH_MAX_WAIT: Duration = Duration::from_secs(2);
 
 #[tauri::command]
 pub fn watch_repository(
-    app: AppHandle,
+    window: tauri::WebviewWindow,
     registry: State<'_, WatcherRegistry>,
     path: String,
 ) -> bool {
-    let event_path = path.clone();
-    let handle = app.clone();
     let repository_path = PathBuf::from(&path);
     let Ok(scope) = crate::git::watcher::resolve_scope(&SystemGitRunner, &repository_path) else {
         return false;
     };
+
+    let label = window.label().to_string();
+    let handle = window.app_handle().clone();
+    // Payload 用呼叫端傳進來的原字串,前端的路徑比對因此必然成立;通知也只送給
+    // 發起訂閱的那個視窗,不再廣播。
+    let event_path = path.clone();
     registry
         .watch(
-            repository_path,
+            SubscriptionKey::new(&label, &repository_path),
             scope,
             WATCH_DEBOUNCE,
             WATCH_MAX_WAIT,
             move || {
-                let _ = handle.emit("repo-changed", event_path.clone());
+                let _ = handle.emit_to(label.as_str(), "repo-changed", event_path.clone());
             },
         )
         .is_ok()
 }
 
 #[tauri::command]
-pub fn unwatch_repository(registry: State<'_, WatcherRegistry>, path: String) {
-    registry.unwatch(Path::new(&path));
+pub fn unwatch_repository(
+    window: tauri::WebviewWindow,
+    registry: State<'_, WatcherRegistry>,
+    path: String,
+) {
+    registry.unwatch(&SubscriptionKey::new(window.label(), Path::new(&path)));
 }
 
 #[tauri::command]

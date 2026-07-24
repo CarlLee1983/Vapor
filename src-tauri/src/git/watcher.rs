@@ -231,8 +231,28 @@ struct WatchHandle {
     _drain: JoinHandle<()>,
 }
 
+/// Identifies one watch subscription: a window watching a repository.
+///
+/// The window owns the subscription, not the path. Two windows on the same repository
+/// are two subscriptions, so neither can silence the other by closing, and each is
+/// notified with the exact path string it asked for.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SubscriptionKey {
+    pub window: String,
+    pub path: PathBuf,
+}
+
+impl SubscriptionKey {
+    pub fn new(window: &str, path: &Path) -> Self {
+        Self {
+            window: window.to_string(),
+            path: path.canonicalize().unwrap_or_else(|_| path.to_path_buf()),
+        }
+    }
+}
+
 #[derive(Default)]
-pub struct WatcherRegistry(Mutex<HashMap<PathBuf, WatchHandle>>);
+pub struct WatcherRegistry(Mutex<HashMap<SubscriptionKey, WatchHandle>>);
 
 impl WatcherRegistry {
     /// Start one watch subscription. Every path in `scope` feeds a single channel, so
@@ -243,14 +263,12 @@ impl WatcherRegistry {
     /// the whole window so continuous churn cannot starve the refresh indefinitely.
     pub fn watch<F: Fn() + Send + 'static>(
         &self,
-        key: PathBuf,
+        key: SubscriptionKey,
         scope: WatchScope,
         debounce: Duration,
         max_wait: Duration,
         on_change: F,
     ) -> Result<(), notify::Error> {
-        let key = key.canonicalize().unwrap_or(key);
-
         let mut map = self.0.lock().expect("watcher registry poisoned");
         if map.contains_key(&key) {
             return Ok(());
@@ -309,10 +327,23 @@ impl WatcherRegistry {
         Ok(())
     }
 
-    pub fn unwatch(&self, path: &Path) {
-        let key = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    /// Stop one subscription. Only the window that owns it is affected.
+    pub fn unwatch(&self, key: &SubscriptionKey) {
         let mut map = self.0.lock().expect("watcher registry poisoned");
-        map.remove(&key);
+        map.remove(key);
+    }
+
+    /// Stop every subscription belonging to a window. Closing a window destroys its
+    /// webview outright, so the frontend cleanup never runs — this is what actually
+    /// releases the watchers and their drain threads.
+    pub fn unwatch_window(&self, window: &str) {
+        let mut map = self.0.lock().expect("watcher registry poisoned");
+        map.retain(|key, _| key.window != window);
+    }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.0.lock().expect("watcher registry poisoned").len()
     }
 }
 
@@ -550,6 +581,83 @@ mod tests {
     }
 
     #[test]
+    fn two_windows_on_the_same_repo_are_independent_subscriptions() {
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let root = dir.path().canonicalize().expect("canonicalize");
+
+        let registry = WatcherRegistry::default();
+        let main_hits = Arc::new(AtomicUsize::new(0));
+        let second_hits = Arc::new(AtomicUsize::new(0));
+
+        for (label, counter) in [("main", &main_hits), ("repo-2", &second_hits)] {
+            let counter = Arc::clone(counter);
+            registry
+                .watch(
+                    SubscriptionKey::new(label, &root),
+                    scope_for(&root),
+                    Duration::from_millis(150),
+                    Duration::from_secs(2),
+                    move || {
+                        counter.fetch_add(1, Ordering::SeqCst);
+                    },
+                )
+                .expect("watch");
+        }
+
+        std::fs::write(root.join("a.txt"), "a\n").expect("write");
+        assert!(
+            poll_until(Duration::from_secs(3), || {
+                main_hits.load(Ordering::SeqCst) >= 1 && second_hits.load(Ordering::SeqCst) >= 1
+            }),
+            "both windows must be notified, not just the first one to subscribe"
+        );
+
+        // 關掉其中一個視窗不能讓另一個失聰。
+        registry.unwatch(&SubscriptionKey::new("main", &root));
+        let baseline_main = main_hits.load(Ordering::SeqCst);
+        let baseline_second = second_hits.load(Ordering::SeqCst);
+
+        std::fs::write(root.join("b.txt"), "b\n").expect("write");
+        assert!(
+            poll_until(Duration::from_secs(3), || {
+                second_hits.load(Ordering::SeqCst) > baseline_second
+            }),
+            "the surviving window must keep receiving notifications"
+        );
+        assert_eq!(
+            main_hits.load(Ordering::SeqCst),
+            baseline_main,
+            "the unwatched window must go quiet"
+        );
+
+        registry.unwatch_window("repo-2");
+    }
+
+    #[test]
+    fn unwatch_window_clears_every_subscription_for_that_label() {
+        let first = tempfile::TempDir::new().expect("tempdir");
+        let second = tempfile::TempDir::new().expect("tempdir");
+        let registry = WatcherRegistry::default();
+
+        for dir in [first.path(), second.path()] {
+            registry
+                .watch(
+                    SubscriptionKey::new("main", dir),
+                    scope_for(dir),
+                    Duration::from_millis(150),
+                    Duration::from_secs(2),
+                    || {},
+                )
+                .expect("watch");
+        }
+        assert_eq!(registry.len(), 2);
+
+        // 視窗被關閉時 webview 直接銷毀,前端 cleanup 不會執行——清理必須由後端負責。
+        registry.unwatch_window("main");
+        assert_eq!(registry.len(), 0);
+    }
+
+    #[test]
     fn fires_once_per_window_across_multiple_scope_paths() {
         // 一個 worktree 訂閱同時涵蓋工作區與共用 git 目錄。外部一次 commit 會同時打到
         // 兩者,合併必須發生在「訂閱」層,否則一次邏輯變更會放出多次通知。
@@ -564,7 +672,7 @@ mod tests {
 
         registry
             .watch(
-                worktree_root.clone(),
+                SubscriptionKey::new("main", &worktree_root),
                 WatchScope {
                     worktree_root: worktree_root.clone(),
                     paths: vec![worktree_root.clone(), common_root.clone()],
@@ -591,7 +699,7 @@ mod tests {
             "both scope paths must coalesce into a single notification"
         );
 
-        registry.unwatch(&worktree_root);
+        registry.unwatch(&SubscriptionKey::new("main", &worktree_root));
     }
 
     #[test]
@@ -607,7 +715,7 @@ mod tests {
 
         registry
             .watch(
-                root.clone(),
+                SubscriptionKey::new("main", &root),
                 scope_for(&root),
                 Duration::from_millis(400),
                 Duration::from_millis(500),
@@ -640,7 +748,7 @@ mod tests {
             "the max-wait ceiling must fire during continuous churn, not wait for silence"
         );
 
-        registry.unwatch(&root);
+        registry.unwatch(&SubscriptionKey::new("main", &root));
     }
 
     #[test]
@@ -654,7 +762,7 @@ mod tests {
 
         registry
             .watch(
-                dir.path().to_path_buf(),
+                SubscriptionKey::new("main", dir.path()),
                 scope_for(dir.path()),
                 Duration::from_millis(150),
                 Duration::from_secs(2),
@@ -681,7 +789,7 @@ mod tests {
             "git object writes must be ignored"
         );
 
-        registry.unwatch(dir.path());
+        registry.unwatch(&SubscriptionKey::new("main", dir.path()));
     }
 
     #[test]
@@ -690,7 +798,7 @@ mod tests {
         let registry = WatcherRegistry::default();
         registry
             .watch(
-                dir.path().to_path_buf(),
+                SubscriptionKey::new("main", dir.path()),
                 scope_for(dir.path()),
                 Duration::from_millis(150),
                 Duration::from_secs(2),
@@ -699,13 +807,13 @@ mod tests {
             .expect("first watch");
         registry
             .watch(
-                dir.path().to_path_buf(),
+                SubscriptionKey::new("main", dir.path()),
                 scope_for(dir.path()),
                 Duration::from_millis(150),
                 Duration::from_secs(2),
                 || {},
             )
             .expect("second watch");
-        registry.unwatch(dir.path());
+        registry.unwatch(&SubscriptionKey::new("main", dir.path()));
     }
 }
