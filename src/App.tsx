@@ -65,7 +65,10 @@ import {
 import type { BranchInfo, CommitSummary, WorktreeInfo } from "./types/git";
 import "./styles.css";
 
+/// 降級模式(監看起不來)的輪詢間隔。
 export const AUTO_REFRESH_INTERVAL_MS = 5000;
+/// 監看正常時仍維持的心跳間隔——陳舊上限的保證,不是加速手段。
+export const HEARTBEAT_INTERVAL_MS = 30000;
 
 export default function App() {
   const repoParam = getRepoParam();
@@ -425,9 +428,13 @@ export default function App() {
         return;
       }
 
-      if (!watching) {
-        intervalId = window.setInterval(refreshOpenRepository, AUTO_REFRESH_INTERVAL_MS);
-      }
+      // 監看正常時仍保留低頻心跳:它的失敗模式是安靜地不再送事件,不是回報錯誤,
+      // 只信任它等於把畫面正確性賭在一個不會叫的鬧鐘上。監看起不來則進降級模式,
+      // 以較短的間隔輪詢。
+      intervalId = window.setInterval(
+        refreshOpenRepository,
+        watching ? HEARTBEAT_INTERVAL_MS : AUTO_REFRESH_INTERVAL_MS,
+      );
     })();
 
     return () => {

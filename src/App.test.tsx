@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import App, { AUTO_REFRESH_INTERVAL_MS } from "./App";
+import App, { AUTO_REFRESH_INTERVAL_MS, HEARTBEAT_INTERVAL_MS } from "./App";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { getRepoParam } from "./lib/window";
 
@@ -187,16 +187,27 @@ describe("App", () => {
     expect(refreshRepository).toHaveBeenCalledOnce();
   });
 
-  it("does not poll on an interval while the filesystem watcher is active", async () => {
+  it("keeps a slow heartbeat poll while the filesystem watcher is active", async () => {
+    // 監看的失敗模式是「安靜地不再送事件」而不是回報錯誤,所以即使它看似正常,
+    // 心跳仍必須維持,才能兌現陳舊上限。這取代了原本「完全不輪詢」的斷言。
     vi.useFakeTimers();
     render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
     refreshRepository.mockClear();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(AUTO_REFRESH_INTERVAL_MS * 2);
     });
-
     expect(refreshRepository).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(
+        HEARTBEAT_INTERVAL_MS - AUTO_REFRESH_INTERVAL_MS * 2,
+      );
+    });
+    expect(refreshRepository).toHaveBeenCalledOnce();
   });
 
   it("falls back to interval polling when the watcher fails to start", async () => {
