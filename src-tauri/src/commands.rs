@@ -795,6 +795,11 @@ pub fn get_launch_path(launch: State<'_, LaunchPath>) -> Option<String> {
     launch.0.as_ref().map(|path| path.display().to_string())
 }
 
+/// 合併視窗:最後一個事件之後再等這麼久才送出通知。
+const WATCH_DEBOUNCE: Duration = Duration::from_millis(500);
+/// 陳舊上限的第一道保證:持續 churn 時,合併視窗最長只能開這麼久。
+const WATCH_MAX_WAIT: Duration = Duration::from_secs(2);
+
 #[tauri::command]
 pub fn watch_repository(
     app: AppHandle,
@@ -803,10 +808,16 @@ pub fn watch_repository(
 ) -> bool {
     let event_path = path.clone();
     let handle = app.clone();
+    let repository_path = PathBuf::from(&path);
+    let Ok(scope) = crate::git::watcher::resolve_scope(&SystemGitRunner, &repository_path) else {
+        return false;
+    };
     registry
         .watch(
-            PathBuf::from(&path),
-            Duration::from_millis(500),
+            repository_path,
+            scope,
+            WATCH_DEBOUNCE,
+            WATCH_MAX_WAIT,
             move || {
                 let _ = handle.emit("repo-changed", event_path.clone());
             },

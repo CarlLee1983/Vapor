@@ -14,7 +14,7 @@ use std::process::Stdio;
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::Mutex;
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use notify::{recommended_watcher, Event, RecommendedWatcher, RecursiveMode, Watcher};
 
@@ -224,8 +224,10 @@ fn ignored_paths(worktree_root: &Path, candidates: &[&PathBuf]) -> Option<HashSe
     )
 }
 
+/// Owns every watcher belonging to one subscription plus the single drain thread they
+/// all feed. Dropping it closes the channel, so the drain thread exits on its own.
 struct WatchHandle {
-    _watcher: RecommendedWatcher,
+    _watchers: Vec<RecommendedWatcher>,
     _drain: JoinHandle<()>,
 }
 
@@ -233,13 +235,21 @@ struct WatchHandle {
 pub struct WatcherRegistry(Mutex<HashMap<PathBuf, WatchHandle>>);
 
 impl WatcherRegistry {
+    /// Start one watch subscription. Every path in `scope` feeds a single channel, so
+    /// coalescing happens per subscription rather than per watcher — one external commit
+    /// touching both the git dir and the worktree still yields exactly one notification.
+    ///
+    /// `debounce` is how long the window stays open after the last event; `max_wait` caps
+    /// the whole window so continuous churn cannot starve the refresh indefinitely.
     pub fn watch<F: Fn() + Send + 'static>(
         &self,
-        path: PathBuf,
+        key: PathBuf,
+        scope: WatchScope,
         debounce: Duration,
+        max_wait: Duration,
         on_change: F,
     ) -> Result<(), notify::Error> {
-        let key = path.canonicalize().unwrap_or_else(|_| path.clone());
+        let key = key.canonicalize().unwrap_or(key);
 
         let mut map = self.0.lock().expect("watcher registry poisoned");
         if map.contains_key(&key) {
@@ -247,24 +257,35 @@ impl WatcherRegistry {
         }
 
         let (tx, rx) = channel::<notify::Result<Event>>();
-        let mut watcher = recommended_watcher(move |result| {
-            let _ = tx.send(result);
-        })?;
-        watcher.watch(&key, RecursiveMode::Recursive)?;
+        let mut watchers = Vec::with_capacity(scope.paths.len());
+        for path in &scope.paths {
+            let tx = tx.clone();
+            let mut watcher = recommended_watcher(move |result| {
+                let _ = tx.send(result);
+            })?;
+            watcher.watch(path, RecursiveMode::Recursive)?;
+            watchers.push(watcher);
+        }
+        drop(tx);
 
+        let worktree_root = scope.worktree_root.clone();
         let drain = std::thread::spawn(move || {
             while let Ok(first) = rx.recv() {
-                let mut meaningful = event_is_meaningful(&first);
+                let window_start = Instant::now();
+                let mut window = ChangeWindow::default();
+                window.absorb(&first);
+
                 loop {
-                    match rx.recv_timeout(debounce) {
-                        Ok(event) => {
-                            if event_is_meaningful(&event) {
-                                meaningful = true;
-                            }
-                        }
+                    let remaining = max_wait.saturating_sub(window_start.elapsed());
+                    if remaining.is_zero() {
+                        // 上限到了:churn 期間仍必須刷新,不能等到靜默。
+                        break;
+                    }
+                    match rx.recv_timeout(debounce.min(remaining)) {
+                        Ok(event) => window.absorb(&event),
                         Err(RecvTimeoutError::Timeout) => break,
                         Err(RecvTimeoutError::Disconnected) => {
-                            if meaningful {
+                            if window.is_meaningful(&worktree_root) {
                                 on_change();
                             }
                             return;
@@ -272,7 +293,7 @@ impl WatcherRegistry {
                     }
                 }
 
-                if meaningful {
+                if window.is_meaningful(&worktree_root) {
                     on_change();
                 }
             }
@@ -281,7 +302,7 @@ impl WatcherRegistry {
         map.insert(
             key,
             WatchHandle {
-                _watcher: watcher,
+                _watchers: watchers,
                 _drain: drain,
             },
         );
@@ -295,10 +316,41 @@ impl WatcherRegistry {
     }
 }
 
-fn event_is_meaningful(result: &notify::Result<Event>) -> bool {
-    match result {
-        Ok(event) => event.paths.iter().any(|path| !should_ignore(path)),
-        Err(_) => true,
+/// The paths gathered during one coalescing window.
+#[derive(Default)]
+struct ChangeWindow {
+    paths: Vec<PathBuf>,
+    /// Watcher-level errors (e.g. event queue overflow) mean we no longer know what
+    /// changed, so the window conservatively counts as meaningful.
+    forced: bool,
+}
+
+impl ChangeWindow {
+    fn absorb(&mut self, result: &notify::Result<Event>) {
+        match result {
+            Ok(event) => self.paths.extend(
+                event
+                    .paths
+                    .iter()
+                    .filter(|path| !should_ignore(path))
+                    .cloned(),
+            ),
+            Err(_) => self.forced = true,
+        }
+    }
+
+    fn is_meaningful(&self, worktree_root: &Path) -> bool {
+        if self.forced {
+            return true;
+        }
+        if self.paths.is_empty() {
+            return false;
+        }
+
+        let mut paths = self.paths.clone();
+        paths.sort();
+        paths.dedup();
+        !drop_ignored(worktree_root, paths).is_empty()
     }
 }
 
@@ -489,6 +541,108 @@ mod tests {
         assert_eq!(drop_ignored(&root, paths.clone()), paths);
     }
 
+    /// A single-path scope rooted at `path`, the shape a plain repository produces.
+    fn scope_for(path: &Path) -> WatchScope {
+        WatchScope {
+            worktree_root: path.to_path_buf(),
+            paths: vec![path.to_path_buf()],
+        }
+    }
+
+    #[test]
+    fn fires_once_per_window_across_multiple_scope_paths() {
+        // 一個 worktree 訂閱同時涵蓋工作區與共用 git 目錄。外部一次 commit 會同時打到
+        // 兩者,合併必須發生在「訂閱」層,否則一次邏輯變更會放出多次通知。
+        let worktree = tempfile::TempDir::new().expect("tempdir");
+        let common = tempfile::TempDir::new().expect("tempdir");
+        let worktree_root = worktree.path().canonicalize().expect("canonicalize");
+        let common_root = common.path().canonicalize().expect("canonicalize");
+
+        let registry = WatcherRegistry::default();
+        let counter = Arc::new(AtomicUsize::new(0));
+        let counter_for_closure = Arc::clone(&counter);
+
+        registry
+            .watch(
+                worktree_root.clone(),
+                WatchScope {
+                    worktree_root: worktree_root.clone(),
+                    paths: vec![worktree_root.clone(), common_root.clone()],
+                },
+                Duration::from_millis(200),
+                Duration::from_secs(2),
+                move || {
+                    counter_for_closure.fetch_add(1, Ordering::SeqCst);
+                },
+            )
+            .expect("watch");
+
+        std::fs::write(worktree_root.join("file.txt"), "hello\n").expect("write worktree");
+        std::fs::write(common_root.join("HEAD"), "ref: refs/heads/main\n").expect("write common");
+
+        assert!(
+            poll_until(Duration::from_secs(3), || counter.load(Ordering::SeqCst) >= 1),
+            "expected the subscription to fire"
+        );
+        std::thread::sleep(Duration::from_millis(600));
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            1,
+            "both scope paths must coalesce into a single notification"
+        );
+
+        registry.unwatch(&worktree_root);
+    }
+
+    #[test]
+    fn fires_within_max_wait_under_continuous_churn() {
+        // 持續 churn(cargo build 寫 target/)時,事件間隔永遠短於 debounce。
+        // 只以「靜默」為出口會讓 GUI 在整場 build 期間完全不刷新。
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let root = dir.path().canonicalize().expect("canonicalize");
+
+        let registry = WatcherRegistry::default();
+        let counter = Arc::new(AtomicUsize::new(0));
+        let counter_for_closure = Arc::clone(&counter);
+
+        registry
+            .watch(
+                root.clone(),
+                scope_for(&root),
+                Duration::from_millis(400),
+                Duration::from_millis(500),
+                move || {
+                    counter_for_closure.fetch_add(1, Ordering::SeqCst);
+                },
+            )
+            .expect("watch");
+
+        let churn_root = root.clone();
+        let stop = Arc::new(AtomicUsize::new(0));
+        let stop_for_thread = Arc::clone(&stop);
+        let churn = std::thread::spawn(move || {
+            let mut index = 0usize;
+            while stop_for_thread.load(Ordering::SeqCst) == 0 {
+                std::fs::write(churn_root.join(format!("f{index}.txt")), "x\n").ok();
+                index += 1;
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        });
+
+        let fired = poll_until(Duration::from_secs(3), || {
+            counter.load(Ordering::SeqCst) >= 1
+        });
+        stop.store(1, Ordering::SeqCst);
+        churn.join().expect("join churn");
+
+        assert!(
+            fired,
+            "the max-wait ceiling must fire during continuous churn, not wait for silence"
+        );
+
+        registry.unwatch(&root);
+    }
+
     #[test]
     fn coalesces_real_changes_and_ignores_git_object_writes() {
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -501,7 +655,9 @@ mod tests {
         registry
             .watch(
                 dir.path().to_path_buf(),
+                scope_for(dir.path()),
                 Duration::from_millis(150),
+                Duration::from_secs(2),
                 move || {
                     counter_for_closure.fetch_add(1, Ordering::SeqCst);
                 },
@@ -533,10 +689,22 @@ mod tests {
         let dir = tempfile::TempDir::new().expect("tempdir");
         let registry = WatcherRegistry::default();
         registry
-            .watch(dir.path().to_path_buf(), Duration::from_millis(150), || {})
+            .watch(
+                dir.path().to_path_buf(),
+                scope_for(dir.path()),
+                Duration::from_millis(150),
+                Duration::from_secs(2),
+                || {},
+            )
             .expect("first watch");
         registry
-            .watch(dir.path().to_path_buf(), Duration::from_millis(150), || {})
+            .watch(
+                dir.path().to_path_buf(),
+                scope_for(dir.path()),
+                Duration::from_millis(150),
+                Duration::from_secs(2),
+                || {},
+            )
             .expect("second watch");
         registry.unwatch(dir.path());
     }
