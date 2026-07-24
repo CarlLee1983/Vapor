@@ -18,9 +18,15 @@ use notify::{recommended_watcher, Event, RecommendedWatcher, RecursiveMode, Watc
 /// Returns true for watcher noise that should not trigger a refresh.
 ///
 /// We ignore:
-/// - Git object churn under `.git/objects/**`
+/// - Git object churn anywhere below a git dir (`.git/objects/**`, but also
+///   `.git/modules/<sub>/objects/**` for submodules and worktree git dirs)
+/// - Reflogs (`.git/**/logs/**`) — a reflog write always accompanies a real ref
+///   change, and the ref itself already triggers a refresh
 /// - Transient lock files such as `index.lock`
-/// - Vapor's own safety-net snapshot refs under `.git/refs/vapor/snapshots/**`
+/// - Vapor's own safety-net snapshot refs under `refs/vapor/snapshots/**`
+///
+/// Only path segments *after* a `.git` segment count, so a working-tree directory
+/// that happens to be named `objects/` or `logs/` is left alone.
 pub fn should_ignore(path: &Path) -> bool {
     if path.extension().is_some_and(|ext| ext == "lock") {
         return true;
@@ -31,16 +37,24 @@ pub fn should_ignore(path: &Path) -> bool {
         .map(|component| component.as_os_str())
         .collect();
 
-    for window in components.windows(2) {
-        if window == [OsStr::new(".git"), OsStr::new("objects")] {
-            return true;
-        }
+    let Some(git_dir_index) = components
+        .iter()
+        .position(|component| *component == OsStr::new(".git"))
+    else {
+        return false;
+    };
+    let inside_git_dir = &components[git_dir_index + 1..];
+
+    if inside_git_dir
+        .iter()
+        .any(|component| *component == OsStr::new("objects") || *component == OsStr::new("logs"))
+    {
+        return true;
     }
 
-    for window in components.windows(4) {
+    for window in inside_git_dir.windows(3) {
         if window
             == [
-                OsStr::new(".git"),
                 OsStr::new("refs"),
                 OsStr::new("vapor"),
                 OsStr::new("snapshots"),
@@ -166,6 +180,22 @@ mod tests {
         assert!(!should_ignore(Path::new("/repo/src/main.rs")));
         assert!(!should_ignore(Path::new("/repo/.git/HEAD")));
         assert!(!should_ignore(Path::new("/repo/.git/index")));
+    }
+
+    #[test]
+    fn ignores_objects_and_logs_under_nested_git_dirs() {
+        assert!(should_ignore(Path::new("/repo/.git/modules/sub/objects/ab/cd")));
+        assert!(should_ignore(Path::new("/repo/.git/worktrees/wt/logs/HEAD")));
+        assert!(should_ignore(Path::new("/repo/.git/logs/refs/heads/main")));
+
+        // 真正的 ref/HEAD/index 變更仍必須存活。
+        assert!(!should_ignore(Path::new("/repo/.git/refs/heads/main")));
+        assert!(!should_ignore(Path::new("/repo/.git/worktrees/wt/HEAD")));
+        assert!(!should_ignore(Path::new("/repo/.git/worktrees/wt/index")));
+
+        // 工作區裡剛好叫 objects/logs 的目錄不受影響。
+        assert!(!should_ignore(Path::new("/repo/src/objects/thing.rs")));
+        assert!(!should_ignore(Path::new("/repo/logs/app.log")));
     }
 
     #[test]
