@@ -59,11 +59,11 @@ impl<R: GitRunner> GitService<R> {
     }
 
     pub fn repository_state(&self, path: &Path) -> Result<RepositoryState, GitError> {
-        let root = self.runner.run(
+        let root = self.runner.run_read_only(
             path,
             &["rev-parse".to_string(), "--show-toplevel".to_string()],
         )?;
-        let status = self.runner.run(
+        let status = self.runner.run_read_only(
             path,
             &[
                 "status".to_string(),
@@ -71,7 +71,7 @@ impl<R: GitRunner> GitService<R> {
                 "--branch".to_string(),
             ],
         )?;
-        let branches = self.runner.run(
+        let branches = self.runner.run_read_only(
             path,
             &[
                 "branch".to_string(),
@@ -80,13 +80,13 @@ impl<R: GitRunner> GitService<R> {
         )?;
         let remotes = self
             .runner
-            .run(path, &["remote".to_string(), "-v".to_string()])?;
+            .run_read_only(path, &["remote".to_string(), "-v".to_string()])?;
 
         let (current_branch, ahead, behind, working_tree) = parse_porcelain_status(&status.stdout);
         let is_detached = super::parsers::head_is_detached(&status.stdout);
         let head_sha = self
             .runner
-            .run(
+            .run_read_only(
                 path,
                 &[
                     "rev-parse".to_string(),
@@ -125,7 +125,7 @@ impl<R: GitRunner> GitService<R> {
         skip: u32,
     ) -> Result<Vec<super::models::CommitSummary>, GitError> {
         let args = super::command_builder::commit_log_args(limit, skip);
-        let output = self.runner.run(path, &args)?;
+        let output = self.runner.run_read_only(path, &args)?;
         Ok(super::parsers::parse_commit_log(&output.stdout))
     }
 
