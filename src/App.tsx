@@ -235,10 +235,10 @@ export default function App() {
     void loadWorktrees();
   }, [loadWorktrees]);
 
+  // 動作完成後就地重讀,保留使用者選取的 commit、開著的檔案與 diff。
+  // loadRepository 是「換一個儲存庫」才用的,它會重置整個檢視狀態。
   const refreshActiveRepository = () => {
-    if (repoView.repositoryPath) {
-      void repoView.loadRepository(repoView.repositoryPath);
-    }
+    void repoView.refreshRepository();
   };
 
   const handleCheckoutBranch = (branch: BranchInfo) => {
@@ -654,22 +654,14 @@ export default function App() {
         <PushDialog
           repository={repoView.repository}
           onClose={() => setIsPushOpen(false)}
-          onPushed={() => {
-            if (repoView.repositoryPath) {
-              void repoView.loadRepository(repoView.repositoryPath);
-            }
-          }}
+          onPushed={refreshActiveRepository}
         />
       ) : null}
       {isPullOpen && repoView.repository ? (
         <PullDialog
           repository={repoView.repository}
           onClose={() => setIsPullOpen(false)}
-          onPulled={() => {
-            if (repoView.repositoryPath) {
-              void repoView.loadRepository(repoView.repositoryPath);
-            }
-          }}
+          onPulled={refreshActiveRepository}
         />
       ) : null}
       {isFetchOpen && repoView.repository ? (
@@ -760,11 +752,7 @@ export default function App() {
         <RemotesDialog
           repository={repoView.repository}
           onClose={() => setIsRemotesOpen(false)}
-          onChanged={() => {
-            if (repoView.repositoryPath) {
-              void repoView.loadRepository(repoView.repositoryPath);
-            }
-          }}
+          onChanged={refreshActiveRepository}
         />
       ) : null}
       {isCloneOpen && (

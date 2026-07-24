@@ -8,10 +8,13 @@ import { getRepoParam } from "./lib/window";
 vi.mock("./hooks/useWorkspace", () => ({ useWorkspace: vi.fn() }));
 const useWorkspaceMock = vi.mocked(useWorkspace);
 
+const checkoutBranchMock = vi.hoisted(() => vi.fn());
+
 vi.mock("./lib/tauriApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./lib/tauriApi")>();
   return {
     ...actual,
+    checkoutBranch: checkoutBranchMock,
     getTimeline: vi.fn().mockResolvedValue({ entries: [], reflog: [] }),
     cleanupSnapshots: vi.fn().mockResolvedValue(undefined),
     planUndo: vi.fn().mockResolvedValue(null),
@@ -104,6 +107,7 @@ beforeEach(() => {
   watchRepository.mockReset().mockResolvedValue(true);
   unwatchRepository.mockReset().mockResolvedValue(undefined);
   onRepoChanged.mockReset().mockResolvedValue(() => {});
+  checkoutBranchMock.mockReset().mockResolvedValue({});
   checkForUpdate.mockReset().mockResolvedValue(null);
   getRepoParamMock.mockReset().mockReturnValue(null);
 });
@@ -224,6 +228,33 @@ describe("App", () => {
     });
 
     expect(refreshRepository).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes in place after a GUI-initiated git action instead of reloading", async () => {
+    // Reload 會重置選取的 commit、開著的檔案與 diff;Refresh 保留它們。同一個狀態變更
+    // 經 GUI 動作與經 watcher 必須得到相同結果。
+    useWorkspaceMock.mockReturnValue(
+      workspaceValue({
+        repo: {
+          ...repoState,
+          repository: {
+            ...repoState.repository,
+            branches: [
+              { name: "main", isCurrent: true, upstream: "origin/main" },
+              { name: "feature", isCurrent: false, upstream: null },
+            ],
+          },
+        } as typeof repoState,
+      }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+
+    fireEvent.contextMenu(screen.getByText("feature"));
+    await user.click(screen.getByRole("menuitem", { name: "Checkout" }));
+
+    await waitFor(() => expect(refreshRepository).toHaveBeenCalled());
+    expect(loadRepository).not.toHaveBeenCalled();
   });
 
   it("refreshes when a repo-changed event targets the active repository", async () => {
